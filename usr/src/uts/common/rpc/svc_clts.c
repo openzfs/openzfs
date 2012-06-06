@@ -22,6 +22,7 @@
 /*
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  *  Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T	*/
@@ -747,12 +748,12 @@ svc_clts_kfreeres(SVCXPRT *clone_xprt)
  * to the service load so that there is likely to be a response entry
  * when the first retransmission comes in.
  */
-#define	MAXDUPREQS	1024
+#define	MAXDUPREQS	8192
 
 /*
  * This should be appropriately scaled to MAXDUPREQS.
  */
-#define	DRHASHSZ	257
+#define	DRHASHSZ	2053
 
 #if ((DRHASHSZ & (DRHASHSZ - 1)) == 0)
 #define	XIDHASH(xid)	((xid) & (DRHASHSZ - 1))
