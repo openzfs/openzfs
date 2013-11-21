@@ -78,6 +78,8 @@ typedef struct progress_arg {
 	zfs_handle_t *pa_zhp;
 	int pa_fd;
 	boolean_t pa_parsable;
+	boolean_t pa_astitle;
+	uint64_t pa_size;
 } progress_arg_t;
 
 typedef struct dataref {
@@ -929,6 +931,7 @@ typedef struct send_dump_data {
 	boolean_t seenfrom, seento, replicate, doall, fromorigin;
 	boolean_t verbose, dryrun, parsable, progress, embed_data, std_out;
 	boolean_t large_block, compress;
+	boolean_t progressastitle;
 	int outfd;
 	boolean_t err;
 	nvlist_t *fss;
@@ -1107,15 +1110,19 @@ send_progress_thread(void *arg)
 	zfs_cmd_t zc = { 0 };
 	zfs_handle_t *zhp = pa->pa_zhp;
 	libzfs_handle_t *hdl = zhp->zfs_hdl;
-	unsigned long long bytes;
+	unsigned long long bytes, total;
+	int pct;
 	char buf[16];
 	time_t t;
 	struct tm *tm;
 
 	(void) strlcpy(zc.zc_name, zhp->zfs_name, sizeof (zc.zc_name));
 
-	if (!pa->pa_parsable)
+	if (!pa->pa_parsable && !pa->pa_astitle)
 		(void) fprintf(stderr, "TIME        SENT   SNAPSHOT\n");
+
+	if (pa->pa_astitle)
+		total = pa->pa_size / 100;
 
 	/*
 	 * Print the progress from ZFS_IOC_SEND_PROGRESS every second.
@@ -1131,15 +1138,27 @@ send_progress_thread(void *arg)
 		tm = localtime(&t);
 		bytes = zc.zc_cookie;
 
-		if (pa->pa_parsable) {
-			(void) fprintf(stderr, "%02d:%02d:%02d\t%llu\t%s\n",
-			    tm->tm_hour, tm->tm_min, tm->tm_sec,
-			    bytes, zhp->zfs_name);
+		if (pa->pa_astitle) {
+			if (total > 0) {
+				pct = bytes / total;
+			} else
+				pct = 100;
+			if (pct > 100)
+				pct = 100;
+
+			setproctitle("sending %s (%d%%: %llu/%llu)",
+			    zhp->zfs_name, pct, bytes, pa->pa_size);
 		} else {
-			zfs_nicenum(bytes, buf, sizeof (buf));
-			(void) fprintf(stderr, "%02d:%02d:%02d   %5s   %s\n",
-			    tm->tm_hour, tm->tm_min, tm->tm_sec,
-			    buf, zhp->zfs_name);
+			if (pa->pa_parsable) {
+				(void) fprintf(stderr, "%02d:%02d:%02d\t%llu\t%s\n",
+				    tm->tm_hour, tm->tm_min, tm->tm_sec,
+				    bytes, zhp->zfs_name);
+			} else {
+				zfs_nicenum(bytes, buf, sizeof (buf));
+				(void) fprintf(stderr, "%02d:%02d:%02d   %5s   %s\n",
+				    tm->tm_hour, tm->tm_min, tm->tm_sec,
+				    buf, zhp->zfs_name);
+			}
 		}
 	}
 }
@@ -1275,14 +1294,16 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 	fromorigin = sdd->prevsnap[0] == '\0' &&
 	    (sdd->fromorigin || sdd->replicate);
 
-	if (sdd->verbose) {
+	if (sdd->progress) {
 		uint64_t size = 0;
 		(void) estimate_ioctl(zhp, sdd->prevsnap_obj,
 		    fromorigin, flags, &size);
 
-		send_print_verbose(fout, zhp->zfs_name,
-		    sdd->prevsnap[0] ? sdd->prevsnap : NULL,
-		    size, sdd->parsable);
+		if (sdd->verbose) {
+			send_print_verbose(fout, zhp->zfs_name,
+			    sdd->prevsnap[0] ? sdd->prevsnap : NULL,
+			    size, sdd->parsable);
+		}
 		sdd->size += size;
 	}
 
@@ -1295,6 +1316,8 @@ dump_snapshot(zfs_handle_t *zhp, void *arg)
 			pa.pa_zhp = zhp;
 			pa.pa_fd = sdd->outfd;
 			pa.pa_parsable = sdd->parsable;
+			pa.pa_size = sdd->size;
+			pa.pa_astitle = sdd->progressastitle;
 
 			if ((err = pthread_create(&tid, NULL,
 			    send_progress_thread, &pa)) != 0) {
@@ -1873,6 +1896,7 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 	sdd.verbose = flags->verbose;
 	sdd.parsable = flags->parsable;
 	sdd.progress = flags->progress;
+	sdd.progressastitle = flags->progressastitle;
 	sdd.dryrun = flags->dryrun;
 	sdd.large_block = flags->largeblock;
 	sdd.embed_data = flags->embed_data;
@@ -1909,7 +1933,7 @@ zfs_send(zfs_handle_t *zhp, const char *fromsnap, const char *tosnap,
 		sdd.cleanup_fd = -1;
 		sdd.snapholds = NULL;
 	}
-	if (flags->verbose || sdd.snapholds != NULL) {
+	if (flags->progress || sdd.snapholds != NULL) {
 		/*
 		 * Do a verbose no-op dry run to get all the verbose output
 		 * or to gather snapshot hold's before generating any data,
