@@ -41,7 +41,7 @@ zpool \- configures ZFS storage pools
 .LP
 .nf
 \fBzpool create\fR [\fB-fnd\fR] [\fB-o\fR \fIproperty=value\fR] ... [\fB-O\fR \fIfile-system-property=value\fR]
-     ... [\fB-m\fR \fImountpoint\fR] [\fB-R\fR \fIroot\fR] \fIpool\fR \fIvdev\fR ...
+     ... [\fB-m\fR \fImountpoint\fR] [\fB-R\fR \fIroot\fR] [\fB-t\fR \fItname\fR] \fIpool\fR \fIvdev\fR ...
 .fi
 
 .LP
@@ -83,7 +83,7 @@ zpool \- configures ZFS storage pools
 .LP
 .nf
 \fBzpool import\fR [\fB-o \fImntopts\fR\fR] [\fB-o\fR \fIproperty=value\fR] ... [\fB-d\fR \fIdir\fR | \fB-c\fR \fIcachefile\fR]
-     [\fB-D\fR] [\fB-f\fR] [\fB-m\fR] [\fB-R\fR \fIroot\fR] [\fB-F\fR [\fB-n\fR]] \fIpool\fR |\fIid\fR [\fInewpool\fR]
+     [\fB-D\fR] [\fB-f\fR] [\fB-m\fR] [\fB-R\fR \fIroot\fR] [\fB-F\fR [\fB-n\fR]] [\fB-t\fR]] \fIpool\fR |\fIid\fR [\fInewpool\fR]
 .fi
 
 .LP
@@ -957,6 +957,17 @@ Forces use of \fInew_device\fR, even if its appears to be in use. Not all
 devices can be overridden in this manner.
 .RE
 
+.sp
+.ne 2
+.mk
+.na
+\fB\fB-t\fR \fItname\fR\fR
+.ad
+.sp .6
+.RS 4n
+Sets the in-core pool name to "\fBtname\fR" while the on-disk name will be the name specified as the pool name "\fBpool\fR". This will set the default cachefile property to none. This is intended to handle name space collisions when creating pools for other systems, such as virtual machines or physical machines whose pools live on network block devices.
+.RE
+
 .RE
 
 .sp
@@ -976,7 +987,7 @@ those errors associated with the specified device or devices are cleared.
 .na
 \fB\fBzpool create\fR [\fB-fnd\fR] [\fB-o\fR \fIproperty=value\fR] ... [\fB-O\fR
 \fIfile-system-property=value\fR] ... [\fB-m\fR \fImountpoint\fR] [\fB-R\fR
-\fIroot\fR] \fIpool\fR \fIvdev\fR ...\fR
+\fIroot\fR] [\fB-t\fR \fItname\fR] \fIpool\fR \fIvdev\fR ...\fR
 .ad
 .sp .6
 .RS 4n
@@ -1394,6 +1405,17 @@ Searches for and imports all pools found.
 .sp
 .ne 2
 .na
+\fB\fB-t\fR\fR
+.ad
+.sp .6
+.RS 4n
+Used with "\fBnewpool\fR". Specifies that "\fBnewpool\fR" is temporary. Temporary pool names last until export. Ensures that the original pool name will be used in all label updates and therefore is retained upon export. Will also set -o cachefile=none when not explicitly specified.
+.RE
+
+.sp
+.ne 2
+.mk
+.na
 \fB\fB-m\fR\fR
 .ad
 .RS 21n
@@ -1438,7 +1460,7 @@ recovery mode, see the \fB-F\fR option, above.
 .na
 \fB\fBzpool import\fR [\fB-o\fR \fImntopts\fR] [ \fB-o\fR
 \fIproperty\fR=\fIvalue\fR] ... [\fB-d\fR \fIdir\fR | \fB-c\fR \fIcachefile\fR]
-[\fB-D\fR] [\fB-f\fR] [\fB-m\fR] [\fB-R\fR \fIroot\fR] [\fB-F\fR [\fB-n\fR]] \fIpool\fR | \fIid\fR
+[\fB-D\fR] [\fB-f\fR] [\fB-m\fR] [\fB-R\fR \fIroot\fR] [\fB-F\fR [\fB-n\fR]] [\fB-t\fR]] \fIpool\fR | \fIid\fR
 [\fInewpool\fR]\fR
 .ad
 .sp .6
