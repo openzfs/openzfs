@@ -12,7 +12,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 # Copyright 2014, OmniTI Computer Consulting, Inc. All rights reserved.
 #
 
@@ -72,10 +72,6 @@ function verify_id
 
 	sudo -n id >/dev/null 2>&1
 	[[ $? -eq 0 ]] || fail "User must be able to sudo without a password."
-
-	typeset -i priv_cnt=$(ppriv $$ | egrep -v \
-	    ": basic$|	L:| <none>|$$:" | wc -l)
-	[[ $priv_cnt -ne 0 ]] && fail "User must only have basic privileges."
 }
 
 function verify_disks
@@ -131,6 +127,7 @@ fi
 num_disks=$(echo $DISKS | awk '{print NF}')
 [[ $num_disks -lt 3 ]] && fail "Not enough disks to run ZFS Test Suite"
 
-$runner $quiet -c $runfile
+# Ensure user has only basic privileges.
+/usr/bin/ppriv -s EIP=basic -e $runner $quiet -c $runfile
 
 exit $?
