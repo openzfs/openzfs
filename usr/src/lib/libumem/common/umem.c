@@ -26,6 +26,7 @@
 
 /*
  * Copyright (c) 2014 Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -1233,6 +1234,9 @@ umem_alloc_retry(umem_cache_t *cp, int umflag)
 		/*
 		 * Initialization failed.  Do normal failure processing.
 		 */
+	}
+	if (umem_flags & UMF_CHECKNULL) {
+		umem_err_recoverable("umem: out of heap space");
 	}
 	if (umflag & UMEM_NOFAIL) {
 		int def_result = UMEM_CALLBACK_EXIT(255);
