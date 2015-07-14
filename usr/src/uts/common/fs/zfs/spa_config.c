@@ -22,7 +22,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  */
 
 #include <sys/spa.h>
@@ -411,6 +411,7 @@ spa_config_generate(spa_t *spa, vdev_t *vd, uint64_t txg, int getstats)
 	VERIFY(nvlist_add_string(config, ZPOOL_CONFIG_HOSTNAME,
 	    utsname.nodename) == 0);
 
+	int config_gen_flags = 0;
 	if (vd != rvd) {
 		VERIFY(nvlist_add_uint64(config, ZPOOL_CONFIG_TOP_GUID,
 		    vd->vdev_top->vdev_guid) == 0);
@@ -431,6 +432,10 @@ spa_config_generate(spa_t *spa, vdev_t *vd, uint64_t txg, int getstats)
 		if (spa->spa_config_splitting != NULL)
 			VERIFY(nvlist_add_nvlist(config, ZPOOL_CONFIG_SPLIT,
 			    spa->spa_config_splitting) == 0);
+		VERIFY0(nvlist_add_boolean(config,
+		    ZPOOL_CONFIG_HAS_PER_VDEV_ZAPS));
+
+		config_gen_flags |= VDEV_CONFIG_MOS;
 	}
 
 	/*
@@ -449,7 +454,7 @@ spa_config_generate(spa_t *spa, vdev_t *vd, uint64_t txg, int getstats)
 		    split_guid) == 0);
 	}
 
-	nvroot = vdev_config_generate(spa, vd, getstats, 0);
+	nvroot = vdev_config_generate(spa, vd, getstats, config_gen_flags);
 	VERIFY(nvlist_add_nvlist(config, ZPOOL_CONFIG_VDEV_TREE, nvroot) == 0);
 	nvlist_free(nvroot);
 
