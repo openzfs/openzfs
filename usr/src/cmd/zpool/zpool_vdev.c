@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>.
  */
 
@@ -559,6 +559,8 @@ get_replication(nvlist_t *nvroot, boolean_t fatal)
 	    &top, &toplevels) == 0);
 
 	lastrep.zprl_type = NULL;
+	lastrep.zprl_parity = 0;
+	lastrep.zprl_children = 0;
 	for (t = 0; t < toplevels; t++) {
 		uint64_t is_log = B_FALSE;
 
