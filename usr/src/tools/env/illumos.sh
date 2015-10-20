@@ -19,7 +19,7 @@
 # CDDL HEADER END
 #
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright 2010, 2011 Nexenta Systems, Inc.  All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2012 Joshua M. Clulow <josh@sysmgr.org>
 # Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
 #
@@ -199,8 +199,8 @@ export MAKEFLAGS='k'
 export UT_NO_USAGE_TRACKING='1'
 
 # Build tools - don't change these unless you know what you're doing.  These
-# variables allows you to get the compilers and onbld files locally or
-# through cachefs.  Set BUILD_TOOLS to pull everything from one location.
+# variables allows you to get the compilers and onbld files locally.
+# Set BUILD_TOOLS to pull everything from one location.
 # Alternately, you can set ONBLD_TOOLS to where you keep the contents of
 # SUNWonbld and SPRO_ROOT to where you keep the compilers.  SPRO_VROOT
 # exists to make it easier to test new versions of the compiler.
@@ -215,10 +215,6 @@ export SPRO_VROOT="$SPRO_ROOT"
 # linting is actually lint clean or you'll get lots of mail.
 # You shouldn't need to change this though.
 #export LINTDIRS="$SRC y"
-
-# Set this flag to 'n' to disable the automatic validation of the dmake
-# version in use.  The default is to check it.
-#CHECK_DMAKE='y'
 
 # Set this flag to 'n' to disable the use of 'checkpaths'.  The default,
 # if the 'N' option is not specified, is to run this test.

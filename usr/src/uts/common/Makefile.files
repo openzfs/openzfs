@@ -21,9 +21,10 @@
 
 #
 # Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2012 Joyent, Inc.  All rights reserved.
+# Copyright (c) 2011, 2014 by Delphix. All rights reserved.
 # Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
-# Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 #
 
 #
@@ -508,6 +509,10 @@ SHA1_OBJS +=	sha1.o sha1_mod.o
 
 SHA2_OBJS +=	sha2.o sha2_mod.o
 
+SKEIN_OBJS +=	skein.o skein_block.o skein_iv.o skein_mod.o
+
+EDONR_OBJS +=	edonr.o edonr_mod.o
+
 IPGPC_OBJS +=   classifierddi.o classifier.o filters.o trie.o table.o \
 		ba_table.o
 
@@ -986,6 +991,8 @@ DEVPOLL_OBJS += devpoll.o
 
 DEVPOOL_OBJS += devpool.o
 
+EVENTFD_OBJS +=	eventfd.o
+
 I8042_OBJS +=	i8042.o
 
 KB8042_OBJS +=	\
@@ -1024,6 +1031,8 @@ PSHOT_OBJS += pshot.o
 GEN_DRV_OBJS += gen_drv.o
 
 TCLIENT_OBJS +=	tclient.o
+
+TIMERFD_OBJS +=	timerfd.o
 
 TPHCI_OBJS += tphci.o
 
@@ -1105,15 +1114,6 @@ JAVAEXEC_OBJS +=java.o
 #			file system modules
 #
 AUTOFS_OBJS +=	auto_vfsops.o auto_vnops.o auto_subr.o auto_xdr.o auto_sys.o
-
-CACHEFS_OBJS +=	cachefs_cnode.o		cachefs_cod.o \
-		cachefs_dir.o		cachefs_dlog.o	cachefs_filegrp.o \
-		cachefs_fscache.o	cachefs_ioctl.o	cachefs_log.o \
-		cachefs_module.o \
-		cachefs_noopc.o		cachefs_resource.o \
-		cachefs_strict.o \
-		cachefs_subr.o		cachefs_vfsops.o \
-		cachefs_vnops.o
 
 DCFS_OBJS +=	dc_vnops.o
 
@@ -1328,6 +1328,7 @@ ZFS_COMMON_OBJS +=		\
 	bplist.o		\
 	bpobj.o			\
 	bptree.o		\
+	bqueue.o		\
 	dbuf.o			\
 	ddt.o			\
 	ddt_zap.o		\
@@ -1363,6 +1364,8 @@ ZFS_COMMON_OBJS +=		\
 	rrwlock.o		\
 	sa.o			\
 	sha256.o		\
+	edonr_zfs.o		\
+	skein_zfs.o		\
 	spa.o			\
 	spa_config.o		\
 	spa_errlog.o		\
@@ -1859,6 +1862,8 @@ YGE_OBJS = yge.o
 
 SKD_OBJS = skd.o
 
+NVME_OBJS = nvme.o
+
 #
 #	Build up defines and paths.
 #
@@ -1984,6 +1989,9 @@ VIRTIO_OBJS = virtio.o
 
 # Virtio block driver
 VIOBLK_OBJS = vioblk.o
+
+# Virtio network driver
+VIOIF_OBJS = vioif.o
 
 #
 #	kiconv modules

@@ -22,7 +22,8 @@
 #
 # Copyright (c) 1991, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2013 Garrett D'Amore <garrett@damore.org>
-# Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
+# Copyright 2013 Saso Kiselkov. All rights reserved.
 #
 
 #
@@ -204,10 +205,6 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/fs/%.c
 	$(CTFCONVERT_O)
 
 $(OBJS_DIR)/%.o:		$(UTSBASE)/common/fs/autofs/%.c
-	$(COMPILE.c) -o $@ $<
-	$(CTFCONVERT_O)
-
-$(OBJS_DIR)/%.o:		$(UTSBASE)/common/fs/cachefs/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
@@ -990,6 +987,10 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/nge/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
+$(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/nvme/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
 $(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/nxge/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
@@ -1445,6 +1446,9 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/vioblk/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
+$(OBJS_DIR)/%.o:		$(UTSBASE)/common/io/vioif/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
 #
 # krtld must refer to its own bzero/bcopy until the kernel is fully linked
 #
@@ -1525,11 +1529,19 @@ $(OBJS_DIR)/%.o:		$(UTSBASE)/common/rpc/sec_gss/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
+$(OBJS_DIR)/%.o:		$(COMMONBASE)/crypto/edonr/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
 $(OBJS_DIR)/%.o:		$(COMMONBASE)/crypto/sha1/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
 $(OBJS_DIR)/%.o:		$(COMMONBASE)/crypto/sha2/%.c
+	$(COMPILE.c) -o $@ $<
+	$(CTFCONVERT_O)
+
+$(OBJS_DIR)/%.o:		$(COMMONBASE)/crypto/skein/%.c
 	$(COMPILE.c) -o $@ $<
 	$(CTFCONVERT_O)
 
@@ -1734,9 +1746,6 @@ $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/fs/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/fs/autofs/%.c
-	@($(LHEAD) $(LINT.c) $< $(LTAIL))
-
-$(LINTS_DIR)/%.ln:		$(UTSBASE)/common/fs/cachefs/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/fs/ctfs/%.c
@@ -2285,6 +2294,9 @@ $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/net80211/%.c
 $(LINTS_DIR)/%.ln:              $(UTSBASE)/common/io/nge/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
+$(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/nvme/%.c
+	@($(LHEAD) $(LINT.c) $< $(LTAIL))
+
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/nxge/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
@@ -2657,10 +2669,16 @@ $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/rpc/sec/%.c
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/rpc/sec_gss/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
+$(LINTS_DIR)/%.ln:		$(COMMONBASE)/crypto/edonr/%.c
+	@($(LHEAD) $(LINT.c) $< $(LTAIL))
+
 $(LINTS_DIR)/%.ln:		$(COMMONBASE)/crypto/sha1/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(COMMONBASE)/crypto/sha2/%.c
+	@($(LHEAD) $(LINT.c) $< $(LTAIL))
+
+$(LINTS_DIR)/%.ln:		$(COMMONBASE)/crypto/skein/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/syscall/%.c
@@ -2694,6 +2712,9 @@ $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/virtio/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 $(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/vioblk/%.c
+	@($(LHEAD) $(LINT.c) $< $(LTAIL))
+
+$(LINTS_DIR)/%.ln:		$(UTSBASE)/common/io/vioif/%.c
 	@($(LHEAD) $(LINT.c) $< $(LTAIL))
 
 ZMODLINTFLAGS = -erroff=E_CONSTANT_CONDITION

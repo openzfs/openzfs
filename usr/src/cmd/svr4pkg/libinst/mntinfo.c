@@ -22,6 +22,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2015 Nexenta Systems, Inc. All rights reserved.
  */
 
 
@@ -104,11 +105,6 @@ struct	fstable	**fs_tab = NULL;
  */
 
 #define	HOST_NM_LN	MNT_LINE_MAX
-
-/* These cachefs definitions should be in mntent.h. Maybe some day. */
-#define	MNTTYPE_CFS		"cachefs"
-#define	MNTOPT_BACKFSTYPE	"backfstype"
-#define	MNTTYPE_AUTO		"autofs"
 
 /*
  * Utilities for getting filesystem information from the mount table.
@@ -216,7 +212,7 @@ really_write(char *mountpt)
 
 /* This returns the hostname portion of a remote path. */
 char *
-get_server_host(short n)
+get_server_host(uint32_t n)
 {
 	static char hostname[HOST_NM_LN], *host_end;
 
@@ -224,10 +220,10 @@ get_server_host(short n)
 		return ("unknown source");
 	}
 
-	if (n >= 0 && n < fs_tab_used) {
+	if (n < fs_tab_used) {
 		(void) strcpy(hostname, fs_tab[n]->remote_name);
 		if ((host_end = strchr(hostname, ':')) == NULL) {
-			if ((strcmp(fs_tab[n]->fstype, MNTTYPE_AUTO)) == NULL)
+			if ((strcmp(fs_tab[n]->fstype, MNTTYPE_AUTOFS)) == NULL)
 				return ("automounter");
 			else
 				return (fs_tab[n]->fstype);
@@ -375,8 +371,8 @@ unmount_client()
 
 				if (pid_return != pid) {
 					logerr(WRN_BAD_WAIT, pid, pid_return,
-						(unsigned long)status, errno,
-						strerror(errno));
+					    (unsigned long)status, errno,
+					    strerror(errno));
 					retcode = 0;
 				}
 
@@ -390,7 +386,7 @@ unmount_client()
 				    (errcode = WEXITSTATUS(status))) {
 					retcode = 0;
 					logerr(WRN_FSTAB_UMOUNT,
-						fs_tab[n]->name, errcode);
+					    fs_tab[n]->name, errcode);
 				} else {
 					fs_tab[n]->cl_mounted = 0;
 				}
@@ -502,8 +498,8 @@ mount_client()
 
 				if (pid_return != pid) {
 					logerr(WRN_BAD_WAIT, pid, pid_return,
-						(unsigned long)status, errno,
-						strerror(errno));
+					    (unsigned long)status, errno,
+					    strerror(errno));
 					retcode = 0;
 				}
 
@@ -566,17 +562,17 @@ mount_client()
  * for further processing, it should be strdup()'d or something.
  */
 char *
-server_map(char *path, short fsys_value)
+server_map(char *path, uint32_t fsys_value)
 {
 	static char server_construction[PATH_MAX];
 
 	if (fs_tab_used == 0) {
 		(void) strcpy(server_construction, path);
-	} else if (fsys_value >= 0 && fsys_value < fs_tab_used) {
+	} else if (fsys_value < fs_tab_used) {
 		(void) snprintf(server_construction,
-			sizeof (server_construction),
-			"%s%s", fs_tab[fsys_value]->remote_name,
-			path+strlen(fs_tab[fsys_value]->name));
+		    sizeof (server_construction),
+		    "%s%s", fs_tab[fsys_value]->remote_name,
+		    path+strlen(fs_tab[fsys_value]->name));
 	} else {
 		(void) strcpy(server_construction, path);
 	}
@@ -714,7 +710,7 @@ construct_mt(struct mnttab *mt)
 	 * allowed to mount ourself with "NFS", "NFS" must be remote.
 	 * The automount will translate "nfs:self" to a lofs mount.
 	 */
-	if (strcmp(mt->mnt_fstype, MNTTYPE_AUTO) == 0 ||
+	if (strcmp(mt->mnt_fstype, MNTTYPE_AUTOFS) == 0 ||
 	    strcmp(mt->mnt_fstype, MNTTYPE_NFS) == 0 ||
 	    is_remote_src(mt->mnt_special) == REAL_REMOTE)
 		nfte->remote = 1;
@@ -912,10 +908,10 @@ get_mntinfo(int map_client, char *vfstab_file)
 		 */
 		if (vfstab_file) {
 			(void) snprintf(VFS_TABLE, sizeof (VFS_TABLE), "%s",
-				vfstab_file);
+			    vfstab_file);
 		} else {
 			(void) snprintf(VFS_TABLE, sizeof (VFS_TABLE), "%s%s",
-				install_root, VFSTAB);
+			    install_root, VFSTAB);
 		}
 
 		if (access(VFS_TABLE, R_OK) == 0) {
@@ -926,7 +922,7 @@ get_mntinfo(int map_client, char *vfstab_file)
 			 */
 			if ((pp = setmntent(VFS_TABLE, "r")) == NULL) {
 				progerr(ERR_NOTABLE, "vfs", VFS_TABLE,
-					strerror(errno));
+				    strerror(errno));
 				return (1);
 			}
 
@@ -956,16 +952,13 @@ get_mntinfo(int map_client, char *vfstab_file)
 					    install_root);
 				} else {
 					(void) snprintf(client_mountp,
-						sizeof (client_mountp), "%s%s",
-						install_root, vfs->vfs_mountp);
+					    sizeof (client_mountp), "%s%s",
+					    install_root, vfs->vfs_mountp);
 				}
 
 				/*
 				 * We also skip the entry if the vfs_special
 				 * path and the client_path are the same.
-				 * There's no need to mount it, it's just a
-				 * cachefs optimization that mounts a
-				 * directory over itself from this server.
 				 */
 				if ((is_remote == SELF_SERVE) &&
 				    strcmp(path_part(vfs->vfs_special),
@@ -983,8 +976,9 @@ get_mntinfo(int map_client, char *vfstab_file)
 					    is_remote);
 				} else {	/* MNT_NOT */
 					if (construct_vfs(vfs, client_mountp,
-					    link_name, is_remote, mnt_stat))
+					    link_name, is_remote, mnt_stat)) {
 						return (1);
+					}
 				}
 			}
 			(void) endmntent(pp);
@@ -1051,7 +1045,7 @@ load_fsentry(struct fstable *fs_entry, char *name, char *fstype,
  * refer to other filesystems. It just returns the entry containing this
  * path.
  */
-short
+uint32_t
 fsys(char *path)
 {
 	register int i;
@@ -1128,8 +1122,9 @@ fsys(char *path)
 		 */
 		if ((fs_namelen == 1 && *(fs_tab[i]->name) == '/') ||
 		    ((term_char == '/' || term_char == NULL) &&
-		    strncmp(fs_tab[i]->name, path2use, fs_namelen) == 0))
+		    strncmp(fs_tab[i]->name, path2use, fs_namelen) == 0)) {
 			return (i);
+		}
 	}
 
 	/*
@@ -1147,7 +1142,7 @@ fsys(char *path)
  * it will return the filesystem that the loopback filesystem is mounted
  * over.
  */
-short
+uint32_t
 resolved_fsys(char *path)
 {
 	int i = -1;
@@ -1170,7 +1165,7 @@ resolved_fsys(char *path)
  * install root is really the target filesystem.
  */
 int
-use_srvr_map_n(short n)
+use_srvr_map_n(uint32_t n)
 {
 	return ((int)fs_tab[n]->srvr_map);
 }
@@ -1181,7 +1176,7 @@ use_srvr_map_n(short n)
  * to this file system.
  */
 int
-is_mounted_n(short n)
+is_mounted_n(uint32_t n)
 {
 	return ((int)fs_tab[n]->mounted);
 }
@@ -1191,7 +1186,7 @@ is_mounted_n(short n)
  *	if it's writeable, 0 if read-only.
  */
 int
-is_fs_writeable_n(short n)
+is_fs_writeable_n(uint32_t n)
 {
 	/*
 	 * If the write access permissions haven't been confirmed, do that
@@ -1217,14 +1212,14 @@ is_fs_writeable_n(short n)
  *	Note: Upon entry, a valid fsys() is required.
  */
 int
-is_remote_fs_n(short n)
+is_remote_fs_n(uint32_t n)
 {
 	return ((int)fs_tab[n]->remote);
 }
 
 /* index-driven is_served() */
 int
-is_served_n(short n)
+is_served_n(uint32_t n)
 {
 	return ((int)fs_tab[n]->served);
 }
@@ -1235,7 +1230,7 @@ is_served_n(short n)
  *	Note: Upon entry, a valid fsys() is required.
  */
 fsblkcnt_t
-get_blk_free_n(short n)
+get_blk_free_n(uint32_t n)
 {
 	return (fs_tab[n]->bfree);
 }
@@ -1246,7 +1241,7 @@ get_blk_free_n(short n)
  *	Note: Upon entry, a valid fsys() is required.
  */
 fsblkcnt_t
-get_blk_used_n(short n)
+get_blk_used_n(uint32_t n)
 {
 	return (fs_tab[n]->bused);
 }
@@ -1257,7 +1252,7 @@ get_blk_used_n(short n)
  *	Note: Upon entry, a valid fsys() is required.
  */
 fsblkcnt_t
-get_inode_free_n(short n)
+get_inode_free_n(uint32_t n)
 {
 	return (fs_tab[n]->ffree);
 }
@@ -1268,7 +1263,7 @@ get_inode_free_n(short n)
  *	Note: Upon entry, a valid fsys() is required.
  */
 fsblkcnt_t
-get_inode_used_n(short n)
+get_inode_used_n(uint32_t n)
 {
 	return (fs_tab[n]->fused);
 }
@@ -1279,21 +1274,21 @@ get_inode_used_n(short n)
  *	Note: Upon entry, a valid fsys() is required.
  */
 void
-set_blk_used_n(short n, fsblkcnt_t value)
+set_blk_used_n(uint32_t n, fsblkcnt_t value)
 {
 	fs_tab[n]->bused = value;
 }
 
 /* Get the filesystem block size. */
 fsblkcnt_t
-get_blk_size_n(short n)
+get_blk_size_n(uint32_t n)
 {
 	return (fs_tab[n]->bsize);
 }
 
 /* Get the filesystem fragment size. */
 fsblkcnt_t
-get_frag_size_n(short n)
+get_frag_size_n(uint32_t n)
 {
 	return (fs_tab[n]->bsize);
 }
@@ -1302,7 +1297,7 @@ get_frag_size_n(short n)
  * This returns the name of the indicated filesystem.
  */
 char *
-get_fs_name_n(short n)
+get_fs_name_n(uint32_t n)
 {
 	if (fs_tab_used == 0) {
 		return (NULL);
@@ -1319,7 +1314,7 @@ get_fs_name_n(short n)
  *	Note: Upon entry, a valid fsys() is required.
  */
 char *
-get_source_name_n(short n)
+get_source_name_n(uint32_t n)
 {
 	return (fs_tab[n]->remote_name);
 }
@@ -1328,7 +1323,7 @@ get_source_name_n(short n)
  * This function returns the srvr_map status based upon the path.
  */
 int
-use_srvr_map(char *path, short *fsys_value)
+use_srvr_map(char *path, uint32_t *fsys_value)
 {
 	if (*fsys_value == BADFSYS)
 		*fsys_value = fsys(path);
@@ -1340,7 +1335,7 @@ use_srvr_map(char *path, short *fsys_value)
  * This function returns the mount status based upon the path.
  */
 int
-is_mounted(char *path, short *fsys_value)
+is_mounted(char *path, uint32_t *fsys_value)
 {
 	if (*fsys_value == BADFSYS)
 		*fsys_value = fsys(path);
@@ -1356,7 +1351,7 @@ is_mounted(char *path, short *fsys_value)
  *	an interface requirement.
  */
 int
-is_fs_writeable(char *path, short *fsys_value)
+is_fs_writeable(char *path, uint32_t *fsys_value)
 {
 	if (*fsys_value == BADFSYS)
 		*fsys_value = fsys(path);
@@ -1372,7 +1367,7 @@ is_fs_writeable(char *path, short *fsys_value)
  *	an interface requirement.
  */
 int
-is_remote_fs(char *path, short *fsys_value)
+is_remote_fs(char *path, uint32_t *fsys_value)
 {
 	if (*fsys_value == BADFSYS)
 		*fsys_value = fsys(path);
@@ -1387,7 +1382,7 @@ is_remote_fs(char *path, short *fsys_value)
  * (eg: pkgadd or pkgrm) will be writing to it.
  */
 int
-is_served(char *path, short *fsys_value)
+is_served(char *path, uint32_t *fsys_value)
 {
 	if (*fsys_value == BADFSYS)
 		*fsys_value = fsys(path);
@@ -1401,7 +1396,7 @@ is_served(char *path, short *fsys_value)
  *	return NULL if it's a local filesystem.
  */
 char *
-get_remote_path(short n)
+get_remote_path(uint32_t n)
 {
 	char	*p;
 
@@ -1421,7 +1416,7 @@ get_remote_path(short n)
  *	return NULL if it's a local filesystem.
  */
 char *
-get_mount_point(short n)
+get_mount_point(uint32_t n)
 {
 	if (!is_remote_fs_n(n))
 		return (NULL); 	/* local */
@@ -1429,7 +1424,7 @@ get_mount_point(short n)
 }
 
 struct fstable *
-get_fs_entry(short n)
+get_fs_entry(uint32_t n)
 {
 	if (fs_tab_used == 0) {
 		return (NULL);

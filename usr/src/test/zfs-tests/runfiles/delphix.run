@@ -72,6 +72,11 @@ tests = ['cachefile_001_pos', 'cachefile_002_pos', 'cachefile_003_pos',
 pre =
 post =
 
+[/opt/zfs-tests/tests/functional/checksum]
+tests = ['run_edonr_test', 'run_sha2_test', 'run_skein_test']
+pre =
+post =
+
 [/opt/zfs-tests/tests/functional/clean_mirror]
 tests = [ 'clean_mirror_001_pos', 'clean_mirror_002_pos',
     'clean_mirror_003_pos', 'clean_mirror_004_pos']
@@ -458,7 +463,9 @@ tests = ['rootpool_002_neg', 'rootpool_003_neg', 'rootpool_007_neg']
 tests = ['rsend_001_pos', 'rsend_002_pos', 'rsend_003_pos', 'rsend_004_pos',
     'rsend_005_pos', 'rsend_006_pos', 'rsend_007_pos', 'rsend_008_pos',
     'rsend_009_pos', 'rsend_010_pos', 'rsend_011_pos', 'rsend_012_pos',
-    'rsend_013_pos', 'rsend_014_pos']
+    'rsend_013_pos', 'rsend_014_pos',
+    'rsend_019_pos', 'rsend_020_pos',
+    'rsend_021_pos', 'rsend_022_pos', 'rsend_024_pos']
 
 [/opt/zfs-tests/tests/functional/scrub_mirror]
 tests = ['scrub_mirror_001_pos', 'scrub_mirror_002_pos',

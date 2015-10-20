@@ -598,7 +598,7 @@ zfsdle_vdev_online(zpool_handle_t *zhp, void *data)
  */
 /*ARGSUSED2*/
 static void
-zfs_sync_vdev_fru(zpool_handle_t *zhp, nvlist_t *vdev, boolean_t isdisk)
+zfs_update_vdev_fru(zpool_handle_t *zhp, nvlist_t *vdev, boolean_t isdisk)
 {
 	char *devpath, *cptr, *oldfru = NULL;
 	const char *newfru;
@@ -615,19 +615,19 @@ zfs_sync_vdev_fru(zpool_handle_t *zhp, nvlist_t *vdev, boolean_t isdisk)
 
 	newfru = libzfs_fru_lookup(g_zfshdl, devpath);
 	if (newfru == NULL) {
-		syseventd_print(9, "zfs_sync_vdev_fru: no FRU for %s\n",
+		syseventd_print(9, "zfs_update_vdev_fru: no FRU for %s\n",
 		    devpath);
 		return;
 	}
 
 	/* do nothing if the FRU hasn't changed */
 	if (oldfru != NULL && libzfs_fru_compare(g_zfshdl, oldfru, newfru)) {
-		syseventd_print(9, "zfs_sync_vdev_fru: FRU unchanged\n");
+		syseventd_print(9, "zfs_update_vdev_fru: FRU unchanged\n");
 		return;
 	}
 
-	syseventd_print(9, "zfs_sync_vdev_fru: devpath = %s\n", devpath);
-	syseventd_print(9, "zfs_sync_vdev_fru: FRU = %s\n", newfru);
+	syseventd_print(9, "zfs_update_vdev_fru: devpath = %s\n", devpath);
+	syseventd_print(9, "zfs_update_vdev_fru: FRU = %s\n", newfru);
 
 	(void) zpool_fru_set(zhp, vdev_guid, newfru);
 }
@@ -643,7 +643,7 @@ zfs_sync_vdev_fru(zpool_handle_t *zhp, nvlist_t *vdev, boolean_t isdisk)
  * It will iterate over the pool vdevs to update the FRU property.
  */
 int
-zfs_deliver_sync(nvlist_t *nvl)
+zfs_deliver_update(nvlist_t *nvl)
 {
 	dev_data_t dd = { 0 };
 	char *pname;
@@ -651,7 +651,7 @@ zfs_deliver_sync(nvlist_t *nvl)
 	nvlist_t *config, *vdev;
 
 	if (nvlist_lookup_string(nvl, "pool_name", &pname) != 0) {
-		syseventd_print(9, "zfs_deliver_sync: no pool name\n");
+		syseventd_print(9, "zfs_deliver_update: no pool name\n");
 		return (-1);
 	}
 
@@ -666,14 +666,14 @@ zfs_deliver_sync(nvlist_t *nvl)
 
 	config = zpool_get_config(zhp, NULL);
 	if (config == NULL) {
-		syseventd_print(9, "zfs_deliver_sync: "
+		syseventd_print(9, "zfs_deliver_update: "
 		    "failed to get pool config for %s\n", pname);
 		zpool_close(zhp);
 		return (-1);
 	}
 
 	if (nvlist_lookup_nvlist(config, ZPOOL_CONFIG_VDEV_TREE, &vdev) != 0) {
-		syseventd_print(0, "zfs_deliver_sync: "
+		syseventd_print(0, "zfs_deliver_update: "
 		    "failed to get vdev tree for %s\n", pname);
 		zpool_close(zhp);
 		return (-1);
@@ -681,7 +681,7 @@ zfs_deliver_sync(nvlist_t *nvl)
 
 	libzfs_fru_refresh(g_zfshdl);
 
-	dd.dd_func = zfs_sync_vdev_fru;
+	dd.dd_func = zfs_update_vdev_fru;
 	zfs_iter_vdev(zhp, vdev, &dd);
 
 	zpool_close(zhp);
@@ -726,7 +726,7 @@ zfs_deliver_event(sysevent_t *ev, int unused)
 	nvlist_t *nvl;
 	int ret;
 	boolean_t is_lofi = B_FALSE, is_check = B_FALSE;
-	boolean_t is_dle = B_FALSE, is_sync = B_FALSE;
+	boolean_t is_dle = B_FALSE, is_update = B_FALSE;
 
 	if (strcmp(class, EC_DEV_ADD) == 0) {
 		/*
@@ -759,7 +759,7 @@ zfs_deliver_event(sysevent_t *ev, int unused)
 			 * When we receive these events we check the pool
 			 * configuration and update the vdev FRUs if necessary.
 			 */
-			is_sync = B_TRUE;
+			is_update = B_TRUE;
 		}
 	} else if (strcmp(class, EC_DEV_STATUS) == 0 &&
 	    strcmp(subclass, ESC_DEV_DLE) == 0) {
@@ -773,8 +773,8 @@ zfs_deliver_event(sysevent_t *ev, int unused)
 
 	if (is_dle)
 		ret = zfs_deliver_dle(nvl);
-	else if (is_sync)
-		ret = zfs_deliver_sync(nvl);
+	else if (is_update)
+		ret = zfs_deliver_update(nvl);
 	else if (is_check)
 		ret = zfs_deliver_check(nvl);
 	else

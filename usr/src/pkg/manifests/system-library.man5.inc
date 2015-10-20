@@ -27,6 +27,7 @@ file path=usr/share/man/man5/crypt_sha512.5
 file path=usr/share/man/man5/crypt_sunmd5.5
 file path=usr/share/man/man5/crypt_unix.5
 file path=usr/share/man/man5/environ.5
+file path=usr/share/man/man5/eventfd.5
 file path=usr/share/man/man5/extendedFILE.5
 file path=usr/share/man/man5/fnmatch.5
 file path=usr/share/man/man5/isalist.5
@@ -60,6 +61,7 @@ file path=usr/share/man/man5/pkcs11_softtoken.5
 file path=usr/share/man/man5/pkcs11_tpm.5
 file path=usr/share/man/man5/regex.5
 file path=usr/share/man/man5/regexp.5
+file path=usr/share/man/man5/timerfd.5
 file path=usr/share/man/man5/threads.5
 link path=usr/share/man/man5/advance.5 target=regexp.5
 link path=usr/share/man/man5/compile.5 target=regexp.5

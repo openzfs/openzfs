@@ -116,8 +116,18 @@ extern int aok;
 
 /*
  * DTrace SDT probes have different signatures in userland than they do in
- * kernel.  If they're being used in kernel code, re-define them out of
+ * the kernel.  If they're being used in kernel code, re-define them out of
  * existence for their counterparts in libzpool.
+ *
+ * Here's an example of how to use the set-error probes in userland:
+ * zfs$target:::set-error /arg0 == EBUSY/ {stack();}
+ *
+ * Here's an example of how to use DTRACE_PROBE probes in userland:
+ * If there is a probe declared as follows:
+ * DTRACE_PROBE2(zfs__probe_name, uint64_t, blkid, dnode_t *, dn);
+ * Then you can use it as follows:
+ * zfs$target:::probe2 /copyinstr(arg0) == "zfs__probe_name"/
+ *     {printf("%u %p\n", arg1, arg2);}
  */
 
 #ifdef DTRACE_PROBE
@@ -215,11 +225,13 @@ extern int _mutex_destroy(mutex_t *mp);
 
 #define	mutex_init(mp, b, c, d)		zmutex_init((kmutex_t *)(mp))
 #define	mutex_destroy(mp)		zmutex_destroy((kmutex_t *)(mp))
+#define	mutex_enter(mp)			zmutex_enter(mp)
+#define	mutex_exit(mp)			zmutex_exit(mp)
 
 extern void zmutex_init(kmutex_t *mp);
 extern void zmutex_destroy(kmutex_t *mp);
-extern void mutex_enter(kmutex_t *mp);
-extern void mutex_exit(kmutex_t *mp);
+extern void zmutex_enter(kmutex_t *mp);
+extern void zmutex_exit(kmutex_t *mp);
 extern int mutex_tryenter(kmutex_t *mp);
 extern void *mutex_owner(kmutex_t *mp);
 

@@ -18,7 +18,9 @@
  *
  * CDDL HEADER END
  */
+
 /*
+ * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1996, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Milan Jurik. All rights reserved.
  */
@@ -957,10 +959,9 @@ rpcsec_gss_init(
 	arg = kmem_alloc(sizeof (*arg), KM_SLEEP);
 
 	/* taskq func must free rpc_call_arg & deserialized arguments */
-	arg->rpc_call_arg = kmem_alloc(sizeof (*arg->rpc_call_arg), KM_SLEEP);
+	arg->rpc_call_arg = kmem_zalloc(sizeof (*arg->rpc_call_arg), KM_SLEEP);
 
 	/* deserialize arguments */
-	bzero(arg->rpc_call_arg, sizeof (*arg->rpc_call_arg));
 	if (!SVC_GETARGS(rqst->rq_xprt, __xdr_rpc_gss_init_arg,
 	    (caddr_t)arg->rpc_call_arg)) {
 		ret = RPCSEC_GSS_FAILED;
@@ -984,9 +985,6 @@ rpcsec_gss_init(
 	arg->client_data = client_data;
 	arg->cr_version = creds.version;
 	arg->cr_service = creds.service;
-
-	/* We no longer need the xp_xdrin, destroy it all here. */
-	XDR_DESTROY(&(rqst->rq_xprt->xp_xdrin));
 
 	/* should be ok to hold clm lock as taskq will have new thread(s) */
 	ret = ddi_taskq_dispatch(svcrpcsec_gss_init_taskq,

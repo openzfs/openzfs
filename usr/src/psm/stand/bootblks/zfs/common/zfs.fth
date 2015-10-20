@@ -22,6 +22,7 @@
 \ Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 \ Use is subject to license terms.
 \
+\ Copyright 2015 Toomas Soome <tsoome@me.com>
 
 
 purpose: ZFS file system support package
@@ -159,6 +160,259 @@ new-device
       2drop 2drop  r> drop          (  )
    ;
 
+   \ decode lz4 buffer header, returns src addr and len
+   : lz4_sbuf ( addr -- s_addr s_len )
+      dup C@ 8 lshift swap 1+		( byte0 addr++ )
+      dup C@				( byte0 addr byte1 )
+      rot				( addr byte1 byte0 )
+      or d# 16 lshift swap 1+		( d addr++ )
+
+      dup C@ 8 lshift			( d addr byte2 )
+      swap 1+				( d byte2 addr++ )
+      dup C@ swap 1+			( d byte2 byte3 addr++ )
+      -rot				( d s_addr byte2 byte3 )
+      or				( d s_addr d' )
+      rot				( s_addr d' d )
+      or				( s_addr s_len )
+    ;
+
+    4           constant STEPSIZE
+    8           constant COPYLENGTH
+    5           constant LASTLITERALS
+    4           constant ML_BITS
+    d# 15       constant ML_MASK		\ (1<<ML_BITS)-1
+    4           constant RUN_BITS		\ 8 - ML_BITS
+    d# 15       constant RUN_MASK		\ (1<<RUN_BITS)-1
+
+    \ A32(d) = A32(s); d+=4; s+=4
+    : lz4_copystep ( dest source -- dest' source')
+      2dup swap 4 move
+      swap 4 +
+      swap 4 +		( dest+4 source+4 )
+    ;
+
+    \ do { LZ4_COPYPACKET(s, d) } while (d < e);
+    : lz4_copy ( e d s -- e d' s' )
+      begin			( e d s )
+        lz4_copystep
+        lz4_copystep		( e d s )
+        over			( e d s d )
+        3 pick < 0=
+      until
+    ;
+
+    \ lz4 decompress translation from C code
+    \ could use some factorisation
+    : lz4 ( src dest len -- )
+      swap dup >r swap		\ save original dest to return stack.
+      rot			( dest len src )
+      lz4_sbuf			( dest len s_buf s_len )
+      over +			( dest len s_buf s_end )
+      2swap				( s_buf s_end dest len )
+      over +			( s_buf s_end dest dest_end )
+      2swap				( dest dest_end s_buf s_end )
+
+      \ main loop
+      begin 2dup < while
+         swap dup C@		( dest dest_end s_end s_buf token )
+         swap CHAR+ swap		( dest dest_end s_end s_buf++ token )
+         dup ML_BITS rshift	( dest dest_end s_end s_buf token length )
+         >r rot rot r>		( dest dest_end token s_end s_buf length )
+         dup RUN_MASK = if
+           d# 255 begin		( dest dest_end token s_end s_buf length s )
+             swap		( dest dest_end token s_end s_buf s length )
+             >r >r			( ... R: length s )
+             2dup >			( dest dest_end token s_end s_buf flag )
+             r@ d# 255 = and ( dest dest_end token s_end s_buf flag R: length s )
+             r> swap r> swap ( dest dest_end token s_end s_buf s length flag )
+             >r swap r>	 ( dest dest_end token s_end s_buf length s flag )
+           while
+             drop >r		( dest dest_end token s_end s_buf R: length )
+             dup c@ swap CHAR+	( dest dest_end token s_end s s_buf++ )
+	     swap			( dest dest_end token s_end s_buf s )
+             dup			( dest dest_end token s_end s_buf s s )
+             r> + swap		( dest dest_end token s_end s_buf length s )
+           repeat
+           drop			( dest dest_end token s_end s_buf length )
+         then
+
+         -rot			( dest dest_end token length s_end s_buf )
+         swap >r >r		( dest dest_end token length R: s_end s_buf )
+         swap >r		( dest dest_end length R: s_end s_buf token )
+         rot			( dest_end length dest )
+         2dup +			( dest_end length dest cpy )
+
+         2dup > if ( dest > cpy )
+            " lz4 overflow" die
+         then
+
+         3 pick COPYLENGTH - over < ( dest_end length dest cpy flag )
+         3 pick			( dest_end length dest cpy flag length )
+         r>			( dest_end length dest cpy flag length token )
+         r>	( dest_end length dest cpy flag length token s_buf R: s_end )
+         rot	( dest_end length dest cpy flag token s_buf length )
+         over +	( dest_end length dest cpy flag token s_buf length+s_buf )
+         r@ COPYLENGTH - > ( dest_end length dest cpy flag token s_buf flag )
+         swap >r ( dest_end length dest cpy flag token flag R: s_end s_buf )
+         swap >r ( dest_end length dest cpy flag flag R: s_end s_buf token )
+         or if		( dest_end length dest cpy R: s_end s_buf token )
+
+           3 pick over swap > if
+             " lz4 write beyond buffer end" die	( write beyond the dest end )
+           then			( dest_end length dest cpy )
+
+           2 pick			( dest_end length dest cpy length )
+           r> r> swap	( dest_end length dest cpy length s_buf token R: s_end )
+           r>		( dest_end length dest cpy length s_buf token s_end )
+           swap >r >r	( dest_end length dest cpy length s_buf R: token s_end )
+
+           swap over +	( dest_end length dest cpy s_buf s_buf+length )
+           r@ > if	( dest_end length dest cpy s_buf R: token s_end )
+              " lz4 read beyond source" die	\ read beyond source buffer
+           then
+
+           nip		( dest_end length dest s_buf R: token s_end )
+           >r		( dest_end length dest R: token s_end s_buf )
+           over r@		( dest_end length dest length s_buf )
+           -rot move	( dest_end length )
+
+           r> + r> r> drop < if
+             " lz4 format violation" die		\ LZ4 format violation
+           then
+
+           r> drop		\ drop original dest
+           drop
+           exit			\ parsing done
+         then
+
+         swap		( dest_end length cpy dest R: s_end s_buf token )
+         r> r> swap >r		( dest_end length cpy dest s_buf R: s_end token )
+
+         lz4_copy		( dest_end length cpy dest s_buf)
+
+         -rot			( dest_end length s_buf cpy dest )
+         over -			( dest_end length s_buf cpy dest-cpy )
+         rot			( dest_end length cpy dest-cpy s_buf )
+         swap -			( dest_end length cpy s_buf )
+
+         dup C@ swap		( dest_end length cpy b s_buf )
+         dup 1+ C@ 8 lshift	( dest_end length cpy b s_buf w )
+         rot or			( dest_end length cpy s_buf w )
+         2 pick swap -		( dest_end length cpy s_buf ref )
+         swap 2 +			( dest_end length cpy ref s_buf+2 )
+			\ note: cpy is also dest, remember to save it
+         -rot			( dest_end length s_buf cpy ref )
+         dup			( dest_end length s_buf cpy ref ref )
+
+			\ now we need original dest
+         r> r> swap r@		( dest_end length s_buf cpy ref ref s_end token dest )
+         -rot swap >r >r
+         < if
+           " lz4 reference outside buffer" die	\ reference outside dest buffer
+         then			( dest_end length s_buf op ref )
+
+         2swap			( dest_end op ref length s_buf )
+         swap		( dest_end op ref s_buf length R: dest s_end token )
+
+         \ get matchlength
+         drop r> ML_MASK and	( dest_end op ref s_buf length R: dest s_end )
+         dup ML_MASK = if	( dest_end op ref s_buf length R: dest s_end )
+           -1		\ flag to top
+           begin
+             rot			( dest_end op ref length flag s_buf )
+	     dup r@ <		( dest_end op ref length flag s_buf flag )
+             rot and		( dest_end op ref length s_buf flag )
+           while
+             dup c@		( dest_end op ref length s_buf s )
+             swap 1+		( dest_end op ref length s s_buf++ )
+             -rot		( dest_end op ref s_buf length s )
+             swap over + swap	( dest_end op ref s_buf length+s s )
+             d# 255 =
+           repeat
+           swap
+         then			( dest_end op ref s_buf length R: dest s_end )
+
+         2swap			( dest_end s_buf length op ref )
+
+         \ copy repeated sequence
+         2dup - STEPSIZE < if	( dest_end s_buf length op ref )
+           \ 4 times *op++ = *ref++;
+           dup c@ >r		( dest_end s_buf length op ref R: C )
+           CHAR+ swap		( dest_end s_buf length ref++ op )
+           dup r> swap c! CHAR+ swap    ( dest_end s_buf length op ref )
+           dup c@ >r		( dest_end s_buf length op ref R: C )
+           CHAR+ swap		( dest_end s_buf length ref++ op )
+           dup r> swap c! CHAR+ swap    ( dest_end s_buf length op ref )
+           dup c@ >r		( dest_end s_buf length op ref R: C )
+           CHAR+ swap		( dest_end s_buf length ref++ op )
+           dup r> swap c! CHAR+ swap    ( dest_end s_buf length op ref )
+           dup c@ >r		( dest_end s_buf length op ref R: C )
+           CHAR+ swap		( dest_end s_buf length ref++ op )
+           dup r> swap c! CHAR+ swap    ( dest_end s_buf length op ref )
+           2dup -			( dest_end s_buf length op ref op-ref )
+           case
+             1 of 3 endof
+             2 of 2 endof
+             3 of 3 endof
+               0
+           endcase
+           -			\ ref -= dec
+           2dup swap 4 move	( dest_end s_buf length op ref )
+           swap STEPSIZE 4 - +
+           swap			( dest_end s_buf length op ref )
+        else
+           lz4_copystep		( dest_end s_buf length op ref )
+        then
+        -rot			( dest_end s_buf ref length op )
+        swap over		( dest_end s_buf ref op length op )
+        + STEPSIZE 4 - -	( dest_end s_buf ref op cpy R: dest s_end )
+
+        \ if cpy > oend - COPYLENGTH
+        4 pick COPYLENGTH -	( dest_end s_buf ref op cpy oend-COPYLENGTH )
+        2dup > if		( dest_end s_buf ref op cpy oend-COPYLENGTH )
+          swap			( dest_end s_buf ref op oend-COPYLENGTH cpy )
+
+          5 pick over < if
+            " lz4 write outside buffer" die	\ write outside of dest buffer
+          then			( dest_end s_buf ref op oend-COPYLENGTH cpy )
+
+          >r	( dest_end s_buf ref op oend-COPYLENGTH R: dest s_end cpy )
+          -rot swap		( dest_end s_buf oend-COPYLENGTH op ref )
+          lz4_copy		( dest_end s_buf oend-COPYLENGTH op ref )
+          rot drop swap r>	( dest_end s_buf ref op cpy )
+          begin
+            2dup <
+          while
+            >r			( dest_end s_buf ref op R: cpy )
+            over			( dest_end s_buf ref op ref )
+            c@			( dest_end s_buf ref op C )
+            over c!		( dest_end s_buf ref op )
+            >r 1+ r> 1+ r>	( dest_end s_buf ref++ op++ cpy )
+          repeat
+
+          nip			( dest_end s_buf ref op )
+          dup 4 pick = if
+            \ op == dest_end  we are done, cleanup
+            r> r> 2drop 2drop 2drop
+            exit
+          then
+				( dest_end s_buf ref op R: dest s_end )
+          nip			( dest_end s_buf op )
+        else
+          drop			( dest_end s_buf ref op cpy R: dest s_end)
+          -rot			( dest_end s_buf cpy ref op )
+          swap			( dest_end s_buf cpy op ref )
+          lz4_copy
+          2drop			( dest_end s_buf op )
+       then
+
+       -rot r>			( op dest_end s_buf s_end R: dest )
+     repeat
+
+     r> drop
+     2drop
+     2drop
+   ;
 
    \
    \	ZFS block (SPA) routines
@@ -167,6 +421,7 @@ new-device
    1           constant  def-comp#
    2           constant  no-comp#
    3           constant  lzjb-comp#
+   d# 15       constant  lz4-comp#
 
    h# 2.0000   constant  /max-bsize
    d# 512      constant  /disk-block
@@ -181,10 +436,15 @@ new-device
 
    : blk_offset    ( bp -- n )  h#  8 +  x@  -1 h# 7fff.ffff  lxjoin  and  ;
    : blk_gang      ( bp -- n )  h#  8 +  x@  xlsplit  nip  d# 31 rshift  ;
-   : blk_comp      ( bp -- n )  h# 33 +  c@  ;
+   : blk_etype     ( bp -- n )  h# 32 +  c@  ;
+   : blk_comp      ( bp -- n )  h# 33 +  c@  h# 7f and ;
+   : blk_embedded? ( bp -- flag )  h# 33 +  c@  h# 80 and h# 80 = ;
    : blk_psize     ( bp -- n )  h# 34 +  w@  ;
    : blk_lsize     ( bp -- n )  h# 36 +  w@  ;
    : blk_birth     ( bp -- n )  h# 50 +  x@  ;
+
+   : blke_psize    ( bp -- n )  h# 34 +  c@  1 rshift h# 7f and 1+ ;
+   : blke_lsize    ( bp -- n )  h# 34 +  l@  h# 1ff.ffff and 1+ ;
 
    0 instance value dev-ih
    0 instance value blk-space
@@ -193,8 +453,21 @@ new-device
    : foff>doff  ( fs-off -- disk-off )    /disk-block *  h# 40.0000 +  ;
    : fsz>dsz    ( fs-size -- disk-size )  1+  /disk-block *  ;
 
-   : bp-dsize  ( bp -- dsize )  blk_psize fsz>dsz  ;
-   : bp-lsize  ( bp -- lsize )  blk_lsize fsz>dsz  ;
+   : bp-dsize  ( bp -- dsize )
+      dup blk_embedded? if
+         blke_psize
+      else
+         blk_psize fsz>dsz
+      then
+   ;
+
+   : bp-lsize  ( bp -- lsize )
+      dup blk_embedded? if
+         blke_lsize
+      else
+         blk_lsize fsz>dsz
+      then
+   ;
 
    : (read-dva)  ( adr len dva -- )
       blk_offset foff>doff  dev-ih  read-disk
@@ -242,10 +515,53 @@ new-device
       then
    ;
 
+   : read-embedded ( adr len bp -- )
+      \ loop over buf len, w in comment is octet count
+      \ note, we dont increment bp, but use index value of w
+      \ so we can skip the non-payload octets
+      swap 0 0                              ( adr bp len 0 0 )
+      rot 0 do                              ( adr bp 0 0 )
+         I 8 mod 0= if                      ( adr bp w x )
+            drop                            ( adr bp w )
+            2dup                            ( adr bp w bp w )
+            xa+                             ( adr bp w bp+w*8 )
+            x@ swap                         ( adr bp x w )
+            1+ dup 6 = if 1+ else           \ skip 6th word
+               dup h# a = if 1+ then        \ skip 10th word
+            then                            ( adr bp x w )
+            swap                            ( adr bp w x )
+         then
+         2swap                              ( w x adr bp )
+         -rot                               ( w bp x adr )
+         swap dup                           ( w bp adr x x )
+         I 8 mod 4 < if
+            xlsplit                         ( w bp adr x x.lo x.hi )
+            drop                            ( w bp adr x x.lo )
+         else
+            xlsplit                         ( w bp adr x x.lo x.hi )
+            nip                             ( w bp adr x x.hi )
+         then
+         I 4 mod 8 * rshift h# ff and       ( w bp adr x c )
+         rot                                ( w bp x c adr )
+         swap over                          ( w bp x adr c adr )
+         I + c!                             ( w bp x adr )
+
+         \ now we need to fix the stack for next pass
+         \ need to get ( adr bp w x )
+         swap 2swap                         ( adr x w bp )
+         -rot                               ( adr bp x w )
+         swap                               ( adr bp w x )
+      loop
+      2drop 2drop
+   ;
+
    \ block read that check for holes, gangs, compression, etc
    : read-bp  ( adr len bp -- )
       \ sparse block?
-      dup  blk_birth x0=  if
+      dup x@ x0=                         ( addr len bp flag0 )
+      swap dup 8 + x@ x0=                ( addr len flag0 bp flag1 )
+      rot                                ( addr len bp flag1 flag0 )
+      and if
          drop  erase  exit               (  )
       then
 
@@ -254,16 +570,27 @@ new-device
          read-dva  exit                  (  )
       then
 
-      \ only do lzjb
-      dup blk_comp  dup lzjb-comp#  <>   ( adr len bp comp lzjb? )
-      swap  def-comp#  <>  and  if       ( adr len bp )
-         " only lzjb supported"  die
+      \ read into blk-space. read is either from embedded area or disk
+      dup blk_embedded? if
+         dup blk-space  over bp-dsize    ( adr len bp bp blk-adr rd-len )
+         rot  read-embedded              ( adr len bp )
+      else
+         dup blk-space  over bp-dsize    ( adr len bp bp blk-adr rd-len )
+         rot  read-dva                   ( adr len bp )
       then
 
-      \ read into blk-space and de-compress
-      blk-space  over bp-dsize           ( adr len bp blk-adr rd-len )
-      rot  read-dva                      ( adr len )
-      blk-space -rot  lzjb               (  )
+      \ set up the stack for decompress
+      blk_comp >r                        ( adr len R: alg )
+      blk-space -rot r>                  ( blk-adr adr len alg )
+
+      case
+         lzjb-comp#  of lzjb endof
+         lz4-comp#   of lz4  endof
+         def-comp#   of lz4  endof       \ isn't this writer only?
+         dup .h
+         "  : unknown compression algorithm, only lzjb and lz4 are supported"
+         die
+      endcase                             (  )
    ;
 
    \
@@ -801,8 +1128,8 @@ new-device
 
    \ read meta object set from uber-block
    : get-mos  ( -- )
-      mos-dn  /dnode                  ( adr len )
-      uber-block ub_rootbp  read-bp
+      mos-dn uber-block ub_rootbp    ( adr bp )
+      dup bp-lsize swap read-bp
    ;
 
    : get-mos-dnode  ( obj# -- )
@@ -882,7 +1209,7 @@ new-device
 
    \ get objset from dataset
    : get-objset  ( adr dn -- )
-      >dsl-ds ds_bp  /dnode swap  read-bp
+      >dsl-ds ds_bp  dup bp-lsize swap  read-bp
    ;
 
 

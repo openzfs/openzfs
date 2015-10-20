@@ -93,6 +93,34 @@ $if _x86 && _ELF64
 $add amd64
 $endif
 
+SYMBOL_VERSION ILLUMOS_0.16 {	# timerfd
+    protected:
+	timerfd_create;
+	timerfd_gettime;
+	timerfd_settime;
+} ILLUMOS_0.15;
+
+SYMBOL_VERSION ILLUMOS_0.15 {	# epoll(3C)
+    protected:
+	epoll_create;
+	epoll_create1;
+	epoll_ctl;
+	epoll_wait;
+	epoll_pwait;
+} ILLUMOS_0.14;
+
+SYMBOL_VERSION ILLUMOS_0.14 {	# strerror_l
+    protected:
+	strerror_l;
+} ILLUMOS_0.13;
+
+SYMBOL_VERSION ILLUMOS_0.13 {	# eventfd
+    protected:
+	eventfd;
+	eventfd_read;
+	eventfd_write;
+} ILLUMOS_0.12;
+
 SYMBOL_VERSION ILLUMOS_0.12 {	# arc4random and friends
     protected:
 	arc4random;
@@ -2908,6 +2936,8 @@ $endif
 	msgctl64;
 	__multi_innetgr;
 	_mutex_destroy		{ FLAGS = NODYNSORT };
+	mutex_enter;
+	mutex_exit;
 	mutex_held;
 	_mutex_init		{ FLAGS = NODYNSORT };
 	_mutex_unlock		{ FLAGS = NODYNSORT };

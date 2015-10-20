@@ -23,7 +23,7 @@
  */
 
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  */
 
@@ -145,12 +145,14 @@ zio_checksum_info_t zio_checksum_table[ZIO_CHECKSUM_FUNCTIONS] = {
 	{{fletcher_4_native,	fletcher_4_byteswap},	1, 0,	"fletcher4"},
 	{{zio_checksum_SHA256,	zio_checksum_SHA256},	1, 0,	"SHA256"},
 	{{NULL,			NULL},			0, 0,	"zilog2"},
+	{{zio_checksum_off,	zio_checksum_off},	0, 0,	"noparity"},
+	{{zio_checksum_SHA512,	NULL},			0, 0,	"SHA512"}
 };
 
 /*
  * zio_checksum_verify: Provides support for checksum verification.
  *
- * Fletcher2, Fletcher4, and SHA256 are supported.
+ * Fletcher2, Fletcher4, SHA-256 and SHA-512/256 are supported.
  *
  * Return:
  * 	-1 = Failure
@@ -366,17 +368,23 @@ zio_read_data(blkptr_t *bp, void *buf, char *stack)
 			continue;
 
 		if (DVA_GET_GANG(&bp->blk_dva[i])) {
-			if (zio_read_gang(bp, &bp->blk_dva[i], buf, stack) == 0)
-				return (0);
+			if (zio_read_gang(bp, &bp->blk_dva[i], buf, stack) != 0)
+				continue;
 		} else {
 			/* read in a data block */
 			offset = DVA_GET_OFFSET(&bp->blk_dva[i]);
 			sector = DVA_OFFSET_TO_PHYS_SECTOR(offset);
-			if (devread(sector, 0, psize, buf) != 0)
-				return (0);
+			if (devread(sector, 0, psize, buf) == 0)
+				continue;
+		}
+
+		/* verify that the checksum matches */
+		if (zio_checksum_verify(bp, buf, psize) == 0) {
+			return (0);
 		}
 	}
 
+	grub_printf("could not read block due to EIO or ECKSUM\n");
 	return (1);
 }
 
@@ -497,11 +505,6 @@ zio_read(blkptr_t *bp, void *buf, char *stack)
 		return (ERR_FSYS_CORRUPT);
 	}
 
-	if (zio_checksum_verify(bp, buf, psize) != 0) {
-		grub_printf("checksum verification failed\n");
-		return (ERR_FSYS_CORRUPT);
-	}
-
 	if (comp != ZIO_COMPRESS_OFF) {
 		if (decomp_table[comp].decomp_func(buf, retbuf, psize,
 		    lsize) != 0) {
@@ -564,7 +567,7 @@ dmu_read(dnode_phys_t *dn, uint64_t blkid, void *buf, char *stack)
  */
 static int
 mzap_lookup(mzap_phys_t *zapobj, int objsize, const char *name,
-	uint64_t *value)
+    uint64_t *value)
 {
 	int i, chunks;
 	mzap_ent_phys_t *mzap_ent = zapobj->mz_chunk;
@@ -852,7 +855,7 @@ zap_iterate(dnode_phys_t *zap_dnode, zap_cb_t *cb, void *arg, char *stack)
  */
 static int
 dnode_get(dnode_phys_t *mdn, uint64_t objnum, uint8_t type, dnode_phys_t *buf,
-	char *stack)
+    char *stack)
 {
 	uint64_t blkid, blksz; /* the block id this object dnode is in */
 	int epbs; /* shift of number of dnodes in a block */
@@ -1049,6 +1052,7 @@ static const char *spa_feature_names[] = {
 	"com.delphix:extensible_dataset",
 	"com.delphix:embedded_data",
 	"org.open-zfs:large_blocks",
+	"org.illumos:sha512",
 	NULL
 };
 

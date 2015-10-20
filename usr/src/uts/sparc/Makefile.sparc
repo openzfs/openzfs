@@ -21,6 +21,8 @@
 
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2013 Andrew Stormont.  All rights reserved.
+# Copyright (c) 2015, Joyent, Inc. All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc. All rights reserved.
 
 
 #
@@ -236,6 +238,7 @@ DRV_KMODS	+= nulldriver
 DRV_KMODS	+= bridge trill
 DRV_KMODS	+= bpf
 DRV_KMODS	+= dca
+DRV_KMODS	+= eventfd
 
 #
 #       Hardware Drivers in common space
@@ -351,7 +354,7 @@ SCHED_KMODS	+= RT TS RT_DPTBL TS_DPTBL IA FSS FX FX_DPTBL SDC
 #	File System Modules (/kernel/fs):
 #
 FS_KMODS	+= dev devfs fdfs fifofs hsfs lofs namefs nfs pcfs tmpfs zfs
-FS_KMODS	+= zut specfs udfs ufs autofs cachefs procfs sockfs mntfs
+FS_KMODS	+= zut specfs udfs ufs autofs procfs sockfs mntfs
 FS_KMODS	+= ctfs objfs sharefs dcfs smbfs
 
 #
@@ -428,12 +431,14 @@ CRYPTO_KMODS	+= aes
 CRYPTO_KMODS	+= arcfour
 CRYPTO_KMODS	+= blowfish
 CRYPTO_KMODS	+= des
+CRYPTO_KMODS	+= ecc
+CRYPTO_KMODS	+= edonr
 CRYPTO_KMODS	+= md4
 CRYPTO_KMODS	+= md5
-CRYPTO_KMODS	+= ecc
 CRYPTO_KMODS	+= rsa
 CRYPTO_KMODS	+= sha1
 CRYPTO_KMODS	+= sha2
+CRYPTO_KMODS	+= skein
 CRYPTO_KMODS	+= swrand
 
 #

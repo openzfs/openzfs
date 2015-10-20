@@ -22,8 +22,9 @@
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2012 by Delphix. All rights reserved.
-# Copyright 2012 Nexenta Systems, Inc. All rights reserved.
+# Copyright 2015 Nexenta Systems, Inc. All rights reserved.
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
+# Copyright 2013 Saso Kiselkov. All rights reserved.
 #
 
 set name=pkg.fmri value=pkg:/system/header@$(PKGVERS)
@@ -766,6 +767,7 @@ file path=usr/include/sharefs/sharetab.h
 file path=usr/include/siginfo.h
 file path=usr/include/signal.h
 file path=usr/include/sip.h
+file path=usr/include/skein.h
 file path=usr/include/smbios.h
 file path=usr/include/spawn.h
 $(i386_ONLY)file path=usr/include/stack_unwind.h
@@ -943,6 +945,7 @@ file path=usr/include/sys/ecppio.h
 file path=usr/include/sys/ecppreg.h
 file path=usr/include/sys/ecppsys.h
 file path=usr/include/sys/ecppvar.h
+file path=usr/include/sys/edonr.h
 file path=usr/include/sys/efi_partition.h
 file path=usr/include/sys/elf.h
 file path=usr/include/sys/elf_386.h
@@ -951,6 +954,7 @@ file path=usr/include/sys/elf_amd64.h
 file path=usr/include/sys/elf_notes.h
 file path=usr/include/sys/elftypes.h
 file path=usr/include/sys/epm.h
+file path=usr/include/sys/epoll.h
 file path=usr/include/sys/errno.h
 file path=usr/include/sys/errorq.h
 file path=usr/include/sys/errorq_impl.h
@@ -958,6 +962,7 @@ file path=usr/include/sys/esunddi.h
 file path=usr/include/sys/ethernet.h
 file path=usr/include/sys/euc.h
 file path=usr/include/sys/eucioctl.h
+file path=usr/include/sys/eventfd.h
 file path=usr/include/sys/exacct.h
 file path=usr/include/sys/exacct_catalog.h
 file path=usr/include/sys/exacct_impl.h
@@ -1006,13 +1011,6 @@ $(sparc_ONLY)file path=usr/include/sys/fpu/globals.h
 $(sparc_ONLY)file path=usr/include/sys/fpu/ieee.h
 file path=usr/include/sys/frame.h
 file path=usr/include/sys/fs/autofs.h
-file path=usr/include/sys/fs/cachefs_dir.h
-file path=usr/include/sys/fs/cachefs_dlog.h
-file path=usr/include/sys/fs/cachefs_filegrp.h
-file path=usr/include/sys/fs/cachefs_fs.h
-file path=usr/include/sys/fs/cachefs_fscache.h
-file path=usr/include/sys/fs/cachefs_ioctl.h
-file path=usr/include/sys/fs/cachefs_log.h
 file path=usr/include/sys/fs/decomp.h
 file path=usr/include/sys/fs/dv_node.h
 file path=usr/include/sys/fs/fifonode.h
@@ -1427,6 +1425,7 @@ file path=usr/include/sys/shm_impl.h
 file path=usr/include/sys/sid.h
 file path=usr/include/sys/siginfo.h
 file path=usr/include/sys/signal.h
+file path=usr/include/sys/skein.h
 file path=usr/include/sys/sleepq.h
 file path=usr/include/sys/smbios.h
 file path=usr/include/sys/smbios_impl.h
@@ -1517,6 +1516,7 @@ file path=usr/include/sys/time_impl.h
 file path=usr/include/sys/time_std_impl.h
 file path=usr/include/sys/timeb.h
 file path=usr/include/sys/timer.h
+file path=usr/include/sys/timerfd.h
 file path=usr/include/sys/times.h
 file path=usr/include/sys/timex.h
 file path=usr/include/sys/timod.h

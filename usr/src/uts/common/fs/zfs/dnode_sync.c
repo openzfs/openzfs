@@ -188,7 +188,7 @@ free_verify(dmu_buf_impl_t *db, uint64_t start, uint64_t end, dmu_tx_t *tx)
 
 		rw_enter(&dn->dn_struct_rwlock, RW_READER);
 		err = dbuf_hold_impl(dn, db->db_level-1,
-		    (db->db_blkid << epbs) + i, TRUE, FTAG, &child);
+		    (db->db_blkid << epbs) + i, TRUE, FALSE, FTAG, &child);
 		rw_exit(&dn->dn_struct_rwlock);
 		if (err == ENOENT)
 			continue;
@@ -284,7 +284,7 @@ free_children(dmu_buf_impl_t *db, uint64_t blkid, uint64_t nblks,
 				continue;
 			rw_enter(&dn->dn_struct_rwlock, RW_READER);
 			VERIFY0(dbuf_hold_impl(dn, db->db_level - 1,
-			    i, B_TRUE, FTAG, &subdb));
+			    i, TRUE, FALSE, FTAG, &subdb));
 			rw_exit(&dn->dn_struct_rwlock);
 			ASSERT3P(bp, ==, subdb->db_blkptr);
 
@@ -357,7 +357,7 @@ dnode_sync_free_range_impl(dnode_t *dn, uint64_t blkid, uint64_t nblks,
 				continue;
 			rw_enter(&dn->dn_struct_rwlock, RW_READER);
 			VERIFY0(dbuf_hold_impl(dn, dnlevel - 1, i,
-			    TRUE, FTAG, &db));
+			    TRUE, FALSE, FTAG, &db));
 			rw_exit(&dn->dn_struct_rwlock);
 
 			free_children(db, blkid, nblks, tx);
@@ -424,6 +424,7 @@ dnode_evict_dbufs(dnode_t *dn)
 			db_next = AVL_NEXT(&dn->dn_dbufs, &db_marker);
 			avl_remove(&dn->dn_dbufs, &db_marker);
 		} else {
+			db->db_pending_evict = TRUE;
 			mutex_exit(&db->db_mtx);
 			db_next = AVL_NEXT(&dn->dn_dbufs, db);
 		}
@@ -437,10 +438,14 @@ void
 dnode_evict_bonus(dnode_t *dn)
 {
 	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
-	if (dn->dn_bonus && refcount_is_zero(&dn->dn_bonus->db_holds)) {
-		mutex_enter(&dn->dn_bonus->db_mtx);
-		dbuf_evict(dn->dn_bonus);
-		dn->dn_bonus = NULL;
+	if (dn->dn_bonus != NULL) {
+		if (refcount_is_zero(&dn->dn_bonus->db_holds)) {
+			mutex_enter(&dn->dn_bonus->db_mtx);
+			dbuf_evict(dn->dn_bonus);
+			dn->dn_bonus = NULL;
+		} else {
+			dn->dn_bonus->db_pending_evict = TRUE;
+		}
 	}
 	rw_exit(&dn->dn_struct_rwlock);
 }
@@ -492,7 +497,6 @@ dnode_sync_free(dnode_t *dn, dmu_tx_t *tx)
 
 	dnode_undirty_dbufs(&dn->dn_dirty_records[txgoff]);
 	dnode_evict_dbufs(dn);
-	ASSERT(avl_is_empty(&dn->dn_dbufs));
 
 	/*
 	 * XXX - It would be nice to assert this, but we may still

@@ -863,10 +863,12 @@ PORTSYS=			\
 	chmod.o			\
 	chown.o			\
 	corectl.o		\
+	epoll.o			\
 	exacctsys.o		\
 	execl.o			\
 	execle.o		\
 	execv.o			\
+	eventfd.o		\
 	fcntl.o			\
 	getpagesizes.o		\
 	getpeerucred.o		\
@@ -907,6 +909,7 @@ PORTSYS=			\
 	tasksys.o		\
 	time.o			\
 	time_util.o		\
+	timerfd.o		\
 	ucontext.o		\
 	unlink.o		\
 	ustat.o			\
