@@ -446,8 +446,7 @@ log_internal(nvlist_t *nvl, const char *operation, spa_t *spa,
 		return;
 	}
 
-	msg = kmem_alloc(vsnprintf(NULL, 0, fmt, adx) + 1, KM_SLEEP);
-	(void) vsprintf(msg, fmt, adx);
+	msg = kmem_vasprintf(fmt, adx);
 	fnvlist_add_string(nvl, ZPOOL_HIST_INT_STR, msg);
 	strfree(msg);
 
