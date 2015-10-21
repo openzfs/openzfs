@@ -1450,7 +1450,7 @@ exi_cache_trim(struct exportinfo *exi)
 			 * We are being called by the kmem subsystem to reclaim
 			 * memory so don't block if we can't get the lock.
 			 */
-			if (rw_tryenter(&exi->exi_cache_lock, RW_WRITER) == 0) {
+			if (rw_tryenter(&c->authc_lock, RW_WRITER) == 0) {
 				exi_cache_auth_reclaim_failed++;
 				return;
 			}
