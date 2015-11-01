@@ -3529,15 +3529,26 @@ main(int argc, char **argv)
 	char *target;
 	nvlist_t *policy = NULL;
 	uint64_t max_txg = UINT64_MAX;
+	int flags = ZFS_IMPORT_MISSING_LOG;
 	int rewind = ZPOOL_NEVER_REWIND;
+	char *spa_config_path_env;
+	const char *opts = "bcdhilmMI:suCDRSAFLVXx:evp:t:U:P";
 
 	(void) setrlimit(RLIMIT_NOFILE, &rl);
 	(void) enable_extended_FILE_stdio(-1, -1);
 
 	dprintf_setup(&argc, argv);
 
-	while ((c = getopt(argc, argv,
-	    "bcdhilmMI:suCDRSAFLXx:evp:t:U:P")) != -1) {
+	/*
+	 * If there is an environment variable SPA_CONFIG_PATH it overrides
+	 * default spa_config_path setting. If -U flag is specified it will
+	 * override this environment variable settings once again.
+	 */
+	spa_config_path_env = getenv("SPA_CONFIG_PATH");
+	if (spa_config_path_env != NULL)
+		spa_config_path = spa_config_path_env;
+
+	while ((c = getopt(argc, argv, opts)) != -1) {
 		switch (c) {
 		case 'b':
 		case 'c':
@@ -3598,6 +3609,9 @@ main(int argc, char **argv)
 			break;
 		case 'U':
 			spa_config_path = optarg;
+			break;
+		case 'V':
+			flags = ZFS_IMPORT_VERBATIM;
 			break;
 		case 'v':
 			verbose++;
@@ -3691,11 +3705,7 @@ main(int argc, char **argv)
 				fatal("can't open '%s': %s",
 				    target, strerror(ENOMEM));
 			}
-			if ((error = spa_import(name, cfg, NULL,
-			    ZFS_IMPORT_MISSING_LOG)) != 0) {
-				error = spa_import(name, cfg, NULL,
-				    ZFS_IMPORT_VERBATIM);
-			}
+			error = spa_import(name, cfg, NULL, flags);
 		}
 	}
 
