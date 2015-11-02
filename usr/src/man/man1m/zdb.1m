@@ -32,6 +32,9 @@
     \fIpoolname\fR [\fIvdev\fR [\fImetaslab\fR ...]]
 
 .P
+\fBzdb\fR -o \fIobject_type\fR [-v] [\fIobject_type\fR-specific arguments]
+
+.P
 \fBzdb\fR -R [-A] [-e [-p \fIpath\fR...]] [-U \fIcache\fR] \fIpoolname\fR
     \fIvdev\fR:\fIoffset\fR:\fIsize\fR[:\fIflags\fR]
 
@@ -212,6 +215,18 @@ Display the offset, spacemap, and free space of each metaslab.
 When specified twice, also display information about the maximum contiguous
 free space and the percentage of free space in each space map.  When specified
 three times display every spacemap record.
+.RE
+
+.sp
+.ne 2
+.na
+\fB-o\fR \fIfile\fR|\fIdirectory\fR \fIdataset\fR \fIfilepath\fR
+.ad
+.sp .6
+.RS 4n
+In the \fIdataset\fR, look up the requested \fIfilepath\fR, and display its
+metadata and indirect blocks.  This option can be combined with -v for
+increasing verbosity.
 .RE
 
 .sp
