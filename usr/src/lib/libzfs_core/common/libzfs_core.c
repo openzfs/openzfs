@@ -675,6 +675,8 @@ lzc_receive_with_header(const char *snapname, nvlist_t *props,
     const char *origin, boolean_t force, boolean_t resumable, int fd,
     const struct drr_begin *begin_record)
 {
+	if (begin_record == NULL)
+		return (EINVAL);
 	return (recv_impl(snapname, props, origin, force, resumable, fd,
 	    begin_record));
 }
