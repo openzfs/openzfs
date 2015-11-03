@@ -550,7 +550,7 @@ recv_read(int fd, void *buf, int ilen)
 static int
 recv_impl(const char *snapname, nvlist_t *props, const char *origin,
     boolean_t force, boolean_t resumable, int fd,
-    const struct drr_begin *begin_record)
+    const dmu_replay_record_t *begin_record)
 {
 	/*
 	 * The receive ioctl is still legacy, so we need to construct our own
@@ -601,7 +601,7 @@ recv_impl(const char *snapname, nvlist_t *props, const char *origin,
 		if (error != 0)
 			goto out;
 	} else {
-		zc.zc_begin_record.drr_u.drr_begin = *begin_record;
+		zc.zc_begin_record = *begin_record;
 	}
 
 	/* zc_cookie is fd to read from */
@@ -673,7 +673,7 @@ lzc_receive_resumable(const char *snapname, nvlist_t *props, const char *origin,
 int
 lzc_receive_with_header(const char *snapname, nvlist_t *props,
     const char *origin, boolean_t force, boolean_t resumable, int fd,
-    const struct drr_begin *begin_record)
+    const dmu_replay_record_t *begin_record)
 {
 	if (begin_record == NULL)
 		return (EINVAL);
