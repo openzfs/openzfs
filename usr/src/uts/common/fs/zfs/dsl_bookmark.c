@@ -328,6 +328,43 @@ dsl_get_bookmarks(const char *dsname, nvlist_t *props, nvlist_t *outnvl)
 	return (err);
 }
 
+/*
+ * Retrieve all properties for a single bookmark in the given dataset.
+ */
+int
+dsl_get_bookmark_props(const char *dsname, const char *bmname, nvlist_t *props)
+{
+	dsl_pool_t *dp;
+	dsl_dataset_t *ds;
+	zfs_bookmark_phys_t bmark_phys;
+	int err;
+
+	err = dsl_pool_hold(dsname, FTAG, &dp);
+	if (err != 0)
+		return (err);
+	err = dsl_dataset_hold(dp, dsname, FTAG, &ds);
+	if (err != 0) {
+		dsl_pool_rele(dp, FTAG);
+		return (err);
+	}
+
+	err = dsl_dataset_bmark_lookup(ds, bmname, &bmark_phys);
+	if (err != 0)
+		goto out;
+
+	dsl_prop_nvlist_add_uint64(props, ZFS_PROP_GUID,
+	    bmark_phys.zbm_guid);
+	dsl_prop_nvlist_add_uint64(props, ZFS_PROP_CREATETXG,
+	    bmark_phys.zbm_creation_txg);
+	dsl_prop_nvlist_add_uint64(props, ZFS_PROP_CREATION,
+	    bmark_phys.zbm_creation_time);
+
+out:
+	dsl_dataset_rele(ds, FTAG);
+	dsl_pool_rele(dp, FTAG);
+	return (err);
+}
+
 typedef struct dsl_bookmark_destroy_arg {
 	nvlist_t *dbda_bmarks;
 	nvlist_t *dbda_success;

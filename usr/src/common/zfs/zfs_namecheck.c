@@ -23,7 +23,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -122,7 +122,7 @@ permset_namecheck(const char *path, namecheck_err_t *why, char *what)
 /*
  * Dataset names must be of the following form:
  *
- * 	[component][/]*[component][@component]
+ * 	[component][/]*[component][(@|#)component]
  *
  * Where each component is made up of alphanumeric characters plus the following
  * characters:
@@ -136,7 +136,7 @@ int
 dataset_namecheck(const char *path, namecheck_err_t *why, char *what)
 {
 	const char *loc, *end;
-	int found_snapshot;
+	int found_separator;
 
 	/*
 	 * Make sure the name is not too long.
@@ -162,11 +162,12 @@ dataset_namecheck(const char *path, namecheck_err_t *why, char *what)
 	}
 
 	loc = path;
-	found_snapshot = 0;
+	found_separator = 0;
 	for (;;) {
 		/* Find the end of this component */
 		end = loc;
-		while (*end != '/' && *end != '@' && *end != '\0')
+		while (*end != '/' && *end != '@' && *end != '#' &&
+		    *end != '\0')
 			end++;
 
 		if (*end == '\0' && end[-1] == '/') {
@@ -183,7 +184,8 @@ dataset_namecheck(const char *path, namecheck_err_t *why, char *what)
 				 * Make sure this is really a zero-length
 				 * component and not a '@@'.
 				 */
-				if (*end == '@' && found_snapshot) {
+				if ((*end == '@' || *end == '#') &&
+				    found_separator) {
 					*why = NAME_ERR_MULTIPLE_AT;
 				} else {
 					*why = NAME_ERR_EMPTY_COMPONENT;
@@ -209,26 +211,26 @@ dataset_namecheck(const char *path, namecheck_err_t *why, char *what)
 		if (*end == '\0')
 			return (0);
 
-		if (*end == '@') {
+		if (*end == '@' || *end == '#') {
 			/*
-			 * If we've found an @ symbol, indicate that we're in
-			 * the snapshot component, and report a second '@'
-			 * character as an error.
+			 * If we've found an @ or # symbol, indicate that we're
+			 * in the snapshot/bookmark component, and report a
+			 * second separator character as an error.
 			 */
-			if (found_snapshot) {
+			if (found_separator) {
 				if (why)
 					*why = NAME_ERR_MULTIPLE_AT;
 				return (-1);
 			}
 
-			found_snapshot = 1;
+			found_separator = 1;
 		}
 
 		/*
-		 * If there is a '/' in a snapshot name
+		 * If there is a '/' in a snapshot or bookmark name
 		 * then report an error
 		 */
-		if (*end == '/' && found_snapshot) {
+		if (*end == '/' && found_separator) {
 			if (why)
 				*why = NAME_ERR_TRAILING_SLASH;
 			return (-1);

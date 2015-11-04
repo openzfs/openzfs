@@ -3561,6 +3561,33 @@ zfs_ioc_get_bookmarks(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 }
 
 /*
+ * innvl is not used.
+ *
+ * outnvl: {
+ *     property 1, property 2, ...
+ * }
+ *
+ */
+/* ARGSUSED */
+static int
+zfs_ioc_get_bookmark_props(const char *bookmark, nvlist_t *innvl,
+    nvlist_t *outnvl)
+{
+	char fsname[MAXNAMELEN];
+	char *bmname;
+
+	bmname = strchr(bookmark, '#');
+	if (bmname == NULL)
+		return (EINVAL);
+	bmname++;
+
+	(void) strlcpy(fsname, bookmark, sizeof (fsname));
+	*(strchr(fsname, '#')) = '\0';
+
+	return (dsl_get_bookmark_props(fsname, bmname, outnvl));
+}
+
+/*
  * innvl: {
  *     bookmark name 1, bookmark name 2
  * }
@@ -5694,6 +5721,10 @@ zfs_ioctl_init(void)
 
 	zfs_ioctl_register("get_bookmarks", ZFS_IOC_GET_BOOKMARKS,
 	    zfs_ioc_get_bookmarks, zfs_secpolicy_read, DATASET_NAME,
+	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
+
+	zfs_ioctl_register("get_bookmark_props", ZFS_IOC_GET_BOOKMARK_PROPS,
+	    zfs_ioc_get_bookmark_props, zfs_secpolicy_read, DATASET_NAME,
 	    POOL_CHECK_SUSPENDED, B_FALSE, B_FALSE);
 
 	zfs_ioctl_register("destroy_bookmarks", ZFS_IOC_DESTROY_BOOKMARKS,

@@ -48,6 +48,7 @@ SYMBOL_VERSION ILLUMOS_0.1 {
 	lzc_destroy_snaps;
 	lzc_exists;
 	lzc_get_bookmarks;
+	lzc_get_bookmark_props;
 	lzc_get_holds;
 	lzc_hold;
 	lzc_receive;

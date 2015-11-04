@@ -766,6 +766,25 @@ lzc_get_bookmarks(const char *fsname, nvlist_t *props, nvlist_t **bmarks)
 }
 
 /*
+ * Get bookmark properties.
+ *
+ * Given a bookmark's full name, retrieve all properties for the bookmark.
+ *
+ * The format of the returned property list is identical to lzc_get_bookmarks.
+ */
+int
+lzc_get_bookmark_props(const char *bookmark, nvlist_t **props)
+{
+	int error;
+
+	nvlist_t *innvl = fnvlist_alloc();
+	error = lzc_ioctl(ZFS_IOC_GET_BOOKMARK_PROPS, bookmark, innvl, props);
+	fnvlist_free(innvl);
+
+	return (error);
+}
+
+/*
  * Destroys bookmarks.
  *
  * The keys in the bmarks nvlist are the bookmarks to be destroyed.
