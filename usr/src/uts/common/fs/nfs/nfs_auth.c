@@ -1452,6 +1452,7 @@ exi_cache_trim(struct exportinfo *exi)
 			 */
 			if (rw_tryenter(&c->authc_lock, RW_WRITER) == 0) {
 				exi_cache_auth_reclaim_failed++;
+				rw_exit(&exi->exi_cache_lock);
 				return;
 			}
 
