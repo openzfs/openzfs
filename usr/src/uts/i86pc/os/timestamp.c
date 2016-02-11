@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  *
  * Copyright 2012 Nexenta Systems, Inc. All rights reserved.
- * Copyright (c) 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2014, 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/types.h>
@@ -138,15 +138,6 @@ static volatile int tsc_sync_go;
 	(hrt) += mul32(_l[0], scale) >> (32 - NSEC_SHIFT); \
 }
 
-#define	TSC_PROTECT(_a) do {\
-	if (_a > tsc_resume_cap) { \
-		atomic_inc_32(&tsc_wayback); \
-		DTRACE_PROBE3(tsc__wayback, htrime_t, _a, hrtime_t, tsc_last, \
-		    uint32_t, tsc_wayback); \
-		_a = tsc_resume_cap; \
-	} \
-_NOTE(CONSTCOND) } while(0)
-
 int tsc_master_slave_sync_needed = 1;
 
 static int	tsc_max_delta;
@@ -162,15 +153,31 @@ static hrtime_t	tsc_last = 0;
 static hrtime_t	tsc_last_jumped = 0;
 static hrtime_t	tsc_hrtime_base = 0;
 static int	tsc_jumped = 0;
-static hrtime_t tsc_resume_cap;
-static hrtime_t tsc_resume_cap_ns = 1000000000;	 /* 1s */
 static uint32_t	tsc_wayback = 0;
+/*
+ * The cap of 1 second was chosen since it is the frequency at which the
+ * tsc_tick() function runs which means that when gethrtime() is called it
+ * should never be more than 1 second since tsc_last was updated.
+ */
+static hrtime_t tsc_resume_cap;
+static hrtime_t tsc_resume_cap_ns = NANOSEC;	 /* 1s */
 
 static hrtime_t	shadow_tsc_hrtime_base;
 static hrtime_t	shadow_tsc_last;
 static uint_t	shadow_nsec_scale;
 static uint32_t	shadow_hres_lock;
 int get_tsc_ready();
+
+static inline
+hrtime_t tsc_protect(hrtime_t a) {
+	if (a > tsc_resume_cap) {
+		atomic_inc_32(&tsc_wayback);
+		DTRACE_PROBE3(tsc__wayback, htrime_t, a, hrtime_t, tsc_last,
+		    uint32_t, tsc_wayback);
+		return (tsc_resume_cap);
+	}
+	return (a);
+}
 
 hrtime_t
 tsc_gethrtime(void)
@@ -208,16 +215,12 @@ tsc_gethrtime(void)
 			 *
 			 * In rare cases we can reach this else clause due to
 			 * a lack of monotonicity in the TSC value.  In such
-			 * cases using the current TSC value as the delta will
-			 * cause us to reutrn a value ~2x of what it should
+			 * cases using the current TSC value as the delta would
+			 * cause us to return a value ~2x of what it should
 			 * be.  To protect against these cases we cap the
-			 * suspend/resume delta at 1 second.  The cap of 1
-			 * second was chosen since it is the frequency at
-			 * which the tsc_tick() function runs which means that
-			 * when gethrtime() is called it should never be more
-			 * than 1 second since tsc_last was updated.
+			 * suspend/resume delta at tsc_resume_cap.
 			 */
-			TSC_PROTECT(tsc);
+			tsc = tsc_protect(tsc);
 		}
 
 		hrt = tsc_hrtime_base;
@@ -259,7 +262,7 @@ tsc_gethrtime_delta(void)
 		} else if (tsc >= tsc_last - 2 * tsc_max_delta) {
 			tsc = 0;
 		} else {
-			TSC_PROTECT(tsc);
+			tsc = tsc_protect(tsc);
 		}
 
 		hrt = tsc_hrtime_base;
@@ -320,7 +323,7 @@ dtrace_gethrtime(void)
 		else if (tsc >= tsc_last - 2*tsc_max_delta)
 			tsc = 0;
 		else
-			TSC_PROTECT(tsc);
+			tsc = tsc_protect(tsc);
 
 		hrt = tsc_hrtime_base;
 
@@ -369,7 +372,7 @@ dtrace_gethrtime(void)
 		else if (tsc >= shadow_tsc_last - 2 * tsc_max_delta)
 			tsc = 0;
 		else
-			TSC_PROTECT(tsc);
+			tsc = tsc_protect(tsc);
 
 		hrt = shadow_tsc_hrtime_base;
 
@@ -636,7 +639,7 @@ tsc_tick(void)
 		 * resume (i.e nsec_scale remains the same).
 		 */
 		delta = now;
-		TSC_PROTECT(delta);
+		delta = tsc_protect(delta);
 		tsc_last_jumped += tsc_last;
 		tsc_jumped = 1;
 	} else {
