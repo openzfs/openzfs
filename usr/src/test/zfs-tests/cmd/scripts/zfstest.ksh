@@ -29,7 +29,7 @@ function fail
 
 function find_disks
 {
-	typeset all_disks=$(echo '' | sudo /usr/sbin/format | awk \
+	typeset all_disks=$(echo '' | sudo -k /usr/sbin/format | awk \
 	    '/c[0-9]/ {print $2}')
 	typeset used_disks=$(/sbin/zpool status | awk \
 	    '/c[0-9]*t[0-9a-f]*d[0-9]/ {print $1}' | sed 's/s[0-9]//g')
@@ -70,7 +70,7 @@ function verify_id
 {
 	[[ $(id -u) = "0" ]] && fail "This script must not be run as root."
 
-	sudo -n id >/dev/null 2>&1
+	sudo -k -n id >/dev/null 2>&1
 	[[ $? -eq 0 ]] || fail "User must be able to sudo without a password."
 }
 
@@ -78,7 +78,7 @@ function verify_disks
 {
 	typeset disk
 	for disk in $DISKS; do
-		sudo /usr/sbin/prtvtoc /dev/rdsk/${disk}s0 >/dev/null 2>&1
+		sudo -k /usr/sbin/prtvtoc /dev/rdsk/${disk}s0 >/dev/null 2>&1
 		[[ $? -eq 0 ]] || return 1
 	done
 	return 0
