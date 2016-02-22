@@ -15,7 +15,7 @@
 #
 
 #
-# Copyright (c) 2015 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -55,18 +55,22 @@ vdev=$(mktemp /var/tmp/file.XXXXXX)
 test_pool ()
 {
 	POOL=$1
-	log_must $ZFS create -o recordsize=8k $POOL/fs
+	log_must $ZFS create -o recordsize=512 $POOL/fs
 	mntpnt=$(get_prop mountpoint "$POOL/fs")
-	for (( i=0; i<4000; i=i+1 )); do
-		$DD if=/dev/urandom of=${mntpnt}/$i bs=8k count=1 2>/dev/null
-	done
+	log_must $DD if=/dev/urandom of=${mntpnt}/file bs=512 count=1 2>/dev/null
+	first_object=$(ls -i $mntpnt | awk '{print $1}')
 	log_must $ZFS snapshot $POOL/fs@a
-	log_must $FIND $mntpnt -delete
-	sync
-	for (( i=0; i<100; i=i+1 )); do
-		$DD if=/dev/urandom of=${mntpnt}/$i bs=8k count=1 oseek=1 \
-		    2>/dev/null
+	while true; do
+		log_must $FIND $mntpnt -delete
+		sync
+		log_must $MKFILES "$mntpnt/" 4000
+		FILE=$(ls -i $mntpnt | awk \
+			'{if ($1 == '$first_object') {print $2}}')
+		if [[ -n "$FILE" ]]; then
+			break
+		fi
 	done
+	$DD if=/dev/urandom of=${mntpnt}/$FILE bs=512 count=1 seek=1 2>/dev/null
 
 	log_must $ZFS snapshot $POOL/fs@b
 
@@ -77,7 +81,7 @@ test_pool ()
 	$CAT $streamfile | log_must $ZFS receive $POOL/recvfs
 
 	recv_mntpnt=$(get_prop mountpoint "$POOL/recvfs")
-	$DIFF -r $mntpnt $recv_mntpnt
+	log_must $DIFF -r $mntpnt $recv_mntpnt
 	log_must $ZFS destroy -rf $POOL/fs
 	log_must $ZFS destroy -rf $POOL/recvfs
 }

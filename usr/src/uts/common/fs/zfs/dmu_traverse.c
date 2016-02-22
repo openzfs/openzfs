@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 #include <sys/zfs_context.h>
@@ -230,8 +230,7 @@ traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,
 		ASSERT(0);
 	}
 
-	if (bp->blk_birth == 0 && (!td->td_realloc_possible ||
-	    zb->zb_object == DMU_META_DNODE_OBJECT)) {
+	if (bp->blk_birth == 0) {
 		/*
 		 * Since this block has a birth time of 0 it must be one of two
 		 * things: a hole created before the SPA_FEATURE_HOLE_BIRTH
@@ -254,7 +253,9 @@ traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,
 		 * Note that the meta-dnode cannot be reallocated, so we needn't
 		 * worry about that case.
 		 */
-		if (td->td_hole_birth_enabled_txg <= td->td_min_txg)
+		if ((!td->td_realloc_possible ||
+		    zb->zb_object == DMU_META_DNODE_OBJECT) &&
+		    td->td_hole_birth_enabled_txg <= td->td_min_txg)
 			return (0);
 	} else if (bp->blk_birth <= td->td_min_txg) {
 		return (0);
