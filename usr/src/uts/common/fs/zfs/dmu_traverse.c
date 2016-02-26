@@ -245,10 +245,10 @@ traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,
 		 * been recreated. Thus, we cannot skip the block if it is
 		 * possible the object has been recreated. If it isn't, then if
 		 * SPA_FEATURE_HOLE_BIRTH was enabled before the min_txg for
-		 * this traveral we know the hole must have been created before
-		 * the min_txg for this traveral, so we can skip it. If
+		 * this traversal we know the hole must have been created before
+		 * the min_txg for this traversal, so we can skip it. If
 		 * SPA_FEATURE_HOLE_BIRTH was enabled after the min_txg for this
-		 * traveral we cannot tell if the hole was created before or
+		 * traversal we cannot tell if the hole was created before or
 		 * after the min_txg for this traversal, so we cannot skip it.
 		 * Note that the meta-dnode cannot be reallocated, so we needn't
 		 * worry about that case.

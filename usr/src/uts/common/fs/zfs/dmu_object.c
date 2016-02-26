@@ -54,8 +54,8 @@ dmu_object_alloc(objset_t *os, dmu_object_type_t ot, int blocksize,
 		 * Note that dmu_traverse depends on the behavior that we use
 		 * multiple blocks of the dnode object before going back to
 		 * reuse objects.  Any change to this algorithm should preserve
-		 * that property or find another solution to the issues described
-		 * in traverse_visitbp.
+		 * that property or find another solution to the issues
+		 * described in traverse_visitbp.
 		 */
 		if (P2PHASE(object, L2_dnode_count) == 0) {
 			uint64_t offset = restarted ? object << DNODE_SHIFT : 0;
