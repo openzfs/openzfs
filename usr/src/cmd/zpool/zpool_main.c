@@ -472,6 +472,21 @@ add_prop_list(const char *propname, char *propval, nvlist_t **props,
 }
 
 /*
+ * Set a default property pair (name, string-value) in a property nvlist
+ */
+static int
+add_prop_list_default(const char *propname, char *propval, nvlist_t **props,
+    boolean_t poolprop)
+{
+	char *pval;
+
+	if (nvlist_lookup_string(*props, propname, &pval) == 0)
+		return (0);
+
+	return (add_prop_list(propname, propval, props, B_TRUE));
+}
+
+/*
  * zpool add [-fn] <pool> <vdev> ...
  *
  *	-f	Force addition of devices, even if they appear in use
@@ -647,6 +662,7 @@ zpool_do_create(int argc, char **argv)
 	int c;
 	nvlist_t *nvroot = NULL;
 	char *poolname;
+	char *tname = NULL;
 	int ret = 1;
 	char *altroot = NULL;
 	char *mountpoint = NULL;
@@ -655,7 +671,7 @@ zpool_do_create(int argc, char **argv)
 	char *propval;
 
 	/* check options */
-	while ((c = getopt(argc, argv, ":fndR:m:o:O:")) != -1) {
+	while ((c = getopt(argc, argv, ":fndR:m:o:O:t:")) != -1) {
 		switch (c) {
 		case 'f':
 			force = B_TRUE;
@@ -671,11 +687,7 @@ zpool_do_create(int argc, char **argv)
 			if (add_prop_list(zpool_prop_to_name(
 			    ZPOOL_PROP_ALTROOT), optarg, &props, B_TRUE))
 				goto errout;
-			if (nvlist_lookup_string(props,
-			    zpool_prop_to_name(ZPOOL_PROP_CACHEFILE),
-			    &propval) == 0)
-				break;
-			if (add_prop_list(zpool_prop_to_name(
+			if (add_prop_list_default(zpool_prop_to_name(
 			    ZPOOL_PROP_CACHEFILE), "none", &props, B_TRUE))
 				goto errout;
 			break;
@@ -733,6 +745,27 @@ zpool_do_create(int argc, char **argv)
 			    B_FALSE)) {
 				goto errout;
 			}
+			break;
+		case 't':
+			/*
+			 * Sanity check temporary pool name.
+			 */
+			if (strchr(optarg, '/') != NULL) {
+				(void) fprintf(stderr, gettext("cannot create "
+				    "'%s': invalid character '/' in temporary "
+				    "name\n"), optarg);
+				(void) fprintf(stderr, gettext("use 'zfs "
+				    "create' to create a dataset\n"));
+				goto errout;
+			}
+
+			if (add_prop_list(zpool_prop_to_name(
+			    ZPOOL_PROP_TNAME), optarg, &props, B_TRUE))
+				goto errout;
+			if (add_prop_list_default(zpool_prop_to_name(
+			    ZPOOL_PROP_CACHEFILE), "none", &props, B_TRUE))
+				goto errout;
+			tname = optarg;
 			break;
 		case ':':
 			(void) fprintf(stderr, gettext("missing argument for "
@@ -905,8 +938,8 @@ zpool_do_create(int argc, char **argv)
 		ret = 1;
 		if (zpool_create(g_zfs, poolname,
 		    nvroot, props, fsprops) == 0) {
-			zfs_handle_t *pool = zfs_open(g_zfs, poolname,
-			    ZFS_TYPE_FILESYSTEM);
+			zfs_handle_t *pool = zfs_open(g_zfs,
+			    tname ? tname : poolname, ZFS_TYPE_FILESYSTEM);
 			if (pool != NULL) {
 				if (zfs_mount(pool, NULL, 0) == 0)
 					ret = zfs_shareall(pool);
@@ -1827,7 +1860,7 @@ zpool_do_import(int argc, char **argv)
 	char *endptr;
 
 	/* check options */
-	while ((c = getopt(argc, argv, ":aCc:d:DEfFmnNo:rR:T:VX")) != -1) {
+	while ((c = getopt(argc, argv, ":aCc:d:DEfFmnNo:R:tT:VX")) != -1) {
 		switch (c) {
 		case 'a':
 			do_all = B_TRUE;
@@ -1881,14 +1914,17 @@ zpool_do_import(int argc, char **argv)
 			if (add_prop_list(zpool_prop_to_name(
 			    ZPOOL_PROP_ALTROOT), optarg, &props, B_TRUE))
 				goto error;
-			if (nvlist_lookup_string(props,
-			    zpool_prop_to_name(ZPOOL_PROP_CACHEFILE),
-			    &propval) == 0)
-				break;
-			if (add_prop_list(zpool_prop_to_name(
+			if (add_prop_list_default(zpool_prop_to_name(
 			    ZPOOL_PROP_CACHEFILE), "none", &props, B_TRUE))
 				goto error;
 			break;
+		case 't':
+			flags |= ZFS_IMPORT_TEMP_NAME;
+			if (add_prop_list_default(zpool_prop_to_name(
+			    ZPOOL_PROP_CACHEFILE), "none", &props, B_TRUE))
+				goto error;
+			break;
+
 		case 'T':
 			errno = 0;
 			txg = strtoull(optarg, &endptr, 0);
