@@ -232,26 +232,26 @@ traverse_visitbp(traverse_data_t *td, const dnode_phys_t *dnp,
 
 	if (bp->blk_birth == 0) {
 		/*
-		 * Since this block has a birth time of 0 it must be one of two
-		 * things: a hole created before the SPA_FEATURE_HOLE_BIRTH
-		 * feature was enabled, or a hole which has always been a hole
-		 * in an object.  This occurs when an object is created and then
-		 * a write is performed that leaves part of the file as zeroes.
-		 * Normally we don't care about this case, but if this object
-		 * has the same object number as an object that has been
-		 * destroyed, callers of dmu_traverse may not be able to tell
-		 * that the object has been recreated.  Thus, we must give them
-		 * all of the holes with birth == 0 in any objects that may have
-		 * been recreated. Thus, we cannot skip the block if it is
-		 * possible the object has been recreated. If it isn't, then if
-		 * SPA_FEATURE_HOLE_BIRTH was enabled before the min_txg for
-		 * this traversal we know the hole must have been created before
-		 * the min_txg for this traversal, so we can skip it. If
-		 * SPA_FEATURE_HOLE_BIRTH was enabled after the min_txg for this
-		 * traversal we cannot tell if the hole was created before or
-		 * after the min_txg for this traversal, so we cannot skip it.
-		 * Note that the meta-dnode cannot be reallocated, so we needn't
-		 * worry about that case.
+		 * Since this block has a birth time of 0 it must be one of
+		 * two things: a hole created before the
+		 * SPA_FEATURE_HOLE_BIRTH feature was enabled, or a hole
+		 * which has always been a hole in an object.
+		 *
+		 * If a file is written sparsely, then the unwritten parts of
+		 * the file were "always holes" -- that is, they have been
+		 * holes since this object was allocated.  However, we (and
+		 * our callers) can not necessarily tell when an object was
+		 * allocated.  Therefore, if it's possible that this object
+		 * was freed and then its object number reused, we need to
+		 * visit all the holes with birth==0.
+		 *
+		 * If it isn't possible that the object number was reused,
+		 * then if SPA_FEATURE_HOLE_BIRTH was enabled before we wrote
+		 * all the blocks we will visit as part of this traversal,
+		 * then this hole must have always existed, so we can skip
+		 * it.  We visit blocks born after (exclusive) td_min_txg.
+		 *
+		 * Note that the meta-dnode cannot be reallocated.
 		 */
 		if ((!td->td_realloc_possible ||
 		    zb->zb_object == DMU_META_DNODE_OBJECT) &&
