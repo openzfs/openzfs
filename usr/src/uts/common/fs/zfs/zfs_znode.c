@@ -60,6 +60,7 @@
 
 #include <sys/dmu.h>
 #include <sys/dmu_objset.h>
+#include <sys/dmu_tx.h>
 #include <sys/refcount.h>
 #include <sys/stat.h>
 #include <sys/zap.h>
@@ -772,6 +773,7 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 	timestruc_t	now;
 	uint64_t	gen, obj;
 	int		bonuslen;
+	int		dnodesize;
 	sa_handle_t	*sa_hdl;
 	dmu_object_type_t obj_type;
 	sa_bulk_attr_t	sa_attrs[ZPL_END];
@@ -784,15 +786,21 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 		obj = vap->va_nodeid;
 		now = vap->va_ctime;		/* see zfs_replay_create() */
 		gen = vap->va_nblocks;		/* ditto */
+		dnodesize = vap->va_fsid;	/* ditto */
 	} else {
 		obj = 0;
 		gethrestime(&now);
 		gen = dmu_tx_get_txg(tx);
+		dnodesize = dmu_objset_dnodesize(zfsvfs->z_os);
 	}
 
+	if (dnodesize == 0)
+		dnodesize = DNODE_MIN_SIZE;
+
 	obj_type = zfsvfs->z_use_sa ? DMU_OT_SA : DMU_OT_ZNODE;
+
 	bonuslen = (obj_type == DMU_OT_SA) ?
-	    DN_MAX_BONUSLEN : ZFS_OLD_ZNODE_PHYS_SIZE;
+	    DN_BONUS_SIZE(dnodesize) : ZFS_OLD_ZNODE_PHYS_SIZE;
 
 	/*
 	 * Create a new DMU object.
@@ -805,23 +813,23 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 	 */
 	if (vap->va_type == VDIR) {
 		if (zfsvfs->z_replay) {
-			VERIFY0(zap_create_claim_norm(zfsvfs->z_os, obj,
+			VERIFY0(zap_create_claim_norm_dnsize(zfsvfs->z_os, obj,
 			    zfsvfs->z_norm, DMU_OT_DIRECTORY_CONTENTS,
-			    obj_type, bonuslen, tx));
+			    obj_type, bonuslen, dnodesize, tx));
 		} else {
-			obj = zap_create_norm(zfsvfs->z_os,
+			obj = zap_create_norm_dnsize(zfsvfs->z_os,
 			    zfsvfs->z_norm, DMU_OT_DIRECTORY_CONTENTS,
-			    obj_type, bonuslen, tx);
+			    obj_type, bonuslen, dnodesize, tx);
 		}
 	} else {
 		if (zfsvfs->z_replay) {
-			VERIFY0(dmu_object_claim(zfsvfs->z_os, obj,
+			VERIFY0(dmu_object_claim_dnsize(zfsvfs->z_os, obj,
 			    DMU_OT_PLAIN_FILE_CONTENTS, 0,
-			    obj_type, bonuslen, tx));
+			    obj_type, bonuslen, dnodesize, tx));
 		} else {
-			obj = dmu_object_alloc(zfsvfs->z_os,
+			obj = dmu_object_alloc_dnsize(zfsvfs->z_os,
 			    DMU_OT_PLAIN_FILE_CONTENTS, 0,
-			    obj_type, bonuslen, tx);
+			    obj_type, bonuslen, dnodesize, tx);
 		}
 	}
 
@@ -992,6 +1000,7 @@ zfs_mknode(znode_t *dzp, vattr_t *vap, dmu_tx_t *tx, cred_t *cr,
 
 	(*zpp)->z_pflags = pflags;
 	(*zpp)->z_mode = mode;
+	(*zpp)->z_dnodesize = dnodesize;
 
 	if (vap->va_mask & AT_XVATTR)
 		zfs_xvattr_set(*zpp, (xvattr_t *)vap, tx);
@@ -1748,6 +1757,14 @@ zfs_create_fs(objset_t *os, cred_t *cr, nvlist_t *zplprops, dmu_tx_t *tx)
 	error = zap_create_claim(os, moid, DMU_OT_MASTER_NODE,
 	    DMU_OT_NONE, 0, tx);
 	ASSERT(error == 0);
+
+	/*
+	 * Give dmu_object_alloc() a hint about where to start
+	 * allocating new objects. Otherwise, since the metadnode's
+	 * dnode_phys_t structure isn't initialized yet, dmu_object_next()
+	 * would fail and we'd have to skip to the next dnode block.
+	 */
+	os->os_obj_next = moid + 1;
 
 	/*
 	 * Set starting attributes.

@@ -1090,6 +1090,37 @@ option.
 Controls whether device nodes can be opened on this file system.
 The default value is
 .Sy on .
+.It Xo dnodesize Ns = Ns Sy legacy Ns | Ns Sy auto Ns | Ns Sy 1k Ns | Ns
+.Sy 2k Ns | Ns Sy 4k Ns | Ns Sy 8k Ns | Ns Sy 16k
+.Xc
+Specifies a compatibility mode or literal value for the size of dnodes
+in the file system.
+The default value is
+.Sy legacy .
+Setting this
+property to a value other than
+.Sy legacy
+requires the
+.Sy large_dnode
+pool feature to be enabled.
+.Pp
+Literal values are supported for cases where the optimal size is known in
+advance and for performance testing.
+.Pp
+Leave
+.Sy dnodesize
+set to
+.Sy legacy
+if you need to receive a
+.Sy zfs send
+stream of this dataset on a pool that doesn't enable the
+.Sy large_dnode
+feature, or if you need to import this pool on a system that doesn't support the
+.Sy large_dnode
+feature.
+.Pp
+This property can also be referred to by its shortened column name,
+.Sy dnsize .
 .It Sy exec Ns = Ns Sy on Ns | Ns Sy off
 Controls whether processes can be executed from within this file system.
 The default value is

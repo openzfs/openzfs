@@ -275,4 +275,15 @@ zpool_feature_init(void)
 	    "org.illumos:edonr", "edonr",
 	    "Edon-R hash algorithm.",
 	    ZFEATURE_FLAG_PER_DATASET, edonr_deps);
+
+	{
+	static const spa_feature_t large_dnode_deps[] = {
+		SPA_FEATURE_EXTENSIBLE_DATASET,
+		SPA_FEATURE_NONE
+	};
+	zfeature_register(SPA_FEATURE_LARGE_DNODE,
+	    "org.zfsonlinux:large_dnode", "large_dnode",
+	    "Variable on-disk size of dnodes.",
+	    ZFEATURE_FLAG_PER_DATASET, large_dnode_deps);
+	}
 }

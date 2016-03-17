@@ -2064,3 +2064,11 @@ spa_maxblocksize(spa_t *spa)
 	else
 		return (SPA_OLD_MAXBLOCKSIZE);
 }
+int
+spa_maxdnodesize(spa_t *spa)
+{
+	if (spa_feature_is_enabled(spa, SPA_FEATURE_LARGE_DNODE))
+		return (DNODE_MAX_SIZE);
+	else
+		return (DNODE_MIN_SIZE);
+}
