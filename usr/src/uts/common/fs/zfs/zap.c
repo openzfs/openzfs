@@ -277,8 +277,10 @@ zap_table_load(zap_t *zap, zap_table_phys_t *tbl, uint64_t idx, uint64_t *valp)
 	blk = idx >> (bs-3);
 	off = idx & ((1<<(bs-3))-1);
 
-	err = dmu_buf_hold(zap->zap_objset, zap->zap_object,
+	dnode_t *dn = dmu_buf_get_dnode(zap->zap_dbuf);
+	err = dmu_buf_hold_by_dnode(dn,
 	    (tbl->zt_blk + blk) << bs, FTAG, &db, DMU_READ_NO_PREFETCH);
+	dmu_buf_put_dnode(zap->zap_dbuf);
 	if (err)
 		return (err);
 	*valp = ((uint64_t *)db->db_data)[off];
@@ -292,9 +294,11 @@ zap_table_load(zap_t *zap, zap_table_phys_t *tbl, uint64_t idx, uint64_t *valp)
 		 */
 		blk = (idx*2) >> (bs-3);
 
-		err = dmu_buf_hold(zap->zap_objset, zap->zap_object,
+		dnode_t *dn = dmu_buf_get_dnode(zap->zap_dbuf);
+		err = dmu_buf_hold_by_dnode(dn,
 		    (tbl->zt_nextblk + blk) << bs, FTAG, &db,
 		    DMU_READ_NO_PREFETCH);
+		dmu_buf_put_dnode(zap->zap_dbuf);
 		if (err == 0)
 			dmu_buf_rele(db, FTAG);
 	}
@@ -505,8 +509,10 @@ zap_get_leaf_byblk(zap_t *zap, uint64_t blkid, dmu_tx_t *tx, krw_t lt,
 
 	ASSERT(RW_LOCK_HELD(&zap->zap_rwlock));
 
-	err = dmu_buf_hold(zap->zap_objset, zap->zap_object,
+	dnode_t *dn = dmu_buf_get_dnode(zap->zap_dbuf);
+	err = dmu_buf_hold_by_dnode(dn,
 	    blkid << bs, NULL, &db, DMU_READ_NO_PREFETCH);
+	dmu_buf_put_dnode(zap->zap_dbuf);
 	if (err)
 		return (err);
 
