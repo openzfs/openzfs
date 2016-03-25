@@ -307,12 +307,12 @@ void dnode_evict_bonus(dnode_t *dn);
 
 #define	DNODE_IS_CACHEABLE(_dn)						\
 	((_dn)->dn_objset->os_primary_cache == ZFS_CACHE_ALL ||		\
-	 (DMU_OT_IS_METADATA((_dn)->dn_type) &&				\
-	  (_dn)->dn_objset->os_primary_cache == ZFS_CACHE_METADATA))
+	(DMU_OT_IS_METADATA((_dn)->dn_type) &&				\
+	(_dn)->dn_objset->os_primary_cache == ZFS_CACHE_METADATA))
 
 #define	DNODE_META_IS_CACHEABLE(_dn)					\
 	((_dn)->dn_objset->os_primary_cache == ZFS_CACHE_ALL ||		\
-	 (_dn)->dn_objset->os_primary_cache == ZFS_CACHE_METADATA)
+	(_dn)->dn_objset->os_primary_cache == ZFS_CACHE_METADATA)
 
 #ifdef ZFS_DEBUG
 
