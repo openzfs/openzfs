@@ -2136,7 +2136,7 @@ dump_label(const char *dev)
 	if (strncmp(dev, ZFS_DISK_ROOTD, strlen(ZFS_DISK_ROOTD)) == 0) {
 		len++;
 		path = malloc(len);
-		(void) snprintf(path, len, ZFS_DISK_ROOTD "%s",
+		(void) snprintf(path, len, "%s%s", ZFS_RDISK_ROOTD,
 		    dev + strlen(ZFS_DISK_ROOTD));
 	} else {
 		path = strdup(dev);

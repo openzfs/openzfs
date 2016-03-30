@@ -21,11 +21,11 @@
 
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright 2011 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2012 by Frederik Wessels. All rights reserved.
  * Copyright (c) 2013 by Prasad Joshi (sTec). All rights reserved.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>.
+ * Copyright 2016 Nexenta Systems, Inc.
  */
 
 #include <assert.h>
@@ -624,7 +624,10 @@ zpool_do_remove(int argc, char **argv)
 }
 
 /*
- * zpool labelclear <vdev>
+ * zpool labelclear [-f] <vdev>
+ *
+ *	-f	Force clearing the label for the vdevs which are members of
+ *		the exported or foreign pools.
  *
  * Verifies that the vdev is not active and zeros out the label information
  * on the device.
@@ -632,9 +635,11 @@ zpool_do_remove(int argc, char **argv)
 int
 zpool_do_labelclear(int argc, char **argv)
 {
-	char *vdev, *name = NULL;
+	char vdev[MAXPATHLEN];
+	char *name = NULL;
 	struct stat st;
-	int c, fd = -1, ret = 0;
+	int c, fd, ret = 0;
+	nvlist_t *config;
 	pool_state_t state;
 	boolean_t inuse = B_FALSE;
 	boolean_t force = B_FALSE;
@@ -657,101 +662,106 @@ zpool_do_labelclear(int argc, char **argv)
 
 	/* get vdev name */
 	if (argc < 1) {
-		(void) fprintf(stderr, gettext("missing vdev device name\n"));
+		(void) fprintf(stderr, gettext("missing vdev name\n"));
+		usage(B_FALSE);
+	}
+	if (argc > 1) {
+		(void) fprintf(stderr, gettext("too many arguments\n"));
 		usage(B_FALSE);
 	}
 
-	/* Allow bare paths if they exist, otherwise prepend. */
-	if (stat(argv[0], &st) != 0 &&
-	    strncmp(argv[0], ZFS_DISK_ROOTD, strlen(ZFS_DISK_ROOTD)) != 0)
-		ret = asprintf(&vdev, ZFS_DISK_ROOTD "%s", argv[0]);
-	else
-		ret = asprintf(&vdev, "%s", argv[0]);
+	/*
+	 * Check if we were given absolute path and use it as is.
+	 * Otherwise if the provided vdev name doesn't point to a file,
+	 * try prepending dsk path and appending s0.
+	 */
+	(void) strlcpy(vdev, argv[0], sizeof (vdev));
+	if (vdev[0] != '/' && stat(vdev, &st) != 0) {
+		char *s;
 
-	if (ret < 0) {
-		perror("asprintf");
-		return (ret);
+		(void) snprintf(vdev, sizeof (vdev), "%s/%s",
+		    ZFS_DISK_ROOT, argv[0]);
+		if ((s = strrchr(argv[0], 's')) == NULL ||
+		    !isdigit(*(s + 1)))
+			(void) strlcat(vdev, "s0", sizeof (vdev));
+		if (stat(vdev, &st) != 0) {
+			(void) fprintf(stderr, gettext(
+			    "failed to find device %s, try specifying absolute "
+			    "path instead\n"), argv[0]);
+			return (1);
+		}
 	}
 
 	if ((fd = open(vdev, O_RDWR)) < 0) {
-		ret = errno;
-		(void) fprintf(stderr,
-		    gettext("Unable to open %s: %s\n"), vdev, strerror(errno));
-		goto errout;
+		(void) fprintf(stderr, gettext("failed to open %s: %s\n"),
+		    vdev, strerror(errno));
+		return (1);
 	}
+
+	if (zpool_read_label(fd, &config) != 0 || config == NULL) {
+		(void) fprintf(stderr,
+		    gettext("failed to read label from %s\n"), vdev);
+		return (1);
+	}
+	nvlist_free(config);
 
 	ret = zpool_in_use(g_zfs, fd, &state, &name, &inuse);
 	if (ret != 0) {
-		if (force)
-			goto wipe_label;
-
 		(void) fprintf(stderr,
-		    gettext("Unable to determine pool state for %s\n"
-		    "Use -f to force the clearing any label data\n"), vdev);
-		goto errout;
+		    gettext("failed to check state for %s\n"), vdev);
+		return (1);
 	}
 
-	if (inuse) {
-		switch (state) {
-		default:
-		case POOL_STATE_ACTIVE:
-		case POOL_STATE_SPARE:
-		case POOL_STATE_L2CACHE:
-			(void) fprintf(stderr,
-gettext("labelclear operation failed.\n"
-	"\tVdev %s is a member (%s), of pool \"%s\".\n"
-	"\tTo remove label information from this device, export or destroy\n"
-	"\tthe pool, or remove %s from the configuration of this pool\n"
-	"\tand retry the labelclear operation\n"),
-			    vdev, zpool_pool_state_to_name(state), name, vdev);
-			ret = 1;
-			goto errout;
+	if (!inuse)
+		goto wipe_label;
 
-		case POOL_STATE_EXPORTED:
-			if (force)
-				break;
+	switch (state) {
+	default:
+	case POOL_STATE_ACTIVE:
+	case POOL_STATE_SPARE:
+	case POOL_STATE_L2CACHE:
+		(void) fprintf(stderr, gettext(
+		    "%s is a member (%s) of pool \"%s\"\n"),
+		    vdev, zpool_pool_state_to_name(state), name);
+		ret = 1;
+		goto errout;
 
-			(void) fprintf(stderr,
-gettext("labelclear operation failed.\n"
-	"\tVdev %s is a member of the exported pool \"%s\".\n"
-	"\tUse \"zpool labelclear -f %s\" to force the removal of label\n"
-	"\tinformation.\n"),
-			    vdev, name, vdev);
-			ret = 1;
-			goto errout;
-
-		case POOL_STATE_POTENTIALLY_ACTIVE:
-			if (force)
-				break;
-
-			(void) fprintf(stderr,
-gettext("labelclear operation failed.\n"
-	"\tVdev %s is a member of the pool \"%s\".\n"
-	"\tThis pool is unknown to this system, but may be active on\n"
-	"\tanother system. Use \'zpool labelclear -f %s\' to force the\n"
-	"\tremoval of label information.\n"),
-			    vdev, name, vdev);
-			ret = 1;
-			goto errout;
-
-		case POOL_STATE_DESTROYED:
-			/* inuse should never be set for a destoryed pool... */
+	case POOL_STATE_EXPORTED:
+		if (force)
 			break;
-		}
+		(void) fprintf(stderr, gettext(
+		    "use '-f' to override the following error:\n"
+		    "%s is a member of exported pool \"%s\"\n"),
+		    vdev, name);
+		ret = 1;
+		goto errout;
+
+	case POOL_STATE_POTENTIALLY_ACTIVE:
+		if (force)
+			break;
+		(void) fprintf(stderr, gettext(
+		    "use '-f' to override the following error:\n"
+		    "%s is a member of potentially active pool \"%s\"\n"),
+		    vdev, name);
+		ret = 1;
+		goto errout;
+
+	case POOL_STATE_DESTROYED:
+		/* inuse should never be set for a destroyed pool */
+		assert(0);
+		break;
 	}
 
 wipe_label:
 	ret = zpool_clear_label(fd);
-	if (ret != 0)
+	if (ret != 0) {
 		(void) fprintf(stderr,
-		    gettext("Label clear failed on vdev %s\n"), vdev);
+		    gettext("failed to clear label for %s\n"), vdev);
+	}
 
 errout:
-	free(vdev);
-	if (name != NULL)
-		free(name);
-	if (fd > 0)
-		(void) close(fd);
+	free(name);
+	(void) close(fd);
 
 	return (ret);
 }

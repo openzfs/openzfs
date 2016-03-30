@@ -20,10 +20,10 @@
  */
 
 /*
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
+ * Copyright 2016 Nexenta Systems, Inc.
  */
 
 #include <ctype.h>
@@ -2153,7 +2153,8 @@ zpool_find_vdev(zpool_handle_t *zhp, const char *path, boolean_t *avail_spare,
 	} else if (zpool_vdev_is_interior(path)) {
 		verify(nvlist_add_string(search, ZPOOL_CONFIG_TYPE, path) == 0);
 	} else if (path[0] != '/') {
-		(void) snprintf(buf, sizeof (buf), ZFS_DISK_ROOTD "%s", path);
+		(void) snprintf(buf, sizeof (buf), "%s/%s", ZFS_DISK_ROOT,
+		    path);
 		verify(nvlist_add_string(search, ZPOOL_CONFIG_PATH, buf) == 0);
 	} else {
 		verify(nvlist_add_string(search, ZPOOL_CONFIG_PATH, path) == 0);
@@ -2335,7 +2336,7 @@ zpool_relabel_disk(libzfs_handle_t *hdl, const char *name)
 	    "efi_use_whole_disk")) == NULL)
 		return (-1);
 
-	(void) snprintf(path, sizeof (path), ZFS_RDISK_ROOTD "%s", name);
+	(void) snprintf(path, sizeof (path), "%s/%s", ZFS_RDISK_ROOT, name);
 
 	if ((fd = open(path, O_RDWR | O_NDELAY)) < 0) {
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN, "cannot "
@@ -3376,8 +3377,8 @@ zpool_vdev_name(libzfs_handle_t *hdl, zpool_handle_t *zhp, nvlist_t *nv,
 				devid_str_free(newdevid);
 		}
 
-		if (strncmp(path, ZFS_DISK_ROOT, 9) == 0)
-			path += 9;
+		if (strncmp(path, ZFS_DISK_ROOTD, strlen(ZFS_DISK_ROOTD)) == 0)
+			path += strlen(ZFS_DISK_ROOTD);
 
 		if (nvlist_lookup_uint64(nv, ZPOOL_CONFIG_WHOLE_DISK,
 		    &value) == 0 && value) {
@@ -3799,7 +3800,7 @@ read_efi_label(nvlist_t *config, diskaddr_t *sb)
 	if (nvlist_lookup_string(config, ZPOOL_CONFIG_PATH, &path) != 0)
 		return (err);
 
-	(void) snprintf(diskname, sizeof (diskname), ZFS_RDISK_ROOT "%s",
+	(void) snprintf(diskname, sizeof (diskname), "%s%s", ZFS_RDISK_ROOT,
 	    strrchr(path, '/'));
 	if ((fd = open(diskname, O_RDONLY|O_NDELAY)) >= 0) {
 		struct dk_gpt *vtoc;
@@ -3882,7 +3883,7 @@ zpool_label_disk(libzfs_handle_t *hdl, zpool_handle_t *zhp, const char *name)
 		start_block = NEW_START_BLOCK;
 	}
 
-	(void) snprintf(path, sizeof (path), ZFS_RDISK_ROOTD "%s%s", name,
+	(void) snprintf(path, sizeof (path), "%s/%s%s", ZFS_RDISK_ROOT, name,
 	    BACKUP_SLICE);
 
 	if ((fd = open(path, O_RDWR | O_NDELAY)) < 0) {

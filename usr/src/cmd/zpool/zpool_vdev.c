@@ -421,7 +421,8 @@ make_leaf_vdev(const char *arg, uint64_t is_log)
 		 * /dev/dsk/.  As part of this check, see if we've been given a
 		 * an entire disk (minus the slice number).
 		 */
-		(void) snprintf(path, sizeof (path), ZFS_DISK_ROOTD "%s", arg);
+		(void) snprintf(path, sizeof (path), "%s/%s", ZFS_DISK_ROOT,
+		    arg);
 		wholedisk = is_whole_disk(path);
 		if (!wholedisk && (stat64(path, &statbuf) != 0)) {
 			/*
