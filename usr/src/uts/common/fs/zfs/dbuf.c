@@ -2063,7 +2063,7 @@ dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
 		dbuf_issue_final_prefetch(dpa, bp);
 		kmem_free(dpa, sizeof (*dpa));
 	} else {
-		arc_flags_t iter_aflags = ARC_FLAG_NOWAIT | ARC_FLAG_PREFETCH;
+		arc_flags_t iter_aflags = ARC_FLAG_NOWAIT;
 		zbookmark_phys_t zb;
 
 		ASSERT3U(dpa->dpa_curlevel, ==, BP_GET_LEVEL(bp));
@@ -2185,7 +2185,7 @@ dbuf_prefetch(dnode_t *dn, int64_t level, uint64_t blkid, zio_priority_t prio,
 		dbuf_issue_final_prefetch(dpa, &bp);
 		kmem_free(dpa, sizeof (*dpa));
 	} else {
-		arc_flags_t iter_aflags = ARC_FLAG_NOWAIT | ARC_FLAG_PREFETCH;
+		arc_flags_t iter_aflags = ARC_FLAG_NOWAIT;
 		zbookmark_phys_t zb;
 
 		SET_BOOKMARK(&zb, ds != NULL ? ds->ds_object : DMU_META_OBJSET,
