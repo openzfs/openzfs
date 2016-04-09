@@ -558,9 +558,6 @@ get_replication(nvlist_t *nvroot, boolean_t fatal)
 	verify(nvlist_lookup_nvlist_array(nvroot, ZPOOL_CONFIG_CHILDREN,
 	    &top, &toplevels) == 0);
 
-	lastrep.zprl_type = NULL;
-	lastrep.zprl_parity = 0;
-	lastrep.zprl_children = 0;
 	for (t = 0; t < toplevels; t++) {
 		uint64_t is_log = B_FALSE;
 
