@@ -26,7 +26,7 @@
 #
 
 #
-# Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -92,6 +92,8 @@ function cleanup
 
 	[[ -d $ALTER_ROOT ]] && \
 		log_must $RM -rf $ALTER_ROOT
+	[[ -e $VDEV_FILE ]] && \
+		log_must $RM $VDEV_FILE
 }
 
 log_onexit cleanup
@@ -158,5 +160,14 @@ while (( i < ${#pools[*]} )); do
 
 	((i = i + 1))
 done
+
+VDEV_FILE=$(mktemp /tmp/tmp.XXXXXX)
+
+log_must truncate --size=128M $VDEV_FILE
+log_must $ZPOOL create testpool $VDEV_FILE
+log_must $ZFS create testpool/testfs
+log_must $ZPOOL export testpool
+ID=$($ZPOOL import | grep -A 1 "pool: testpool" | tail -n 1 | sed 's/.*id: //')
+log_mustnot $ZPOOL import $(echo $ID) $(python -c "print 'c' * 250")
 
 log_pass "Successfully imported and renamed a ZPOOL"
