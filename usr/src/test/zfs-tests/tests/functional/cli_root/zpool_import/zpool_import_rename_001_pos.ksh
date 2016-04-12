@@ -163,11 +163,11 @@ done
 
 VDEV_FILE=$(mktemp /tmp/tmp.XXXXXX)
 
-log_must truncate --size=128M $VDEV_FILE
+log_must $MKFILE -n 128M $VDEV_FILE
 log_must $ZPOOL create testpool $VDEV_FILE
 log_must $ZFS create testpool/testfs
+ID=$($ZPOOL get -Ho value guid testpool)
 log_must $ZPOOL export testpool
-ID=$($ZPOOL import | grep -A 1 "pool: testpool" | tail -n 1 | sed 's/.*id: //')
-log_mustnot $ZPOOL import $(echo $ID) $(python -c "print 'c' * 250")
+log_mustnot $ZPOOL import $(echo $ID) $($PRINTF "%*s\n" 250 "" | $TR ' ' 'c')
 
 log_pass "Successfully imported and renamed a ZPOOL"
