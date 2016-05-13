@@ -31,6 +31,15 @@
 #include <sys/zap.h>
 #include <sys/zfeature.h>
 
+/*
+ * Each of the concurrent object allocators will grab
+ * 2^dmu_object_alloc_chunk_shift objects at a time.  The default is to
+ * grab 128 object, which s 4 blocks worth.  This was experimentally
+ * determined to be the lowest value that eliminates the measurable effect
+ * of lock contention from this code path.
+ */
+int dmu_object_alloc_chunk_shift = 7;
+
 uint64_t
 dmu_object_alloc(objset_t *os, dmu_object_type_t ot, int blocksize,
     dmu_object_type_t bonustype, int bonuslen, dmu_tx_t *tx)
@@ -39,43 +48,74 @@ dmu_object_alloc(objset_t *os, dmu_object_type_t ot, int blocksize,
 	uint64_t L1_dnode_count = DNODES_PER_BLOCK <<
 	    (DMU_META_DNODE(os)->dn_indblkshift - SPA_BLKPTRSHIFT);
 	dnode_t *dn = NULL;
+	uint64_t *cpuobj = &os->os_obj_next_array[CPU_SEQID %
+	    os->os_obj_next_array_len];
+	int dnodes_per_chunk = 1 << dmu_object_alloc_chunk_shift;
 
-	mutex_enter(&os->os_obj_lock);
+	/*
+	 * The "chunk" of dnodes that is assigned to a CPU-specific
+	 * allocator needs to be at least one block's worth, to avoid
+	 * lock contention on the dbuf.  It can be at most one L1 block's
+	 * worth, so that the "rescan after polishing off a L1's worth"
+	 * logic below will be sure to kick in.
+	 */
+	if (dnodes_per_chunk < DNODES_PER_BLOCK)
+		dnodes_per_chunk = DNODES_PER_BLOCK;
+	if (dnodes_per_chunk > L1_dnode_count)
+		dnodes_per_chunk = L1_dnode_count;
+
+	object = *cpuobj;
 	for (;;) {
-		object = os->os_obj_next;
 		/*
-		 * Each time we polish off a L1 bp worth of dnodes (2^12
-		 * objects), move to another L1 bp that's still reasonably
-		 * sparse (at most 1/4 full). Look from the beginning at most
-		 * once per txg, but after that keep looking from here.
-		 * os_scan_dnodes is set during txg sync if enough objects
-		 * have been freed since the previous rescan to justify
-		 * backfilling again. If we can't find a suitable block, just
-		 * keep going from here.
-		 *
-		 * Note that dmu_traverse depends on the behavior that we use
-		 * multiple blocks of the dnode object before going back to
-		 * reuse objects.  Any change to this algorithm should preserve
-		 * that property or find another solution to the issues
-		 * described in traverse_visitbp.
+		 * If we finished a chunk of dnodes, get a new one from
+		 * the global allocator.
 		 */
+		if (P2PHASE(object, dnodes_per_chunk) == 0) {
+			mutex_enter(&os->os_obj_lock);
+			ASSERT0(P2PHASE(os->os_obj_next, dnodes_per_chunk));
+			object = os->os_obj_next;
+			os->os_obj_next += dnodes_per_chunk;
+			(void) atomic_swap_64(cpuobj, object);
 
-		if (P2PHASE(object, L1_dnode_count) == 0) {
-			uint64_t offset;
-			int error;
-			if (os->os_rescan_dnodes) {
-				offset = 0;
-				os->os_rescan_dnodes = B_FALSE;
-			} else {
-				offset = object << DNODE_SHIFT;
+			/*
+			 * Each time we polish off a L1 bp worth of dnodes
+			 * (2^12 objects), move to another L1 bp that's
+			 * still reasonably sparse (at most 1/4 full). Look
+			 * from the beginning at most once per txg, but
+			 * after that keep looking from here. os_scan_dnodes
+			 * is set during txg sync if enough objects have
+			 * been freed since the previous rescan to justify
+			 * backfilling again. If we can't find a suitable
+			 * block, just keep going from here.
+			 *
+			 * Note that dmu_traverse depends on the behavior
+			 * that we use multiple blocks of the dnode object
+			 * before going back to reuse objects.  Any change
+			 * to this algorithm should preserve that property
+			 * or find another solution to the issues described
+			 * in traverse_visitbp.
+			 */
+
+			if (P2PHASE(object, L1_dnode_count) == 0) {
+				uint64_t offset;
+				int error;
+				if (os->os_rescan_dnodes) {
+					offset = 0;
+					os->os_rescan_dnodes = B_FALSE;
+				} else {
+					offset = object << DNODE_SHIFT;
+				}
+				error = dnode_next_offset(DMU_META_DNODE(os),
+				    DNODE_FIND_HOLE,
+				    &offset, 2, DNODES_PER_BLOCK >> 2, 0);
+				if (error == 0) {
+					object = offset >> DNODE_SHIFT;
+					os->os_obj_next =
+					    object + dnodes_per_chunk;
+				}
 			}
-			error = dnode_next_offset(DMU_META_DNODE(os),
-			    DNODE_FIND_HOLE,
-			    &offset, 2, DNODES_PER_BLOCK >> 2, 0);
-			if (error == 0)
-				object = offset >> DNODE_SHIFT;
+			mutex_exit(&os->os_obj_lock);
 		}
-		os->os_obj_next = ++object;
 
 		/*
 		 * XXX We should check for an i/o error here and return
@@ -85,20 +125,29 @@ dmu_object_alloc(objset_t *os, dmu_object_type_t ot, int blocksize,
 		 */
 		(void) dnode_hold_impl(os, object, DNODE_MUST_BE_FREE,
 		    FTAG, &dn);
-		if (dn)
-			break;
+		if (dn != NULL) {
+			rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
+			/*
+			 * Another thread could have allocated it; check
+			 * again now that we have the struct lock.
+			 */
+			if (dn->dn_type == DMU_OT_NONE) {
+				dnode_allocate(dn, ot, blocksize, 0,
+				    bonustype, bonuslen, tx);
+				rw_exit(&dn->dn_struct_rwlock);
+				dmu_tx_add_new_object(tx, dn);
+				dnode_rele(dn, FTAG);
+
+				(void) atomic_swap_64(cpuobj, object + 1);
+				return (object);
+			}
+			rw_exit(&dn->dn_struct_rwlock);
+			dnode_rele(dn, FTAG);
+		}
 
 		if (dmu_object_next(os, &object, B_TRUE, 0) == 0)
-			os->os_obj_next = object - 1;
+			(void) atomic_swap_64(cpuobj, object);
 	}
-
-	dnode_allocate(dn, ot, blocksize, 0, bonustype, bonuslen, tx);
-	mutex_exit(&os->os_obj_lock);
-
-	dmu_tx_add_new_object(tx, dn);
-	dnode_rele(dn, FTAG);
-
-	return (object);
 }
 
 int

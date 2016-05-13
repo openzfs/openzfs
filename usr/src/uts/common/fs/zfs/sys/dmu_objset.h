@@ -119,6 +119,10 @@ struct objset {
 	kmutex_t os_obj_lock;
 	uint64_t os_obj_next;
 
+	/* Per-CPU next object to allocate, protected by atomic ops. */
+	uint64_t *os_obj_next_array;
+	int os_obj_next_array_len;
+
 	/* Protected by os_lock */
 	kmutex_t os_lock;
 	multilist_t *os_dirty_dnodes[TXG_SIZE];
