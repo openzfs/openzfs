@@ -22,10 +22,10 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
- * Copyright (c) 2015, Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright 2013 Saso Kiselkov. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /*
@@ -238,18 +238,15 @@ spa_prop_get_config(spa_t *spa, nvlist_t **nvp)
 	}
 
 	if (pool != NULL) {
+		uint64_t freeing = pool->dp_long_freeing_total;
 		/*
 		 * The $FREE directory was introduced in SPA_VERSION_DEADLISTS,
 		 * when opening pools before this version freedir will be NULL.
 		 */
-		if (pool->dp_free_dir != NULL) {
-			spa_prop_add_list(*nvp, ZPOOL_PROP_FREEING, NULL,
-			    dsl_dir_phys(pool->dp_free_dir)->dd_used_bytes,
-			    src);
-		} else {
-			spa_prop_add_list(*nvp, ZPOOL_PROP_FREEING,
-			    NULL, 0, src);
-		}
+		if (pool->dp_free_dir != NULL)
+			freeing +=
+			    dsl_dir_phys(pool->dp_free_dir)->dd_used_bytes;
+		spa_prop_add_list(*nvp, ZPOOL_PROP_FREEING, NULL, freeing, src);
 
 		if (pool->dp_leak_dir != NULL) {
 			spa_prop_add_list(*nvp, ZPOOL_PROP_LEAKED, NULL,
