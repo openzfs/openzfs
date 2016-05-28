@@ -270,6 +270,7 @@ zap_table_load(zap_t *zap, zap_table_phys_t *tbl, uint64_t idx, uint64_t *valp)
 	uint64_t blk, off;
 	int err;
 	dmu_buf_t *db;
+	dnode_t *dn;
 	int bs = FZAP_BLOCK_SHIFT(zap);
 
 	ASSERT(RW_LOCK_HELD(&zap->zap_rwlock));
@@ -277,7 +278,7 @@ zap_table_load(zap_t *zap, zap_table_phys_t *tbl, uint64_t idx, uint64_t *valp)
 	blk = idx >> (bs-3);
 	off = idx & ((1<<(bs-3))-1);
 
-	dnode_t *dn = dmu_buf_get_dnode(zap->zap_dbuf);
+	dn = dmu_buf_get_dnode(zap->zap_dbuf);
 	err = dmu_buf_hold_by_dnode(dn,
 	    (tbl->zt_blk + blk) << bs, FTAG, &db, DMU_READ_NO_PREFETCH);
 	dmu_buf_put_dnode(zap->zap_dbuf);
@@ -294,7 +295,7 @@ zap_table_load(zap_t *zap, zap_table_phys_t *tbl, uint64_t idx, uint64_t *valp)
 		 */
 		blk = (idx*2) >> (bs-3);
 
-		dnode_t *dn = dmu_buf_get_dnode(zap->zap_dbuf);
+		dn = dmu_buf_get_dnode(zap->zap_dbuf);
 		err = dmu_buf_hold_by_dnode(dn,
 		    (tbl->zt_nextblk + blk) << bs, FTAG, &db,
 		    DMU_READ_NO_PREFETCH);
