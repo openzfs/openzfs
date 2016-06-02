@@ -39,7 +39,8 @@ MODSRCS_DIR = ../../../common/modules/zfs
 GENUNIX_DIR = ../../../common/modules/genunix
 
 CPPFLAGS += -I../../../../../lib/libzpool/common \
-	-I../../../../../uts/common/fs/zfs
+	-I../../../../../uts/common/fs/zfs \
+	-I../../../../../common/zfs
 
 C99MODE=	-xc99=%all
 C99LMODE=	-Xc99=%all

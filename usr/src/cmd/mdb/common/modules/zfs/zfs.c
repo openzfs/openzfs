@@ -66,6 +66,10 @@ enum spa_flags {
 	SPA_FLAG_HISTOGRAMS		= 1 << 5
 };
 
+
+const dmu_object_type_info_t dmu_ot[DMU_OT_NUMTYPES] = {0};
+
+
 /*
  * If any of these flags are set, call spa_vdevs in spa_print
  */
@@ -424,7 +428,7 @@ zfs_params(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 static int
 blkptr(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 {
-	char type[80], checksum[80], compress[80];
+	char type[80], checksum[80], compress[80], *crypt_type;
 	blkptr_t blk, *bp = &blk;
 	char buf[BP_SPRINTF_LEN];
 
@@ -443,8 +447,19 @@ blkptr(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		return (DCMD_ERR);
 	}
 
+	if (BP_IS_ENCRYPTED(bp)) {
+		crypt_type = "encrypted";
+		/* LINTED E_SUSPICIOUS_COMPARISON */
+	} else if (BP_IS_AUTHENTICATED(bp)) {
+		crypt_type = "authenticated";
+	} else if (BP_HAS_INDIRECT_MAC_CKSUM(bp)) {
+		crypt_type = "indirect-MAC";
+	} else {
+		crypt_type = "unencrypted";
+	}
+
 	SNPRINTF_BLKPTR(mdb_snprintf, '\n', buf, sizeof (buf), bp, type,
-	    checksum, compress);
+	    checksum, crypt_type, compress);
 
 	mdb_printf("%s\n", buf);
 
@@ -2672,8 +2687,6 @@ zfs_blkstats(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 	dmu_object_type_t t;
 	zfs_blkstat_t *tzb;
 	uint64_t ditto;
-	dmu_object_type_info_t dmu_ot[DMU_OT_NUMTYPES + 10];
-	/* +10 in case it grew */
 
 	if (mdb_readvar(&dmu_ot, "dmu_ot") == -1) {
 		mdb_warn("failed to read 'dmu_ot'");

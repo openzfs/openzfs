@@ -83,7 +83,7 @@
 .Nm
 .Cm import
 .Fl a
-.Op Fl DfmN
+.Op Fl DflmN
 .Op Fl F Op Fl n
 .Op Fl c Ar cachefile Ns | Ns Fl d Ar dir
 .Op Fl o Ar mntopts
@@ -147,7 +147,7 @@
 .Ar pool
 .Nm
 .Cm split
-.Op Fl n
+.Op Fl ln
 .Oo Fl o Ar property Ns = Ns Ar value Oc Ns ...
 .Op Fl R Ar root
 .Ar pool newpool
@@ -1058,7 +1058,7 @@ Lists destroyed pools only.
 .Nm
 .Cm import
 .Fl a
-.Op Fl DfmN
+.Op Fl DflmN
 .Op Fl F Op Fl n
 .Op Fl c Ar cachefile Ns | Ns Fl d Ar dir
 .Op Fl o Ar mntopts
@@ -1108,6 +1108,16 @@ transactions.
 Not all damaged pools can be recovered by using this option.
 If successful, the data from the discarded transactions is irretrievably lost.
 This option is ignored if the pool is importable or already imported.
+.It Fl l
+Indicates that this command will request encryption keys for all encrypted
+datasets it attempts to mount as it is bringing the pool online.
+Note that if any datasets have a
+.Sy keylocation
+of
+.Sy prompt
+this command will block waiting for the keys to be entered.
+Without this flag encrypted datasets will be left unavailable until the keys are
+loaded.
 .It Fl m
 Allows a pool to import when there is a missing log device.
 Recent transactions can be lost because the log device will be discarded.
@@ -1204,6 +1214,18 @@ transactions.
 Not all damaged pools can be recovered by using this option.
 If successful, the data from the discarded transactions is irretrievably lost.
 This option is ignored if the pool is importable or already imported.
+.It Fl l
+Indicates that the zpool command will request encryption keys for all
+encrypted datasets it attempts to mount as it is bringing the pool
+online.
+This is equivalent to running
+.Nm Cm mount
+on each encrypted dataset immediately after the pool is imported.
+If any datasets have a
+.Sy prompt
+keysource this command will block waiting for the key to be entered.
+Otherwise, encrypted datasets will be left unavailable until the keys are
+loaded.
 .It Fl m
 Allows a pool to import when there is a missing log device.
 Recent transactions can be lost because the log device will be discarded.
@@ -1510,7 +1532,7 @@ values.
 .It Xo
 .Nm
 .Cm split
-.Op Fl n
+.Op Fl ln
 .Oo Fl o Ar property Ns = Ns Ar value Oc Ns ...
 .Op Fl R Ar root
 .Ar pool newpool
@@ -1527,6 +1549,16 @@ At the time of the split,
 will be a replica of
 .Ar pool .
 .Bl -tag -width Ds
+.It Fl l
+Indicates that this command will request encryption keys for all encrypted
+datasets it attempts to mount as it is bringing the new pool online.
+Note that if any datasets have a
+.Sy keylocation
+of
+.Sy prompt
+this command will block waiting for the keys to be entered.
+Without this flag encrypted datasets will be left unavailable and unmounted
+until the keys are loaded.
 .It Fl n
 Do dry run, do not actually perform the split.
 Print out the expected configuration of
