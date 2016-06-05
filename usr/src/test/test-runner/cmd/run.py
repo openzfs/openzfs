@@ -36,6 +36,13 @@ KILL = '/usr/bin/kill'
 TRUE = '/usr/bin/true'
 SUDO = '/usr/bin/sudo'
 
+if 'KILL' in os.environ:
+    KILL = os.environ['KILL']
+if 'TRUE' in os.environ:
+    TRUE = os.environ['TRUE']
+if 'SUDO' in os.environ:
+    SUDO = os.environ['SUDO']
+
 # Custom class to reopen the log file in case it is forcibly closed by a test.
 class WatchedFileHandlerClosed(WatchedFileHandler):
     """Watch files, including closed files.
