@@ -17,9 +17,12 @@
 # Copyright 2016 Nexenta Systems, Inc.
 #
 
+export PYTHON=${PYTHON:-/usr/bin/python}
+export SUDO=${SUDO:-/usr/bin/sudo}
+export ZPOOL=${ZPOOL:-/usr/sbin/zpool}
 export STF_SUITE="/opt/zfs-tests"
 export STF_TOOLS="/opt/test-runner/stf"
-runner="/opt/test-runner/bin/run"
+runner="${PYTHON} /opt/test-runner/bin/run"
 auto_detect=false
 
 function fail
@@ -30,9 +33,9 @@ function fail
 
 function find_disks
 {
-	typeset all_disks=$(echo '' | sudo -k /usr/sbin/format | awk \
+	typeset all_disks=$(echo '' | ${SUDO} -k /usr/sbin/format | awk \
 	    '/c[0-9]/ {print $2}')
-	typeset used_disks=$(/sbin/zpool status | awk \
+	typeset used_disks=$(${ZPOOL} status | awk \
 	    '/c[0-9]*t[0-9a-f]*d[0-9]/ {print $1}' | sed 's/s[0-9]//g')
 
 	typeset disk used avail_disks
@@ -62,6 +65,9 @@ function find_runfile
 		distro=openindiana
 	elif [[ 0 -ne $(grep -c OmniOS /etc/release 2>/dev/null) ]]; then
 		distro=omnios
+	elif [[ -f $STF_SUITE/runfiles/default.run ]]; then
+		# optional
+		distro=default
 	fi
 
 	[[ -n $distro ]] && echo $STF_SUITE/runfiles/$distro.run
@@ -71,7 +77,7 @@ function verify_id
 {
 	[[ $(id -u) = "0" ]] && fail "This script must not be run as root."
 
-	sudo -k -n id >/dev/null 2>&1
+	${SUDO} -k -n id >/dev/null 2>&1
 	[[ $? -eq 0 ]] || fail "User must be able to sudo without a password."
 }
 
@@ -79,7 +85,7 @@ function verify_disks
 {
 	typeset disk
 	for disk in $DISKS; do
-		sudo -k /usr/sbin/prtvtoc /dev/rdsk/${disk}s0 >/dev/null 2>&1
+		${SUDO} -k /usr/sbin/prtvtoc /dev/rdsk/${disk}s0 >/dev/null 2>&1
 		[[ $? -eq 0 ]] || return 1
 	done
 	return 0

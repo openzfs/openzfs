@@ -406,7 +406,7 @@ function get_xattr #<obj>
 	fi
 
 	for xattr in `$RUNAT $obj $LS | \
-		/usr/xpg4/bin/egrep -v -e SUNWattr_ro -e SUNWattr_rw` ; do
+		${EGREP} -v -e SUNWattr_ro -e SUNWattr_rw` ; do
 		$RUNAT $obj $SUM $xattr
 	done
 }
