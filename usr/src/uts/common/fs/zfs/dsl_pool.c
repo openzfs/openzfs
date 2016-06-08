@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
@@ -579,6 +579,15 @@ dsl_pool_sync(dsl_pool_t *dp, uint64_t txg)
 		ASSERT3U(spa_sync_pass(dp->dp_spa), ==, 1);
 		while ((dst = txg_list_remove(&dp->dp_sync_tasks, txg)) != NULL)
 			dsl_sync_task_sync(dst, tx);
+
+		/*
+		 * If we destroyed a dataset, we need to be sure that its
+		 * eviction callback is invoked so that its holds on other
+		 * objects (e.g. deadlist, bpobjs) are dropped before we
+		 * sync the deletion of those objects (from the next
+		 * sync pass's dsl_pool_sync_mos()).
+		 */
+		dmu_buf_user_evict_wait();
 	}
 
 	dmu_tx_commit(tx);
