@@ -12,6 +12,7 @@
 
 #
 # Copyright (c) 2012 by Delphix. All rights reserved.
+# Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
 #
 
 #
@@ -91,10 +92,10 @@ done
 
 log_note "verify multiple snapshot with -r option"
 log_must $ZFS create $TESTPOOL/TESTFS4
-log_must $ZFS create -p $TESTPOOL/$TESTFS3/TESTFSA$($PYTHON -c 'print "x" * 210')/TESTFSB
+log_must $ZFS create -p $TESTPOOL/$TESTFS3/TESTFSA$($PYTHON -c 'print "x" * 209')/TESTFSB
 log_mustnot $ZFS snapshot -r $TESTPOOL/$TESTFS1@snap1 $TESTPOOL/$TESTFS2@snap1 \
         $TESTPOOL/$TESTFS3@snap1 $TESTPOOL/TESTFS4@snap1
-log_must $ZFS rename  $TESTPOOL/$TESTFS3/TESTFSA$($PYTHON -c 'print "x" * 210') \
+log_must $ZFS rename  $TESTPOOL/$TESTFS3/TESTFSA$($PYTHON -c 'print "x" * 209')/TESTFSB \
     $TESTPOOL/$TESTFS3/TESTFSA
 log_must $ZFS snapshot -r $TESTPOOL/$TESTFS1@snap1 $TESTPOOL/$TESTFS2@snap1 \
         $TESTPOOL/$TESTFS3@snap1 $TESTPOOL/TESTFS4@snap1
