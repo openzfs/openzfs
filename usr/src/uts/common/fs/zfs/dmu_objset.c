@@ -1226,6 +1226,8 @@ do_userquota_cacheflush(objset_t *os, userquota_cache_t *cache, dmu_tx_t *tx)
 	void *cookie;
 	userquota_node_t *uqn;
 
+	ASSERT(dmu_tx_is_syncing(tx));
+
 	cookie = NULL;
 	while ((uqn = avl_destroy_nodes(&cache->uqc_user_deltas,
 	    &cookie)) != NULL) {
