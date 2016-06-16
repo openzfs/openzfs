@@ -2911,7 +2911,7 @@ dmu_buf_get_objset(dmu_buf_t *db)
 }
 
 dnode_t *
-dmu_buf_get_dnode(dmu_buf_t *db)
+dmu_buf_dnode_enter(dmu_buf_t *db)
 {
 	dmu_buf_impl_t *dbi = (dmu_buf_impl_t *)db;
 	DB_DNODE_ENTER(dbi);
@@ -2919,7 +2919,7 @@ dmu_buf_get_dnode(dmu_buf_t *db)
 }
 
 void
-dmu_buf_put_dnode(dmu_buf_t *db)
+dmu_buf_dnode_exit(dmu_buf_t *db)
 {
 	dmu_buf_impl_t *dbi = (dmu_buf_impl_t *)db;
 	DB_DNODE_EXIT(dbi);
