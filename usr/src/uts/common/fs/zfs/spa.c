@@ -5473,10 +5473,10 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 			    ZPOOL_CONFIG_SPARES, spares, nspares, nv);
 			spa_load_spares(spa);
 			spa->spa_spares.sav_sync = B_TRUE;
+			spa_event_notify(spa, vd, ESC_ZFS_VDEV_REMOVE_AUX);
 		} else {
 			error = SET_ERROR(EBUSY);
 		}
-		spa_event_notify(spa, vd, ESC_ZFS_VDEV_REMOVE_AUX);
 	} else if (spa->spa_l2cache.sav_vdevs != NULL &&
 	    nvlist_lookup_nvlist_array(spa->spa_l2cache.sav_config,
 	    ZPOOL_CONFIG_L2CACHE, &l2cache, &nl2cache) == 0 &&
@@ -5488,7 +5488,7 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 		    ZPOOL_CONFIG_L2CACHE, l2cache, nl2cache, nv);
 		spa_load_l2cache(spa);
 		spa->spa_l2cache.sav_sync = B_TRUE;
-		spa_event_notify(spa, vd, ESC_ZFS_VDEV_REMOVE_AUX);
+		spa_event_notify(spa, NULL, ESC_ZFS_VDEV_REMOVE_AUX);
 	} else if (vd != NULL && vd->vdev_islog) {
 		ASSERT(!locked);
 		ASSERT(vd == vd->vdev_top);
