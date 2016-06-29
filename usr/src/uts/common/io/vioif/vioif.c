@@ -894,7 +894,7 @@ vioif_process_rx(struct vioif_softc *sc)
 	return (num_processed);
 }
 
-static int
+static uint_t
 vioif_reclaim_used_tx(struct vioif_softc *sc)
 {
 	struct vq_entry *ve;
