@@ -145,6 +145,7 @@ dbuf_cons(void *vdb, void *unused, int kmflag)
 
 	mutex_init(&db->db_mtx, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&db->db_changed, NULL, CV_DEFAULT, NULL);
+	multilist_link_init(&db->db_cache_link);
 	refcount_create(&db->db_holds);
 
 	return (0);
@@ -157,6 +158,7 @@ dbuf_dest(void *vdb, void *unused)
 	dmu_buf_impl_t *db = vdb;
 	mutex_destroy(&db->db_mtx);
 	cv_destroy(&db->db_changed);
+	ASSERT(!multilist_link_active(&db->db_cache_link));
 	refcount_destroy(&db->db_holds);
 }
 

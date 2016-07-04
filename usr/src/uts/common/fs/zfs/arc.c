@@ -353,7 +353,6 @@ int zfs_arc_shrink_shift = 0;
 int zfs_arc_p_min_shift = 0;
 int zfs_arc_average_blocksize = 8 * 1024; /* 8KB */
 
-boolean_t zfs_dup_eviction_enabled = B_TRUE;
 boolean_t zfs_compressed_arc_enabled = B_TRUE;
 
 /*
@@ -915,7 +914,7 @@ struct arc_buf_hdr {
 	 * represent holes and embedded blocks.
 	 *
 	 * This isn't a problem in practice, since the maximum size of a
-	 * buffer is limited to 128K, so we never need to store 32MB in
+	 * buffer is limited to 16MB, so we never need to store 32MB in
 	 * this field. Even in the upstream illumos code base, the
 	 * maximum size of a buffer is limited to 16MB.
 	 */
