@@ -5472,7 +5472,8 @@ spa_vdev_remove(spa_t *spa, uint64_t guid, boolean_t unspare)
 		 * in this pool.
 		 */
 		if (vd == NULL || unspare) {
-			vd = spa_lookup_by_guid(spa, guid, B_TRUE);
+			if (vd == NULL)
+				vd = spa_lookup_by_guid(spa, guid, B_TRUE);
 			ev = spa_event_create(spa, vd, ESC_ZFS_VDEV_REMOVE_AUX);
 			spa_vdev_remove_aux(spa->spa_spares.sav_config,
 			    ZPOOL_CONFIG_SPARES, spares, nspares, nv);
