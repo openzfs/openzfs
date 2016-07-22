@@ -3652,9 +3652,9 @@ asgn_common:
 
 	case DT_TOK_PTR:
 		/*
-		 * If the left-hand side of operator -> is one of the
-		 * scoping keywords, permit a local or thread
-		 * variable to be created or referenced.
+		 * If the left-hand side of operator -> is one of the scoping
+		 * keywords, permit a local or thread variable to be created or
+		 * referenced.
 		 */
 		if (lp->dn_kind == DT_NODE_IDENT) {
 			dt_idhash_t *dhp = NULL;

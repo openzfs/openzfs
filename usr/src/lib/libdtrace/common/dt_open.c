@@ -115,9 +115,9 @@
 #define	DT_VERS_1_11	DT_VERSION_NUMBER(1, 11, 0)
 #define	DT_VERS_1_12	DT_VERSION_NUMBER(1, 12, 0)
 #define	DT_VERS_1_12_1	DT_VERSION_NUMBER(1, 12, 1)
-#define	DT_VERS_1_12_2	DT_VERSION_NUMBER(1, 12, 2)
-#define	DT_VERS_LATEST	DT_VERS_1_12_2
-#define	DT_VERS_STRING	"Sun D 1.12.2"
+#define	DT_VERS_1_13	DT_VERSION_NUMBER(1, 13, 0)
+#define	DT_VERS_LATEST	DT_VERS_1_13
+#define	DT_VERS_STRING	"Sun D 1.13"
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -143,7 +143,7 @@ const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_11,	/* D API 1.11 */
 	DT_VERS_1_12,	/* D API 1.12 */
 	DT_VERS_1_12_1,	/* D API 1.12.1 */
-	DT_VERS_1_12_2,	/* D API 1.12.2 */
+	DT_VERS_1_13,	/* D API 1.13 */
 	0
 };
 

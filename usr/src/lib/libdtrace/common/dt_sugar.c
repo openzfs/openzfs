@@ -18,21 +18,21 @@
  */
 
 /*
- * These syntactic sugar features are implemented by transforming the D
- * parse tree such that it only uses the subset of D that is supported
- * by the rest of the compiler / the kernel.  A clause containing these
- * language features is referred to as a "super-clause", and its
- * transformation typically entails creating several "sub-clauses" to
- * implement it. For diagnosability, the sub-clauses will be printed if
- * the "-xtree=8" flag is specified.
+ * Syntactic sugar features are implemented by transforming the D parse tree
+ * such that it only uses the subset of D that is supported by the rest of the
+ * compiler / the kernel.  A clause containing these language features is
+ * referred to as a "super-clause", and its transformation typically entails
+ * creating several "sub-clauses" to implement it. For diagnosability, the
+ * sub-clauses will be printed if the "-xtree=8" flag is specified.
  *
- * The features are:
+ * Currently, the only syntactic sugar feature is "if/else" statements.  Each
+ * basic block (e.g. the body of the "if" and "else" statements, and the
+ * statements before and after) is turned into its own sub-clause, with a
+ * predicate that causes it to be executed only if the code flows to this point.
+ * Nested if/else statements are supported.
  *
- * "if/else" statements.  Each basic block (e.g. the body of the "if"
- * and "else" statements, and the statements before and after) is turned
- * into its own sub-clause, with a predicate that causes it to be
- * executed only if the code flows to this point.  Nested if/else
- * statements are supported.
+ * This infrastructure is designed to accommodate other syntactic sugar features
+ * in the future.
  */
 
 #include <sys/types.h>
@@ -55,11 +55,11 @@
 #include <dt_impl.h>
 
 typedef struct xd_parse {
-	dtrace_hdl_t *xp_dtp;
+	dtrace_hdl_t *xp_dtp;		/* dtrace handle */
 	dt_node_t *xp_pdescs;		/* probe descriptions */
-	int xp_num_conditions;
-	int xp_num_ifs;
-	dt_node_t *xp_clause_list;
+	int xp_num_conditions;		/* number of condition variables */
+	int xp_num_ifs;			/* number of "if" statements */
+	dt_node_t *xp_clause_list;	/* list of clauses */
 } xd_parse_t;
 
 static void xd_visit_stmts(xd_parse_t *, dt_node_t *, int);
@@ -185,10 +185,8 @@ xd_new_condition(xd_parse_t *dp, dt_node_t *pred, int condid)
 }
 
 /*
- * Visit the specified node and all of its descendants.  Replace any
- * entry_* variables (e.g. entry_walltimestamp,entry_args[1], entry_elapsed_us)
- * and callers[""] variables (e.g. callers["spa_sync"]) with the corresponding
- * straight-D nodes.
+ * Visit the specified node and all of its descendants.  Currently this is only
+ * used to count the number of "if" statements (xp_num_ifs).
  */
 static void
 xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
@@ -239,7 +237,6 @@ xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
 		break;
 
 	case DT_NODE_AGG:
-
 		for (arg = dnp->dn_aggtup; arg != NULL; arg = arg->dn_list)
 			xd_visit_all(dp, arg);
 
@@ -472,9 +469,9 @@ dt_compile_sugar(dtrace_hdl_t *dtp, dt_node_t *clause)
 
 	if (dp.xp_num_ifs == 0 && dp.xp_num_conditions == 0) {
 		/*
-		 * There is nothing that modifies the number of clauses.
-		 * Use the existing clause as-is, with its predicate intact.
-		 * This ensures that in the absence of D++, the body of the
+		 * There is nothing that modifies the number of clauses.  Use
+		 * the existing clause as-is, with its predicate intact.  This
+		 * ensures that in the absence of D sugar, the body of the
 		 * clause can create a variable that is referenced in the
 		 * predicate.
 		 */
