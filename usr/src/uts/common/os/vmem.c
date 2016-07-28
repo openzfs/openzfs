@@ -24,7 +24,7 @@
  */
 
 /*
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  */
 
@@ -1647,6 +1647,12 @@ vmem_destroy(vmem_t *vmp)
 }
 
 /*
+ * Only shrink vmem hashtable if it is 1<<vmem_rescale_minshift times (8x)
+ * larger than necessary.
+ */
+int vmem_rescale_minshift = 3;
+
+/*
  * Resize vmp's hash table to keep the average lookup depth near 1.0.
  */
 static void
@@ -1661,7 +1667,8 @@ vmem_hash_rescale(vmem_t *vmp)
 	new_size = MAX(VMEM_HASH_INITIAL, 1 << (highbit(3 * nseg + 4) - 2));
 	old_size = vmp->vm_hash_mask + 1;
 
-	if ((old_size >> 1) <= new_size && new_size <= (old_size << 1))
+	if ((old_size >> vmem_rescale_minshift) <= new_size &&
+	    new_size <= (old_size << 1))
 		return;
 
 	new_table = vmem_alloc(vmem_hash_arena, new_size * sizeof (void *),
