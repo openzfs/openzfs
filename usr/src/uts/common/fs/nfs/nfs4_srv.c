@@ -22,7 +22,7 @@
 /*
  * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  */
 
 /*
@@ -88,6 +88,7 @@ static int rfs4_maxlock_tries = RFS4_MAXLOCK_TRIES;
 static clock_t  rfs4_lock_delay = RFS4_LOCK_DELAY;
 extern struct svc_ops rdma_svc_ops;
 extern int nfs_loaned_buffers;
+extern int log_nfs_deletions;
 /* End of Tunables */
 
 static int rdma_setup_read_data4(READ4args *, READ4res *);
@@ -250,6 +251,8 @@ static nfsstat4 check_open_access(uint32_t,
 				struct compound_state *, struct svc_req *);
 nfsstat4 rfs4_client_sysid(rfs4_client_t *, sysid_t *);
 void rfs4_ss_clid(rfs4_client_t *);
+void rfs_log_deletions(int rfs_version, char *name, struct svc_req *req,
+    cred_t *cr, vnode_t *vp, struct exportinfo *exi, boolean_t file);
 
 /*
  * translation table for attrs
@@ -4283,6 +4286,10 @@ rfs4_op_remove(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 			if ((error = VOP_RMDIR(dvp, name, rootdir, cs->cr,
 			    NULL, 0)) == EEXIST)
 				error = ENOTEMPTY;
+			if (error == 0) {
+				rfs_log_deletions(NFS_V4, name, req, cs->cr,
+				    dvp, cs->exi, B_FALSE);
+			}
 		}
 	} else {
 		if ((error = VOP_REMOVE(dvp, name, cs->cr, NULL, 0)) == 0 &&
@@ -4290,6 +4297,8 @@ rfs4_op_remove(nfs_argop4 *argop, nfs_resop4 *resop, struct svc_req *req,
 			struct vattr va;
 			vnode_t *tvp;
 
+			rfs_log_deletions(NFS_V4, name, req, cs->cr, dvp,
+			    cs->exi, B_TRUE);
 			rfs4_dbe_lock(fp->rf_dbe);
 			tvp = fp->rf_vp;
 			if (tvp)
