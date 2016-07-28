@@ -86,7 +86,7 @@ extern int nfs_loaned_buffers;
 
 u_longlong_t nfs3_srv_caller_id;
 
-boolean_t log_nfs_deletions = B_TRUE;
+boolean_t log_nfs_deletions = B_FALSE;
 
 /* ARGSUSED */
 void

@@ -88,7 +88,6 @@ static int rfs4_maxlock_tries = RFS4_MAXLOCK_TRIES;
 static clock_t  rfs4_lock_delay = RFS4_LOCK_DELAY;
 extern struct svc_ops rdma_svc_ops;
 extern int nfs_loaned_buffers;
-extern int log_nfs_deletions;
 /* End of Tunables */
 
 static int rdma_setup_read_data4(READ4args *, READ4res *);
@@ -251,8 +250,8 @@ static nfsstat4 check_open_access(uint32_t,
 				struct compound_state *, struct svc_req *);
 nfsstat4 rfs4_client_sysid(rfs4_client_t *, sysid_t *);
 void rfs4_ss_clid(rfs4_client_t *);
-void rfs_log_deletions(int rfs_version, char *name, struct svc_req *req,
-    cred_t *cr, vnode_t *vp, struct exportinfo *exi, boolean_t file);
+void rfs_log_deletions(int, char *, struct svc_req *, cred_t *, vnode_t *,
+    struct exportinfo *, boolean_t);
 
 /*
  * translation table for attrs
