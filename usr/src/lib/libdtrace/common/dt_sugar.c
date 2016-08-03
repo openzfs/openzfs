@@ -54,15 +54,15 @@
 #include <dt_string.h>
 #include <dt_impl.h>
 
-typedef struct xd_parse {
-	dtrace_hdl_t *xp_dtp;		/* dtrace handle */
-	dt_node_t *xp_pdescs;		/* probe descriptions */
-	int xp_num_conditions;		/* number of condition variables */
-	int xp_num_ifs;			/* number of "if" statements */
-	dt_node_t *xp_clause_list;	/* list of clauses */
-} xd_parse_t;
+typedef struct dt_sugar_parse {
+	dtrace_hdl_t *dtsp_dtp;		/* dtrace handle */
+	dt_node_t *dtsp_pdescs;		/* probe descriptions */
+	int dtsp_num_conditions;	/* number of condition variables */
+	int dtsp_num_ifs;		/* number of "if" statements */
+	dt_node_t *dtsp_clause_list;	/* list of clauses */
+} dt_sugar_parse_t;
 
-static void xd_visit_stmts(xd_parse_t *, dt_node_t *, int);
+static void dt_sugar_visit_stmts(dt_sugar_parse_t *, dt_node_t *, int);
 
 /*
  * Return a node for "self->%error".
@@ -75,7 +75,7 @@ static void xd_visit_stmts(xd_parse_t *, dt_node_t *, int);
  * sub-clauses following an error.
  */
 static dt_node_t *
-xd_new_error_var(void)
+dt_sugar_new_error_var(void)
 {
 	return (dt_node_op2(DT_TOK_PTR, dt_node_ident(strdup("self")),
 	    dt_node_ident(strdup("%error"))));
@@ -85,18 +85,18 @@ xd_new_error_var(void)
  * Append this clause to the clause list.
  */
 static void
-xd_append_clause(xd_parse_t *dp, dt_node_t *clause)
+dt_sugar_append_clause(dt_sugar_parse_t *dp, dt_node_t *clause)
 {
-	dp->xp_clause_list = dt_node_link(dp->xp_clause_list, clause);
+	dp->dtsp_clause_list = dt_node_link(dp->dtsp_clause_list, clause);
 }
 
 /*
  * Prepend this clause to the clause list.
  */
 static void
-xd_prepend_clause(xd_parse_t *dp, dt_node_t *clause)
+dt_sugar_prepend_clause(dt_sugar_parse_t *dp, dt_node_t *clause)
 {
-	dp->xp_clause_list = dt_node_link(clause, dp->xp_clause_list);
+	dp->dtsp_clause_list = dt_node_link(clause, dp->dtsp_clause_list);
 }
 
 /*
@@ -106,7 +106,7 @@ xd_prepend_clause(xd_parse_t *dp, dt_node_t *clause)
  * this variable name can not collide with any user-specified variable.
  */
 static dt_node_t *
-xd_new_condition_var(int condid)
+dt_sugar_new_condition_var(int condid)
 {
 	char *str;
 
@@ -139,12 +139,13 @@ xd_new_condition_var(int condid)
  * variables back to 0 when the super-clause completes.
  */
 static dt_node_t *
-xd_new_condition_impl(xd_parse_t *dp, dt_node_t *pred, int condid, int newcond)
+dt_sugar_new_condition_impl(dt_sugar_parse_t *dp,
+    dt_node_t *pred, int condid, int newcond)
 {
 	dt_node_t *value, *body, *newpred;
 
 	/* predicate is !self->%error */
-	newpred = dt_node_op1(DT_TOK_LNEG, xd_new_error_var());
+	newpred = dt_node_op1(DT_TOK_LNEG, dt_sugar_new_error_var());
 
 	if (condid == 0) {
 		/*
@@ -160,14 +161,14 @@ xd_new_condition_impl(xd_parse_t *dp, dt_node_t *pred, int condid, int newcond)
 	} else {
 		/* value is (this->%condition_<condid> && pred) */
 		value = dt_node_op2(DT_TOK_LAND,
-		    xd_new_condition_var(condid), pred);
+		    dt_sugar_new_condition_var(condid), pred);
 	}
 
 	/* body is "this->%condition_<retval> = <value>;" */
 	body = dt_node_statement(dt_node_op2(DT_TOK_ASGN,
-	    xd_new_condition_var(newcond), value));
+	    dt_sugar_new_condition_var(newcond), value));
 
-	return (dt_node_clause(dp->xp_pdescs, newpred, body));
+	return (dt_node_clause(dp->dtsp_pdescs, newpred, body));
 }
 
 /*
@@ -176,20 +177,20 @@ xd_new_condition_impl(xd_parse_t *dp, dt_node_t *pred, int condid, int newcond)
  * dp_first_new_clause.
  */
 static int
-xd_new_condition(xd_parse_t *dp, dt_node_t *pred, int condid)
+dt_sugar_new_condition(dt_sugar_parse_t *dp, dt_node_t *pred, int condid)
 {
-	dp->xp_num_conditions++;
-	xd_append_clause(dp, xd_new_condition_impl(dp,
-	    pred, condid, dp->xp_num_conditions));
-	return (dp->xp_num_conditions);
+	dp->dtsp_num_conditions++;
+	dt_sugar_append_clause(dp, dt_sugar_new_condition_impl(dp,
+	    pred, condid, dp->dtsp_num_conditions));
+	return (dp->dtsp_num_conditions);
 }
 
 /*
  * Visit the specified node and all of its descendants.  Currently this is only
- * used to count the number of "if" statements (xp_num_ifs).
+ * used to count the number of "if" statements (dtsp_num_ifs).
  */
 static void
-xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
+dt_sugar_visit_all(dt_sugar_parse_t *dp, dt_node_t *dnp)
 {
 	dt_node_t *arg;
 
@@ -206,90 +207,90 @@ xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
 
 	case DT_NODE_FUNC:
 		for (arg = dnp->dn_args; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_OP1:
-		xd_visit_all(dp, dnp->dn_child);
+		dt_sugar_visit_all(dp, dnp->dn_child);
 		break;
 
 	case DT_NODE_OP2:
-		xd_visit_all(dp, dnp->dn_left);
-		xd_visit_all(dp, dnp->dn_right);
+		dt_sugar_visit_all(dp, dnp->dn_left);
+		dt_sugar_visit_all(dp, dnp->dn_right);
 		if (dnp->dn_op == DT_TOK_LBRAC) {
 			dt_node_t *ln = dnp->dn_right;
 			while (ln->dn_list != NULL) {
-				xd_visit_all(dp, ln->dn_list);
+				dt_sugar_visit_all(dp, ln->dn_list);
 				ln = ln->dn_list;
 			}
 		}
 		break;
 
 	case DT_NODE_OP3:
-		xd_visit_all(dp, dnp->dn_expr);
-		xd_visit_all(dp, dnp->dn_left);
-		xd_visit_all(dp, dnp->dn_right);
+		dt_sugar_visit_all(dp, dnp->dn_expr);
+		dt_sugar_visit_all(dp, dnp->dn_left);
+		dt_sugar_visit_all(dp, dnp->dn_right);
 		break;
 
 	case DT_NODE_DEXPR:
 	case DT_NODE_DFUNC:
-		xd_visit_all(dp, dnp->dn_expr);
+		dt_sugar_visit_all(dp, dnp->dn_expr);
 		break;
 
 	case DT_NODE_AGG:
 		for (arg = dnp->dn_aggtup; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 
 		if (dnp->dn_aggfun)
-			xd_visit_all(dp, dnp->dn_aggfun);
+			dt_sugar_visit_all(dp, dnp->dn_aggfun);
 		break;
 
 	case DT_NODE_CLAUSE:
 		for (arg = dnp->dn_pdescs; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 
 		if (dnp->dn_pred != NULL)
-			xd_visit_all(dp, dnp->dn_pred);
+			dt_sugar_visit_all(dp, dnp->dn_pred);
 
 		for (arg = dnp->dn_acts; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_INLINE: {
 		const dt_idnode_t *inp = dnp->dn_ident->di_iarg;
 
-		xd_visit_all(dp, inp->din_root);
+		dt_sugar_visit_all(dp, inp->din_root);
 		break;
 	}
 	case DT_NODE_MEMBER:
 		if (dnp->dn_membexpr)
-			xd_visit_all(dp, dnp->dn_membexpr);
+			dt_sugar_visit_all(dp, dnp->dn_membexpr);
 		break;
 
 	case DT_NODE_XLATOR:
 		for (arg = dnp->dn_members; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_PROVIDER:
 		for (arg = dnp->dn_probes; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_PROG:
 		for (arg = dnp->dn_list; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		break;
 
 	case DT_NODE_IF:
-		dp->xp_num_ifs++;
-		xd_visit_all(dp, dnp->dn_conditional);
+		dp->dtsp_num_ifs++;
+		dt_sugar_visit_all(dp, dnp->dn_conditional);
 
 		for (arg = dnp->dn_body; arg != NULL; arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 		for (arg = dnp->dn_alternate_body; arg != NULL;
 		    arg = arg->dn_list)
-			xd_visit_all(dp, arg);
+			dt_sugar_visit_all(dp, arg);
 
 		break;
 
@@ -309,11 +310,11 @@ xd_visit_all(xd_parse_t *dp, dt_node_t *dnp)
  * failed).
  */
 static dt_node_t *
-xd_new_clearerror_clause(xd_parse_t *dp)
+dt_sugar_new_clearerror_clause(dt_sugar_parse_t *dp)
 {
 	dt_node_t *stmt = dt_node_statement(dt_node_op2(DT_TOK_ASGN,
-	    xd_new_error_var(), dt_node_int(0)));
-	return (dt_node_clause(dp->xp_pdescs, NULL, stmt));
+	    dt_sugar_new_error_var(), dt_node_int(0)));
+	return (dt_node_clause(dp->dtsp_pdescs, NULL, stmt));
 }
 
 /*
@@ -321,17 +322,18 @@ xd_new_clearerror_clause(xd_parse_t *dp)
  * statement (and the "else", if present).
  */
 static void
-xd_do_if(xd_parse_t *dp, dt_node_t *if_stmt, int precondition)
+dt_sugar_do_if(dt_sugar_parse_t *dp, dt_node_t *if_stmt, int precondition)
 {
 	int newid;
 
 	assert(if_stmt->dn_kind == DT_NODE_IF);
 
 	/* condition */
-	newid = xd_new_condition(dp, if_stmt->dn_conditional, precondition);
+	newid = dt_sugar_new_condition(dp,
+	    if_stmt->dn_conditional, precondition);
 
 	/* body of if */
-	xd_visit_stmts(dp, if_stmt->dn_body, newid);
+	dt_sugar_visit_stmts(dp, if_stmt->dn_body, newid);
 
 	/*
 	 * Visit the body of the "else" statement, if present.  Note that we
@@ -340,9 +342,9 @@ xd_do_if(xd_parse_t *dp, dt_node_t *if_stmt, int precondition)
 	 */
 	if (if_stmt->dn_alternate_body != NULL) {
 		dt_node_t *pred =
-		    dt_node_op1(DT_TOK_LNEG, xd_new_condition_var(newid));
-		xd_visit_stmts(dp, if_stmt->dn_alternate_body,
-		    xd_new_condition(dp, pred, precondition));
+		    dt_node_op1(DT_TOK_LNEG, dt_sugar_new_condition_var(newid));
+		dt_sugar_visit_stmts(dp, if_stmt->dn_alternate_body,
+		    dt_sugar_new_condition(dp, pred, precondition));
 	}
 }
 
@@ -357,7 +359,7 @@ xd_do_if(xd_parse_t *dp, dt_node_t *if_stmt, int precondition)
  * }
  */
 static void
-xd_new_basic_block(xd_parse_t *dp, int condid, dt_node_t *stmts)
+dt_sugar_new_basic_block(dt_sugar_parse_t *dp, int condid, dt_node_t *stmts)
 {
 	dt_node_t *pred = NULL;
 
@@ -367,15 +369,17 @@ xd_new_basic_block(xd_parse_t *dp, int condid, dt_node_t *stmts)
 		 * there is only one clause, we don't add the prelude to
 		 * zero out %error.
 		 */
-		if (dp->xp_num_conditions != 0)
-			pred = dt_node_op1(DT_TOK_LNEG, xd_new_error_var());
+		if (dp->dtsp_num_conditions != 0) {
+			pred = dt_node_op1(DT_TOK_LNEG,
+			    dt_sugar_new_error_var());
+		}
 	} else {
 		pred = dt_node_op2(DT_TOK_LAND,
-		    dt_node_op1(DT_TOK_LNEG, xd_new_error_var()),
-		    xd_new_condition_var(condid));
+		    dt_node_op1(DT_TOK_LNEG, dt_sugar_new_error_var()),
+		    dt_sugar_new_condition_var(condid));
 	}
-	xd_append_clause(dp,
-	    dt_node_clause(dp->xp_pdescs, pred, stmts));
+	dt_sugar_append_clause(dp,
+	    dt_node_clause(dp->dtsp_pdescs, pred, stmts));
 }
 
 /*
@@ -383,7 +387,7 @@ xd_new_basic_block(xd_parse_t *dp, int condid, dt_node_t *stmts)
  * generating new clauses for "if" and "else" statements.
  */
 static void
-xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
+dt_sugar_visit_stmts(dt_sugar_parse_t *dp, dt_node_t *stmts, int precondition)
 {
 	dt_node_t *stmt;
 	dt_node_t *prev_stmt = NULL;
@@ -411,11 +415,11 @@ xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
 		 * Generate clause for statements preceding the "if"
 		 */
 		if (first_stmt_in_basic_block != NULL) {
-			xd_new_basic_block(dp, precondition,
+			dt_sugar_new_basic_block(dp, precondition,
 			    first_stmt_in_basic_block);
 		}
 
-		xd_do_if(dp, stmt, precondition);
+		dt_sugar_do_if(dp, stmt, precondition);
 
 		first_stmt_in_basic_block = NULL;
 
@@ -423,8 +427,10 @@ xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
 	}
 
 	/* generate clause for statements after last "if". */
-	if (first_stmt_in_basic_block != NULL)
-		xd_new_basic_block(dp, precondition, first_stmt_in_basic_block);
+	if (first_stmt_in_basic_block != NULL) {
+		dt_sugar_new_basic_block(dp, precondition,
+		    first_stmt_in_basic_block);
+	}
 }
 
 /*
@@ -435,14 +441,14 @@ xd_visit_stmts(xd_parse_t *dp, dt_node_t *stmts, int precondition)
  * dtrace:::ERROR{ self->%error = 1; }
  */
 static dt_node_t *
-xd_makeerrorclause(void)
+dt_sugar_makeerrorclause(void)
 {
 	dt_node_t *acts, *pdesc;
 
 	pdesc = dt_node_pdesc_by_name(strdup("dtrace:::ERROR"));
 
 	acts = dt_node_statement(dt_node_op2(DT_TOK_ASGN,
-	    xd_new_error_var(), dt_node_int(1)));
+	    dt_sugar_new_error_var(), dt_node_int(1)));
 
 	return (dt_node_clause(pdesc, NULL, acts));
 }
@@ -454,20 +460,20 @@ xd_makeerrorclause(void)
 dt_node_t *
 dt_compile_sugar(dtrace_hdl_t *dtp, dt_node_t *clause)
 {
-	xd_parse_t dp = { 0 };
+	dt_sugar_parse_t dp = { 0 };
 	int condid = 0;
 
-	dp.xp_dtp = dtp;
-	dp.xp_pdescs = clause->dn_pdescs;
+	dp.dtsp_dtp = dtp;
+	dp.dtsp_pdescs = clause->dn_pdescs;
 
 	/* make dt_node_int() generate an "int"-typed integer */
 	yyintdecimal = B_TRUE;
 	yyintsuffix[0] = '\0';
 	yyintprefix = 0;
 
-	xd_visit_all(&dp, clause);
+	dt_sugar_visit_all(&dp, clause);
 
-	if (dp.xp_num_ifs == 0 && dp.xp_num_conditions == 0) {
+	if (dp.dtsp_num_ifs == 0 && dp.dtsp_num_conditions == 0) {
 		/*
 		 * There is nothing that modifies the number of clauses.  Use
 		 * the existing clause as-is, with its predicate intact.  This
@@ -475,31 +481,36 @@ dt_compile_sugar(dtrace_hdl_t *dtp, dt_node_t *clause)
 		 * clause can create a variable that is referenced in the
 		 * predicate.
 		 */
-		xd_append_clause(&dp, dt_node_clause(clause->dn_pdescs,
+		dt_sugar_append_clause(&dp, dt_node_clause(clause->dn_pdescs,
 		    clause->dn_pred, clause->dn_acts));
 	} else {
-		if (clause->dn_pred != NULL)
-			condid = xd_new_condition(&dp, clause->dn_pred, condid);
+		if (clause->dn_pred != NULL) {
+			condid = dt_sugar_new_condition(&dp,
+			    clause->dn_pred, condid);
+		}
 
 		if (clause->dn_acts == NULL) {
 			/*
-			 * xd_visit_stmts() does not emit a clause with
+			 * dt_sugar_visit_stmts() does not emit a clause with
 			 * an empty body (e.g. if there's an empty "if" body),
 			 * but we need the empty body here so that we
 			 * continue to get the default tracing action.
 			 */
-			xd_new_basic_block(&dp, condid, NULL);
+			dt_sugar_new_basic_block(&dp, condid, NULL);
 		} else {
-			xd_visit_stmts(&dp, clause->dn_acts, condid);
+			dt_sugar_visit_stmts(&dp, clause->dn_acts, condid);
 		}
 	}
 
-	if (dp.xp_num_conditions != 0)
-		xd_prepend_clause(&dp, xd_new_clearerror_clause(&dp));
-	if (dp.xp_clause_list != NULL &&
-	    dp.xp_clause_list->dn_list != NULL && !dtp->dt_has_sugar) {
-		dtp->dt_has_sugar = B_TRUE;
-		xd_prepend_clause(&dp, xd_makeerrorclause());
+	if (dp.dtsp_num_conditions != 0) {
+		dt_sugar_prepend_clause(&dp,
+		    dt_sugar_new_clearerror_clause(&dp));
 	}
-	return (dp.xp_clause_list);
+
+	if (dp.dtsp_clause_list != NULL &&
+	    dp.dtsp_clause_list->dn_list != NULL && !dtp->dt_has_sugar) {
+		dtp->dt_has_sugar = B_TRUE;
+		dt_sugar_prepend_clause(&dp, dt_sugar_makeerrorclause());
+	}
+	return (dp.dtsp_clause_list);
 }
