@@ -24,6 +24,7 @@
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  */
 
 #include <sys/dsl_pool.h>
@@ -130,6 +131,17 @@ uint64_t zfs_delay_scale = 1000 * 1000 * 1000 / 2000;
 hrtime_t zfs_throttle_delay = MSEC2NSEC(10);
 hrtime_t zfs_throttle_resolution = MSEC2NSEC(10);
 
+
+/*
+ * Tunable to control number of threads servicing the vn rele taskq
+ */
+int zfs_vn_rele_threads = 256;
+
+/*
+ * Tunable to control max number of task in the vn rele taskq
+ */
+int zfs_vn_rele_max_tasks = 8192;
+
 int
 dsl_pool_open_special_dir(dsl_pool_t *dp, const char *name, dsl_dir_t **ddp)
 {
@@ -169,8 +181,9 @@ dsl_pool_open_impl(spa_t *spa, uint64_t txg)
 	mutex_init(&dp->dp_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&dp->dp_spaceavail_cv, NULL, CV_DEFAULT, NULL);
 
-	dp->dp_vnrele_taskq = taskq_create("zfs_vn_rele_taskq", 1, minclsyspri,
-	    1, 4, 0);
+	dp->dp_vnrele_taskq = taskq_create("zfs_vn_rele_taskq",
+	    zfs_vn_rele_threads, minclsyspri, 1, zfs_vn_rele_max_tasks,
+	    TASKQ_DYNAMIC);
 
 	return (dp);
 }
@@ -497,6 +510,18 @@ dsl_pool_sync(dsl_pool_t *dp, uint64_t txg)
 	 * Shore up the accounting of any dirtied space now.
 	 */
 	dsl_pool_undirty_space(dp, dp->dp_dirty_pertxg[txg & TXG_MASK], txg);
+
+	/*
+	 * Update the long range free counters after
+	 * we're done syncing user data
+	 */
+	mutex_enter(&dp->dp_lock);
+	ASSERT(spa_sync_pass(dp->dp_spa) == 1 ||
+	    dp->dp_long_free_dirty_pertxg[txg & TXG_MASK] == 0);
+	dp->dp_long_freeing_total -=
+	    dp->dp_long_free_dirty_pertxg[txg & TXG_MASK];
+	dp->dp_long_free_dirty_pertxg[txg & TXG_MASK] = 0;
+	mutex_exit(&dp->dp_lock);
 
 	/*
 	 * After the data blocks have been written (ensured by the zio_wait()

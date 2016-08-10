@@ -21,9 +21,9 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
- * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2015 Joyent, Inc.
+ * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  */
 
 /* Portions Copyright 2007 Jeremy Teo */
@@ -184,6 +184,12 @@
  *	ZFS_EXIT(zfsvfs);		// finished in zfs
  *	return (error);			// done, report error
  */
+
+/*
+ * Minimal level of indirections.
+ * Above this level we start calling zfs_inactive_impl() async
+ */
+int32_t zfs_inactive_async_indirect = 2;
 
 /* ARGSUSED */
 static int
@@ -4376,15 +4382,14 @@ out:
 	return (error);
 }
 
-/*ARGSUSED*/
-void
-zfs_inactive(vnode_t *vp, cred_t *cr, caller_context_t *ct)
+static boolean_t
+zfs_znode_free_invalid(znode_t *zp)
 {
-	znode_t	*zp = VTOZ(vp);
 	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
-	int error;
+	vnode_t *vp = ZTOV(zp);
 
-	rw_enter(&zfsvfs->z_teardown_inactive_lock, RW_READER);
+	ASSERT(rw_read_held(&zfsvfs->z_teardown_inactive_lock));
+
 	if (zp->z_sa_hdl == NULL) {
 		/*
 		 * The fs has been unmounted, or we did a
@@ -4392,7 +4397,7 @@ zfs_inactive(vnode_t *vp, cred_t *cr, caller_context_t *ct)
 		 */
 		if (vn_has_cached_data(vp)) {
 			(void) pvn_vplist_dirty(vp, 0, zfs_null_putapage,
-			    B_INVAL, cr);
+			    B_INVAL, CRED());
 		}
 
 		mutex_enter(&zp->z_lock);
@@ -4403,8 +4408,21 @@ zfs_inactive(vnode_t *vp, cred_t *cr, caller_context_t *ct)
 		mutex_exit(&zp->z_lock);
 		rw_exit(&zfsvfs->z_teardown_inactive_lock);
 		zfs_znode_free(zp);
-		return;
+		return (B_TRUE);
 	}
+	return (B_FALSE);
+}
+
+static void
+zfs_inactive_impl(znode_t *zp)
+{
+	zfsvfs_t *zfsvfs = zp->z_zfsvfs;
+	vnode_t *vp = ZTOV(zp);
+	int error;
+
+	rw_enter(&zfsvfs->z_teardown_inactive_lock, RW_READER);
+	if (zfs_znode_free_invalid(zp))
+		return; /* z_teardown_inactive_lock already dropped */
 
 	/*
 	 * Attempt to push any data in the page cache.  If this fails
@@ -4412,7 +4430,7 @@ zfs_inactive(vnode_t *vp, cred_t *cr, caller_context_t *ct)
 	 */
 	if (vn_has_cached_data(vp)) {
 		(void) pvn_vplist_dirty(vp, 0, zfs_putapage, B_INVAL|B_ASYNC,
-		    cr);
+		    CRED());
 	}
 
 	if (zp->z_atime_dirty && zp->z_unlinked == 0) {
@@ -4435,6 +4453,50 @@ zfs_inactive(vnode_t *vp, cred_t *cr, caller_context_t *ct)
 
 	zfs_zinactive(zp);
 	rw_exit(&zfsvfs->z_teardown_inactive_lock);
+}
+
+static void
+zfs_inactive_task(void *task_arg)
+{
+	znode_t *zp = task_arg;
+	ASSERT(zp);
+	zfs_inactive_impl(zp);
+}
+
+/*ARGSUSED*/
+void
+zfs_inactive(vnode_t *vp, cred_t *cr, caller_context_t *ct)
+{
+	uint8_t indirection_lvls;
+	dmu_object_info_t doi;
+	znode_t	*zp = VTOZ(vp);
+
+	rw_enter(&zp->z_zfsvfs->z_teardown_inactive_lock, RW_READER);
+	if (zfs_znode_free_invalid(zp))
+		return; /* z_teardown_inactive_lock already dropped */
+
+	if (dmu_object_info(zp->z_zfsvfs->z_os, zp->z_id, &doi) != 0) {
+		rw_exit(&zp->z_zfsvfs->z_teardown_inactive_lock);
+		zfs_inactive_impl(zp);
+		return;
+	}
+	indirection_lvls = doi.doi_indirection;
+
+	if (indirection_lvls > zfs_inactive_async_indirect) {
+		if (taskq_dispatch(dsl_pool_vnrele_taskq(
+		    dmu_objset_pool(zp->z_zfsvfs->z_os)), zfs_inactive_task,
+		    zp, TQ_NOSLEEP) != NULL) {
+			rw_exit(&zp->z_zfsvfs->z_teardown_inactive_lock);
+			return; /* task dispatched, we're done */
+		}
+	}
+	rw_exit(&zp->z_zfsvfs->z_teardown_inactive_lock);
+
+	/*
+	 * If the indirection level of the znode is <= than the threshold
+	 * or if the taskq dispatch failed - do a sync zfs_inactive_impl() call
+	 */
+	zfs_inactive_impl(zp);
 }
 
 /*
