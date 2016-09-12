@@ -456,6 +456,7 @@ zfs_params(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		"metaslab_df_free_pct",
 		"zio_injection_enabled",
 		"zvol_immediate_write_sz",
+		"zfs_max_dataset_nesting",
 	};
 
 	for (int i = 0; i < sizeof (params) / sizeof (params[0]); i++) {
