@@ -25,7 +25,8 @@ PROGS = cleanup \
 	zvol_misc_003_neg \
 	zvol_misc_004_pos \
 	zvol_misc_005_neg \
-	zvol_misc_006_pos
+	zvol_misc_006_pos \
+	zvol_misc_007_pos
 
 CMDS = $(PROGS:%=$(TESTDIR)/%)
 $(CMDS) := FILEMODE = 0555

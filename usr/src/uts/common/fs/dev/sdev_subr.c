@@ -2170,6 +2170,9 @@ found:
 				rw_exit(&ddv->sdev_contents);
 				rw_enter(&ddv->sdev_contents, RW_WRITER);
 			}
+			/* Clean out the stalled directory contents */
+			if (SDEVTOV(dv)->v_type == VDIR)
+				(void) sdev_cleandir(dv, NULL, SDEV_ENFORCE);
 			sdev_cache_update(ddv, &dv, nm, SDEV_CACHE_DELETE);
 			rw_downgrade(&ddv->sdev_contents);
 			SDEV_RELE(dv);
