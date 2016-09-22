@@ -187,6 +187,7 @@
 #include <sys/zfeature.h>
 #include <sys/zcp.h>
 #include <sys/zio_checksum.h>
+#include <sys/vdev_removal.h>
 
 #include "zfs_namecheck.h"
 #include "zfs_prop.h"
@@ -1037,6 +1038,14 @@ zfs_secpolicy_bookmark(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
 			break;
 	}
 	return (error);
+}
+
+/* ARGSUSED */
+static int
+zfs_secpolicy_remap(zfs_cmd_t *zc, nvlist_t *innvl, cred_t *cr)
+{
+	return (zfs_secpolicy_write_perms(zc->zc_name,
+	    ZFS_DELEG_PERM_REMAP, cr));
 }
 
 /* ARGSUSED */
@@ -1894,8 +1903,8 @@ zfs_ioc_vdev_add(zfs_cmd_t *zc)
 /*
  * inputs:
  * zc_name		name of the pool
- * zc_nvlist_conf	nvlist of devices to remove
- * zc_cookie		to stop the remove?
+ * zc_guid		guid of vdev to remove
+ * zc_cookie		cancel removal
  */
 static int
 zfs_ioc_vdev_remove(zfs_cmd_t *zc)
@@ -1906,7 +1915,11 @@ zfs_ioc_vdev_remove(zfs_cmd_t *zc)
 	error = spa_open(zc->zc_name, &spa, FTAG);
 	if (error != 0)
 		return (error);
-	error = spa_vdev_remove(spa, zc->zc_guid, B_FALSE);
+	if (zc->zc_cookie != 0) {
+		error = spa_vdev_remove_cancel(spa);
+	} else {
+		error = spa_vdev_remove(spa, zc->zc_guid, B_FALSE);
+	}
 	spa_close(spa, FTAG);
 	return (error);
 }
@@ -2857,7 +2870,7 @@ zfs_ioc_pool_set_props(zfs_cmd_t *zc)
 		mutex_enter(&spa_namespace_lock);
 		if ((spa = spa_lookup(zc->zc_name)) != NULL) {
 			spa_configfile_set(spa, props, B_FALSE);
-			spa_config_sync(spa, B_FALSE, B_TRUE);
+			spa_write_cachefile(spa, B_FALSE, B_TRUE);
 		}
 		mutex_exit(&spa_namespace_lock);
 		if (spa != NULL) {
@@ -3318,6 +3331,17 @@ zfs_ioc_clone(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
 			(void) dsl_destroy_head(fsname);
 	}
 	return (error);
+}
+
+/* ARGSUSED */
+static int
+zfs_ioc_remap(const char *fsname, nvlist_t *innvl, nvlist_t *outnvl)
+{
+	if (strchr(fsname, '@') ||
+	    strchr(fsname, '%'))
+		return (SET_ERROR(EINVAL));
+
+	return (dmu_objset_remap_indirects(fsname));
 }
 
 /*
@@ -5766,6 +5790,10 @@ zfs_ioctl_init(void)
 	zfs_ioctl_register("clone", ZFS_IOC_CLONE,
 	    zfs_ioc_clone, zfs_secpolicy_create_clone, DATASET_NAME,
 	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_TRUE, B_TRUE);
+
+	zfs_ioctl_register("remap", ZFS_IOC_REMAP,
+	    zfs_ioc_remap, zfs_secpolicy_remap, DATASET_NAME,
+	    POOL_CHECK_SUSPENDED | POOL_CHECK_READONLY, B_FALSE, B_TRUE);
 
 	zfs_ioctl_register("destroy_snaps", ZFS_IOC_DESTROY_SNAPS,
 	    zfs_ioc_destroy_snaps, zfs_secpolicy_destroy_snaps, POOL_NAME,
