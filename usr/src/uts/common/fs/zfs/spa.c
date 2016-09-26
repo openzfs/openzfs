@@ -3812,7 +3812,7 @@ spa_create(const char *pool, nvlist_t *nvroot, nvlist_t *props,
 	spa_config_sync(spa, B_FALSE, B_TRUE);
 	spa_event_notify(spa, NULL, ESC_ZFS_POOL_CREATE);
 
-	spa_history_log_version(spa, "create");
+	spa_history_log_version(spa, "pool create");
 
 	/*
 	 * Don't count references from objsets that are already closed
@@ -4309,6 +4309,12 @@ spa_tryimport(nvlist_t *tryconfig)
 	return (config);
 }
 
+static const char* pool_state2event[POOL_STATE_STATES] = {
+	[POOL_STATE_EXPORTED]           = ESC_ZFS_POOL_EXPORT,
+	[POOL_STATE_DESTROYED]          = ESC_ZFS_POOL_DESTROY,
+	[POOL_STATE_UNINITIALIZED]      = ESC_ZFS_POOL_UNINITIALIZE
+};
+
 /*
  * Pool export/destroy
  *
@@ -4323,6 +4329,7 @@ spa_export_common(char *pool, int new_state, nvlist_t **oldconfig,
     boolean_t force, boolean_t hardforce)
 {
 	spa_t *spa;
+	const char *event;
 
 	if (oldconfig)
 		*oldconfig = NULL;
@@ -4399,7 +4406,10 @@ spa_export_common(char *pool, int new_state, nvlist_t **oldconfig,
 		}
 	}
 
-	spa_event_notify(spa, NULL, ESC_ZFS_POOL_DESTROY);
+	ASSERT((new_state >= 0)  && (new_state < POOL_STATE_STATES));
+	event = pool_state2event[new_state];
+	if (event != NULL)
+		spa_event_notify(spa, NULL, event);
 
 	if (spa->spa_state != POOL_STATE_UNINITIALIZED) {
 		spa_unload(spa);
@@ -4521,6 +4531,7 @@ spa_vdev_add(spa_t *spa, nvlist_t *nvroot)
 		tvd->vdev_id = id;
 		vdev_add_child(rvd, tvd);
 		vdev_config_dirty(tvd);
+		spa_event_notify(spa, vd, ESC_ZFS_VDEV_ADD);
 	}
 
 	if (nspares != 0) {
@@ -6962,6 +6973,14 @@ spa_event_create(spa_t *spa, vdev_t *vd, const char *name)
 			value.value_type = SE_DATA_TYPE_STRING;
 			value.value.sv_string = vd->vdev_path;
 			if (sysevent_add_attr(&attr, ZFS_EV_VDEV_PATH,
+			    &value, SE_SLEEP) != 0)
+				goto done;
+		}
+
+		if (vd->vdev_physpath) {
+			value.value_type = SE_DATA_TYPE_STRING;
+			value.value.sv_string = vd->vdev_physpath;
+			if (sysevent_add_attr(&attr, ZFS_EV_VDEV_PHYSPATH,
 			    &value, SE_SLEEP) != 0)
 				goto done;
 		}

@@ -455,6 +455,7 @@ log_internal(nvlist_t *nvl, const char *operation, spa_t *spa,
 	fnvlist_add_string(nvl, ZPOOL_HIST_INT_NAME, operation);
 	fnvlist_add_uint64(nvl, ZPOOL_HIST_TXG, tx->tx_txg);
 
+	zfs_ereport_spa_history(spa, nvl);
 	if (dmu_tx_is_syncing(tx)) {
 		spa_history_log_sync(nvl, tx);
 	} else {

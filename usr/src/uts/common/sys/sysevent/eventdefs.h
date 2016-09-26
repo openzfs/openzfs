@@ -253,6 +253,8 @@ extern "C" {
 #define	ESC_ZFS_VDEV_REMOVE_DEV		"ESC_ZFS_vdev_remove_dev"
 #define	ESC_ZFS_POOL_CREATE		"ESC_ZFS_pool_create"
 #define	ESC_ZFS_POOL_DESTROY		"ESC_ZFS_pool_destroy"
+#define	ESC_ZFS_POOL_EXPORT		"ESC_ZFS_pool_export"
+#define	ESC_ZFS_POOL_UNINITIALIZE	"ESC_ZFS_pool_uninitialize"
 #define	ESC_ZFS_POOL_IMPORT		"ESC_ZFS_pool_import"
 #define	ESC_ZFS_VDEV_ADD		"ESC_ZFS_vdev_add"
 #define	ESC_ZFS_VDEV_ATTACH		"ESC_ZFS_vdev_attach"
@@ -265,6 +267,8 @@ extern "C" {
 #define	ESC_ZFS_VDEV_SPARE		"ESC_ZFS_vdev_spare"
 #define	ESC_ZFS_BOOTFS_VDEV_ATTACH	"ESC_ZFS_bootfs_vdev_attach"
 #define	ESC_ZFS_POOL_REGUID		"ESC_ZFS_pool_reguid"
+#define	ESC_ZFS_POOL_HISTORY		"ESC_ZFS_pool_history"
+#define	ESC_ZFS_VDEV_ADD		"ESC_ZFS_vdev_add"
 
 /*
  * datalink subclass definitions.
