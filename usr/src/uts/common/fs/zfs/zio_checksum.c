@@ -388,12 +388,13 @@ zio_checksum_error(zio_t *zio, zio_bad_cksum_t *info)
 
 	error = zio_checksum_error_impl(spa, bp, checksum, data, size,
 	    offset, info);
-	if (error != 0 && zio_injection_enabled && !zio->io_error &&
-	    (error = zio_handle_fault_injection(zio, ECKSUM)) != 0) {
 
-		info->zbc_injected = 1;
-		return (error);
+	if (zio_injection_enabled && error == 0 && zio->io_error == 0) {
+		error = zio_handle_fault_injection(zio, ECKSUM);
+		if (error != 0)
+			info->zbc_injected = 1;
 	}
+
 	return (error);
 }
 
