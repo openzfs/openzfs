@@ -35,7 +35,7 @@
 
 #define	DST_AVG_BLKSHIFT 14
 
-typedef int (zcp_synctask_func_t)(lua_State *, boolean_t, nvlist_t **);
+typedef int (zcp_synctask_func_t)(lua_State *, boolean_t, nvlist_t *);
 typedef struct zcp_synctask_info {
 	const char *name;
 	zcp_synctask_func_t *func;
@@ -87,7 +87,7 @@ zcp_sync_task(lua_State *state, dsl_checkfunc_t *checkfunc,
 }
 
 
-static int zcp_synctask_destroy(lua_State *, boolean_t, nvlist_t **);
+static int zcp_synctask_destroy(lua_State *, boolean_t, nvlist_t *);
 static zcp_synctask_info_t zcp_synctask_destroy_info = {
 	.name = "destroy",
 	.func = zcp_synctask_destroy,
@@ -105,7 +105,7 @@ static zcp_synctask_info_t zcp_synctask_destroy_info = {
 
 /* ARGSUSED */
 static int
-zcp_synctask_destroy(lua_State *state, boolean_t sync, nvlist_t **err_details)
+zcp_synctask_destroy(lua_State *state, boolean_t sync, nvlist_t *err_details)
 {
 	int err;
 	const char *dsname = lua_tostring(state, 1);
@@ -140,7 +140,7 @@ zcp_synctask_destroy(lua_State *state, boolean_t sync, nvlist_t **err_details)
 	return (err);
 }
 
-static int zcp_synctask_promote(lua_State *, boolean_t, nvlist_t **err_details);
+static int zcp_synctask_promote(lua_State *, boolean_t, nvlist_t *err_details);
 static zcp_synctask_info_t zcp_synctask_promote_info = {
 	.name = "promote",
 	.func = zcp_synctask_promote,
@@ -156,7 +156,7 @@ static zcp_synctask_info_t zcp_synctask_promote_info = {
 };
 
 static int
-zcp_synctask_promote(lua_State *state, boolean_t sync, nvlist_t **err_details)
+zcp_synctask_promote(lua_State *state, boolean_t sync, nvlist_t *err_details)
 {
 	int err;
 	dsl_dataset_promote_arg_t ddpa = { 0 };
@@ -164,18 +164,15 @@ zcp_synctask_promote(lua_State *state, boolean_t sync, nvlist_t **err_details)
 	zcp_run_info_t *ri = zcp_run_info(state);
 
 	ddpa.ddpa_clonename = dsname;
-	ddpa.err_ds = fnvlist_alloc();
+	ddpa.err_ds = err_details;
 	ddpa.cr = ri->zri_cred;
-
-	err = zcp_sync_task(state, dsl_dataset_promote_check,
-	    dsl_dataset_promote_sync, &ddpa, sync, dsname);
 
 	/*
 	 * If there was a snapshot name conflict, then err_ds will be filled
 	 * with a list of conflicting snapshot names.
 	 */
-	if (err == EEXIST)
-		*err_details = ddpa.err_ds;
+	err = zcp_sync_task(state, dsl_dataset_promote_check,
+	    dsl_dataset_promote_sync, &ddpa, sync, dsname);
 
 	return (err);
 }
@@ -185,7 +182,7 @@ zcp_synctask_wrapper(lua_State *state)
 {
 	int err;
 	int num_ret = 1;
-	nvlist_t *err_details = NULL;
+	nvlist_t *err_details = fnvlist_alloc();
 
 	zcp_synctask_info_t *info = lua_touserdata(state, lua_upvalueindex(1));
 	boolean_t sync = lua_toboolean(state, lua_upvalueindex(2));
@@ -212,7 +209,7 @@ zcp_synctask_wrapper(lua_State *state)
 	}
 
 	if (err == 0) {
-		err = info->func(state, sync, &err_details);
+		err = info->func(state, sync, err_details);
 	}
 
 	if (err == 0) {
@@ -220,11 +217,12 @@ zcp_synctask_wrapper(lua_State *state)
 	}
 
 	lua_pushnumber(state, (lua_Number)err);
-	if (err_details != NULL) {
+	if (fnvlist_num_pairs(err_details) > 0) {
 		(void) zcp_nvlist_to_lua(state, err_details, NULL, 0);
-		fnvlist_free(err_details);
 		num_ret++;
 	}
+
+	fnvlist_free(err_details);
 
 	return (num_ret);
 }
