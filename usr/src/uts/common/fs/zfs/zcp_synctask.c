@@ -177,12 +177,24 @@ zcp_synctask_promote(lua_State *state, boolean_t sync, nvlist_t *err_details)
 	return (err);
 }
 
+void
+zcp_synctask_wrapper_cleanup(void *arg)
+{
+	fnvlist_free(arg);
+}
+
 static int
 zcp_synctask_wrapper(lua_State *state)
 {
 	int err;
 	int num_ret = 1;
 	nvlist_t *err_details = fnvlist_alloc();
+
+	/*
+	 * Make sure err_details is properly freed, even if a fatal error is
+	 * thrown during the synctask.
+	 */
+	zcp_register_cleanup(state, &zcp_synctask_wrapper_cleanup, err_details);
 
 	zcp_synctask_info_t *info = lua_touserdata(state, lua_upvalueindex(1));
 	boolean_t sync = lua_toboolean(state, lua_upvalueindex(2));
@@ -222,6 +234,7 @@ zcp_synctask_wrapper(lua_State *state)
 		num_ret++;
 	}
 
+	zcp_clear_cleanup(state);
 	fnvlist_free(err_details);
 
 	return (num_ret);
