@@ -45,6 +45,8 @@ int zcp_load_list_lib(lua_State *);
 
 int zcp_load_synctask_lib(lua_State *, boolean_t);
 
+typedef void (zcp_cleanup_t)(void *);
+
 typedef struct zcp_run_info {
 	dsl_pool_t	*zri_pool;
 
@@ -80,9 +82,19 @@ typedef struct zcp_run_info {
 	 * because it timed out.
 	 */
 	boolean_t	zri_timed_out;
+
+	/*
+	 * The currently registered cleanup function, which will be called
+	 * with the stored argument if a fatal error occurs.
+	 */
+	zcp_cleanup_t	*zri_cleanup;
+	void		*zri_cleanup_arg;
 } zcp_run_info_t;
 
 zcp_run_info_t *zcp_run_info(lua_State *);
+void zcp_register_cleanup(lua_State *, zcp_cleanup_t, void *);
+void zcp_clear_cleanup(lua_State *);
+void zcp_cleanup(lua_State *);
 
 /*
  * Argument parsing routines for channel program callback functions.
