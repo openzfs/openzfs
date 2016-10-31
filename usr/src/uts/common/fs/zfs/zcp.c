@@ -547,7 +547,6 @@ zcp_lua_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
 			int64_t *allocbuf = (int64_t *)ptr - 1;
 			int64_t allocsize = *allocbuf;
 			ASSERT3S(allocsize, >, 0);
-			ASSERT3S(allocsize, <=, SPA_MAXBLOCKSIZE);
 			ASSERT3S(allocargs->aa_alloc_remaining + allocsize, <=,
 			    allocargs->aa_alloc_limit);
 			allocargs->aa_alloc_remaining += allocsize;
@@ -563,9 +562,6 @@ zcp_lua_alloc(void *ud, void *ptr, size_t osize, size_t nsize)
 		    allocsize > allocargs->aa_alloc_remaining)) {
 			return (NULL);
 		}
-
-		if (allocsize > SPA_MAXBLOCKSIZE)
-			return (NULL);
 
 		allocbuf = kmem_alloc(allocsize, flags);
 		if (allocbuf == NULL) {
