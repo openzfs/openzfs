@@ -2191,11 +2191,15 @@ dsl_dataset_rollback_check(void *arg, dmu_tx_t *tx)
 		return (SET_ERROR(EINVAL));
 	}
 
-	/* XXX No rollback to a snapshot created in the current txg. */
+	/*
+	 * No rollback to a snapshot created in the current txg, because
+	 * the rollback may dirty the dataset and create blocks that are
+	 * not reachable from the rootbp while having a birth txg that
+	 * falls into the snapshot's range.
+	 */
 	if (dmu_tx_is_syncing(tx) &&
 	    dsl_dataset_phys(ds)->ds_prev_snap_txg >= tx->tx_txg) {
 		dsl_dataset_rele(ds, FTAG);
-		/* not sure if this is the best error here */
 		return (SET_ERROR(EAGAIN));
 	}
 
