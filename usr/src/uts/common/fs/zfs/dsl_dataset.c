@@ -81,6 +81,8 @@ extern inline dsl_dataset_phys_t *dsl_dataset_phys(dsl_dataset_t *ds);
 
 extern int spa_asize_inflation;
 
+static zil_header_t zero_zil;
+
 /*
  * Figure out how much of this delta should be propogated to the dsl_dir
  * layer.  If there's a refreservation, that space has already been
@@ -884,41 +886,26 @@ dsl_dataset_create_sync_dd(dsl_dir_t *dd, dsl_dataset_t *origin,
 	return (dsobj);
 }
 
-static int
-deadlist_enqueue_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
-{
-	dsl_deadlist_t *dl = arg;
-	dsl_deadlist_insert(dl, bp, tx);
-	return (0);
-}
-
 static void
-dsl_dataset_direct_sync(dsl_dataset_t *ds, dmu_tx_t *tx)
-{
-	dsl_pool_t *dp = ds->ds_dir->dd_pool;
-	objset_t *os = ds->ds_objset;
-	zio_t *zio;
-
-	zio = zio_root(dp->dp_spa, NULL, NULL, ZIO_FLAG_MUSTSUCCEED);
-	dsl_dataset_sync(ds, zio, tx);
-	VERIFY0(zio_wait(zio));
-
-	bplist_iterate(&ds->ds_pending_deadlist,
-	    deadlist_enqueue_cb, &ds->ds_deadlist, tx);
-	ASSERT(!dmu_objset_is_dirty(os, tx->tx_txg));
-}
-
-static void
-dsl_dataset_zero_zil(dsl_dataset_t *ds, dmu_tx_t *tx, boolean_t nodirty)
+dsl_dataset_zero_zil(dsl_dataset_t *ds, dmu_tx_t *tx)
 {
 	objset_t *os;
 
 	VERIFY0(dmu_objset_from_ds(ds, &os));
-	bzero(&os->os_zil_header, sizeof (os->os_zil_header));
-	if (nodirty)
-		dsl_dataset_direct_sync(ds, tx);
-	else
-		dsl_dataset_dirty(ds, tx);
+	if (bcmp(&os->os_zil_header, &zero_zil, sizeof (zero_zil)) != 0) {
+		dsl_pool_t *dp = ds->ds_dir->dd_pool;
+		zio_t *zio;
+
+		bzero(&os->os_zil_header, sizeof (os->os_zil_header));
+
+		zio = zio_root(dp->dp_spa, NULL, NULL, ZIO_FLAG_MUSTSUCCEED);
+		dsl_dataset_sync(ds, zio, tx);
+		VERIFY0(zio_wait(zio));
+
+		/* dsl_dataset_sync_done will drop this reference. */
+		dmu_buf_add_ref(ds->ds_dbuf, ds);
+		dsl_dataset_sync_done(ds, tx);
+	}
 }
 
 uint64_t
@@ -965,7 +952,7 @@ dsl_dataset_create_sync(dsl_dir_t *pdd, const char *lastname,
 		dsl_dataset_t *ds;
 
 		VERIFY0(dsl_dataset_hold_obj(dp, dsobj, FTAG, &ds));
-		dsl_dataset_zero_zil(ds, tx, B_FALSE);
+		dsl_dataset_zero_zil(ds, tx);
 		dsl_dataset_rele(ds, FTAG);
 	}
 
@@ -1316,8 +1303,6 @@ void
 dsl_dataset_snapshot_sync_impl(dsl_dataset_t *ds, const char *snapname,
     dmu_tx_t *tx)
 {
-	static zil_header_t zero_zil;
-
 	dsl_pool_t *dp = ds->ds_dir->dd_pool;
 	dmu_buf_t *dbuf;
 	dsl_dataset_phys_t *dsphys;
@@ -1684,6 +1669,27 @@ dsl_dataset_sync(dsl_dataset_t *ds, zio_t *zio, dmu_tx_t *tx)
 			ds->ds_feature_inuse[f] = B_TRUE;
 		}
 	}
+}
+
+static int
+deadlist_enqueue_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
+{
+	dsl_deadlist_t *dl = arg;
+	dsl_deadlist_insert(dl, bp, tx);
+	return (0);
+}
+
+void
+dsl_dataset_sync_done(dsl_dataset_t *ds, dmu_tx_t *tx)
+{
+	objset_t *os = ds->ds_objset;
+
+	bplist_iterate(&ds->ds_pending_deadlist,
+	    deadlist_enqueue_cb, &ds->ds_deadlist, tx);
+
+	ASSERT(!dmu_objset_is_dirty(os, dmu_tx_get_txg(tx)));
+
+	dmu_buf_rele(ds->ds_dbuf, ds);
 }
 
 static void
@@ -2272,7 +2278,7 @@ dsl_dataset_rollback_sync(void *arg, dmu_tx_t *tx)
 	VERIFY0(dsl_dataset_hold_obj(dp, cloneobj, FTAG, &clone));
 
 	dsl_dataset_clone_swap_sync_impl(clone, ds, tx);
-	dsl_dataset_zero_zil(ds, tx, B_TRUE);
+	dsl_dataset_zero_zil(ds, tx);
 
 	dsl_destroy_head_sync_impl(clone, tx);
 
