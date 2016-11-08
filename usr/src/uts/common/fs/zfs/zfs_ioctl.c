@@ -3641,11 +3641,12 @@ zfs_ioc_destroy(zfs_cmd_t *zc)
 static int
 zfs_ioc_rollback(const char *fsname, nvlist_t *args, nvlist_t *outnvl)
 {
-	dsl_dataset_t *ds;
 	zfsvfs_t *zfsvfs;
 	int error;
 
 	if (getzfsvfs(fsname, &zfsvfs) == 0) {
+		dsl_dataset_t *ds;
+
 		ds = dmu_objset_ds(zfsvfs->z_os);
 		error = zfs_suspend_fs(zfsvfs);
 		if (error == 0) {
