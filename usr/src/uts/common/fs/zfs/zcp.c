@@ -17,6 +17,78 @@
  * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
+/*
+ * ZFS Channel Programs (ZCP)
+ *
+ * The ZCP interface allows various ZFS commands and operations ZFS
+ * administrative operations (e.g. creating and destroying snapshots, typically
+ * performed via an ioctl to /dev/zfs by the zfs(1M) command and
+ * libzfs/libzfs_core) to be run * programmatically as a Lua script.  A ZCP
+ * script is run as a dsl_sync_task and fully executed during one transaction
+ * group sync.  This ensures that no other changes can be written concurrently
+ * with a running Lua script.  Combining multiple calls to the exposed ZFS
+ * functions into one script gives a number of benefits:
+ *
+ * 1. Atomicity.  For some compound or iterative operations, it's useful to be
+ * able to guarantee that the state of a pool has not changed between calls to
+ * ZFS.
+ *
+ * 2. Performance.  If a large number of changes need to be made (e.g. deleting
+ * many filesystems), there can be a significant performance penalty as a
+ * result of the need to wait for a transaction group sync to pass for every
+ * single operation.  When expressed as a single ZCP script, all these changes
+ * can be performed at once in one txg sync.
+ *
+ * A modified version of the Lua 5.2 interpreter is used to run channel program
+ * scripts. The Lua 5.2 manual can be found at:
+ *
+ *      http://www.lua.org/manual/5.2/
+ *
+ * If being run by a user (via an ioctl syscall), executing a ZCP script
+ * requires root privileges in the global zone.
+ *
+ * Scripts are passed to zcp_eval() as a string, then run in a synctask by
+ * zcp_eval_sync().  Arguments can be passed into the Lua script as an nvlist,
+ * which will be converted to a Lua table.  Similarly, values returned from
+ * a ZCP script will be converted to an nvlist.  See zcp_lua_to_nvlist_impl()
+ * for details on exact allowed types and conversion.
+ *
+ * ZFS functionality is exposed to a ZCP script as a library of function calls.
+ * These calls are sorted into submodules, such as zfs.list and zfs.sync, for
+ * iterators and synctasks, respectively.  Each of these submodules resides in
+ * its own source file, with a zcp_*_info structure describing each library
+ * call in the submodule.
+ *
+ * Error handling in ZCP scripts is handled by a number of different methods
+ * based on severity:
+ *
+ * 1. Memory and time limits are in place to prevent a channel program from
+ * consuming excessive system or running forever.  If one of these limits is
+ * hit, the channel program will be stopped immediately and return from
+ * zcp_eval() with an error code. No attempt will be made to roll back or undo
+ * any changes made by the channel program before the error occured.
+ * Consumers invoking zcp_eval() from elsewhere in the kernel may pass a time
+ * limit of 0, disabling the time limit.
+ *
+ * 2. Internal Lua errors can occur as a result of a syntax error, calling a
+ * library function with incorrect arguments, invoking the error() function,
+ * failing an assert(), or other runtime errors.  In these cases the channel
+ * program will stop executing and return from zcp_eval() with an error code.
+ * In place of a return value, an error message will also be returned in the
+ * 'result' nvlist containing information about the error. No attempt will be
+ * made to roll back or undo any changes made by the channel program before the
+ * error occured.
+ *
+ * 3. If an error occurs inside a ZFS library call which returns an error code,
+ * the error is returned to the Lua script to be handled as desired.
+ *
+ * In the first two cases, Lua's error-throwing mechanism is used, which
+ * longjumps out of the script execution with luaL_error() and returns with the
+ * error.
+ *
+ * See zfs-program(1M) for more information on high level usage.
+ */
+
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
