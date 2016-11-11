@@ -22,6 +22,7 @@
 /*
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1984, 1986, 1987, 1988, 1989 AT&T	*/
@@ -37,10 +38,6 @@
  * contributors.
  */
 
-/*
- * Copyright (c) 2012 by Delphix. All rights reserved.
- */
-
 #include <stdio.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
@@ -48,10 +45,13 @@
 #include <signal.h>
 #include <string.h>
 #include <syslog.h>
+#include <ctype.h>
+#include <locale.h>
 #include <netconfig.h>
 #include <unistd.h>
 #include <netdb.h>
 #include <rpc/rpc.h>
+#include <rpc/svc.h>
 #include <netinet/in.h>
 #include <sys/param.h>
 #include <sys/resource.h>
@@ -69,6 +69,7 @@
 #include <limits.h>
 #include <rpcsvc/daemon_utils.h>
 #include <priv_utils.h>
+#include "smfcfg.h"
 #include "sm_statd.h"
 
 
@@ -81,6 +82,8 @@
 #define	current1	"statmon/sm/"
 #define	backup1		"statmon/sm.bak/"
 #define	state1		"statmon/state"
+
+#define	PORT_MAX	65535
 
 extern int	daemonize_init(void);
 extern void	daemonize_fini(int fd);
@@ -457,6 +460,22 @@ thr_statd_merges(void)
 	(void) mutex_unlock(&merges_lock);
 }
 
+static int
+convert_int(int *val, char *str)
+{
+	long lval;
+
+	if (str == NULL || !isdigit(*str))
+		return (-1);
+
+	lval = strtol(str, &str, 10);
+	if (*str != '\0' || lval > INT_MAX)
+		return (-2);
+
+	*val = (int)lval;
+	return (0);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -468,6 +487,9 @@ main(int argc, char *argv[])
 	int mode;
 	int sz;
 	int pipe_fd = -1;
+	int tmp;
+	int port = 0;
+	int ret;
 	int connmaxrec = RPC_MAXDATASIZE;
 
 	addrix = 0;
@@ -477,7 +499,14 @@ main(int argc, char *argv[])
 	if (init_hostname() < 0)
 		exit(1);
 
-	while ((c = getopt(argc, argv, "Dd:a:G:p:rU:")) != EOF)
+	ret = nfs_smf_get_iprop("statd_port", &port,
+	    DEFAULT_INSTANCE, SCF_TYPE_INTEGER, STATD);
+	if (ret != SA_OK) {
+		syslog(LOG_ERR, "Reading of statd_port from SMF "
+		    "failed, using default value");
+	}
+
+	while ((c = getopt(argc, argv, "Dd:a:G:p:P:rU:")) != EOF)
 		switch (c) {
 		case 'd':
 			(void) sscanf(optarg, "%d", &debug);
@@ -541,6 +570,15 @@ main(int argc, char *argv[])
 				(void) fprintf(stderr,
 				"statd: -p pathname is too long.\n");
 			}
+			break;
+		case 'P':
+			if (convert_int(&tmp, optarg) != 0 || tmp < 1 ||
+			    tmp > PORT_MAX) {
+				(void) fprintf(stderr, "%s: invalid port "
+				    "number\n", argv[0]);
+				break;
+			}
+			port = tmp;
 			break;
 		case 'r':
 			regfiles_only = 1;
@@ -636,13 +674,15 @@ main(int argc, char *argv[])
 		syslog(LOG_INFO, "unable to set maximum RPC record size");
 	}
 
-	if (!svc_create(sm_prog_1, SM_PROG, SM_VERS, "netpath")) {
+	if (!svc_create_port(sm_prog_1, SM_PROG, SM_VERS, "netpath",
+	    htons(port))) {
 		syslog(LOG_ERR, "statd: unable to create (SM_PROG, SM_VERS) "
 		    "for netpath.");
 		exit(1);
 	}
 
-	if (!svc_create(sm_prog_1, NSM_ADDR_PROGRAM, NSM_ADDR_V1, "netpath")) {
+	if (!svc_create_port(sm_prog_1, NSM_ADDR_PROGRAM, NSM_ADDR_V1,
+	    "netpath", htons(port))) {
 		syslog(LOG_ERR, "statd: unable to create (NSM_ADDR_PROGRAM, "
 		    "NSM_ADDR_V1) for netpath.");
 	}

@@ -22,6 +22,7 @@
 /*
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2014 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 
 /*	Copyright (c) 1988 AT&T */
@@ -106,6 +107,221 @@ __svc_free_xprtlist(void)
 	__svc_free_xlist(&_svc_xprtlist, &xprtlist_lock);
 }
 
+static void
+error(char *errmsg, int sv_errno)
+{
+	if (t_errno != TSYSERR) {
+		(void) syslog(LOG_ERR, "%s: %s\n", errmsg, t_strerror(t_errno));
+	} else {
+		(void) syslog(LOG_ERR, "%s: %s\n", errmsg, strerror(sv_errno));
+	}
+}
+
+/*
+ * This function accomplishes the same thing as svc_create, except that it
+ * allows a port to be specified.  If no port is specified, svc_create is
+ * called.  Otherwise, we will loop through every network device in the given
+ * nettype, and register the service on that device, on the provided port.
+ */
+int
+svc_create_port(void (*dispatch)(), const rpcprog_t prognum,
+    const rpcvers_t versnum, const char *nettype, in_port_t port)
+{
+	void *handle;
+	struct netconfig *nconf, *tcp6_nconf = NULL;
+	struct t_info tinfo;
+	struct t_bind *bind_addr, *reqb;
+	int fd, sv_errno;
+	boolean_t tcp_done = B_FALSE;
+	char error_buf[256];
+	int num_reg = 0;
+	SVCXPRT_LIST *l;
+
+	if (ntohs(port) == 0) {
+		return (svc_create(dispatch, prognum, versnum, nettype));
+	}
+
+	handle = __rpc_setconf((char *) nettype);
+	if (handle == NULL) {
+		syslog(LOG_ERR, "Failed to retrieve rpc conf handle for %s\n",
+		    nettype);
+		return (0);
+	}
+
+	/*
+	 * We loop through every device in the given nettype, registering the
+	 * service on that device.  However, there is a small catch. When we
+	 * register the service on the tcp6 device, it registers for both ipv4
+	 * and ipv6, preventing us from registering through the tcp device.
+	 * This causes many machines to not be able to connect to the service
+	 * we're registering, even though an ipv4 address is being presented
+	 * through tcp6. The simplest way around this is to register tcp before
+	 * tcp6; this loop does that. When tcp first comes up, it sets a flag so
+	 * that we know we've completed tcp.  When tcp6 comes up in the list,
+	 * there are two options.  If we've already completed tcp, then we
+	 * proceed with tcp6.  If not, then we store it in tcp6_nconf and
+	 * continue until we find tcp.  After we finish tcp, the next time
+	 * through the loop, we see that tcp_done is set and tcp6_nconf is set,
+	 * so we execute that, rather than pulling another device off the rpc
+	 * handle.
+	 */
+	while ((tcp_done && (nconf = tcp6_nconf) != NULL) ||
+	    (nconf = (struct netconfig *)__rpc_getconf(handle))) {
+		SVCXPRT *xprt;
+
+		if (strcmp(nconf->nc_netid, "tcp") == 0) {
+			tcp_done = B_TRUE;
+		} else if (strcmp(nconf->nc_netid, "tcp6") == 0) {
+			if (tcp_done) {
+				tcp6_nconf = NULL;
+			} else {
+				tcp6_nconf = nconf;
+				continue;
+			}
+		}
+
+		/*
+		 * We loop through the services we've already registered.
+		 * If we find a service already registered for this device,
+		 * we add our version number to it.  If we were to instead
+		 * create a new service, some of the versions might be
+		 * inaccessible.
+		 */
+		for (l = _svc_xprtlist; l; l = l->next) {
+			if (strcmp(l->xprt->xp_netid, nconf->nc_netid) == 0) {
+				/* Found an old one, use it */
+				(void) rpcb_unset(prognum, versnum, nconf);
+				if (svc_reg(l->xprt, prognum, versnum,
+				    dispatch, nconf) == FALSE)
+					(void) syslog(LOG_ERR,
+					    "svc_create_port: could not "
+					    "register prog %d vers %d on %s",
+					    prognum, versnum, nconf->nc_netid);
+				else
+					num_reg++;
+				break;
+			}
+		}
+		(void) mutex_unlock(&xprtlist_lock);
+		if (l != NULL)
+			continue;
+
+		/*
+		 * Intentionally leaked, since closing it terminates the
+		 * transport
+		 */
+		fd = t_open(nconf->nc_device, O_RDWR, &tinfo);
+		if (fd == -1) {
+			sv_errno = errno;
+			(void) snprintf(error_buf, 256, "couldn't register %s "
+			    "%lu: Failed open", nettype, versnum);
+			error(error_buf, sv_errno);
+			continue;
+		}
+
+		/* LINTED E_BAD_PTR_CAST_ALIGN */
+		bind_addr = (struct t_bind *)t_alloc(fd, T_BIND, T_ADDR);
+		if ((bind_addr == NULL)) {
+			sv_errno = errno;
+			(void) snprintf(error_buf,  256, "couldn't register %s "
+			    "%lu: Failed allocation", nettype, versnum);
+			error(error_buf, sv_errno);
+			(void) t_close(fd);
+			continue;
+		}
+		/* LINTED E_BAD_PTR_CAST_ALIGN */
+		reqb = (struct t_bind *)t_alloc(fd, T_BIND, T_ADDR);
+		if ((reqb == NULL)) {
+			sv_errno = errno;
+			(void) snprintf(error_buf,  256, "couldn't register %s "
+			    "%lu: Failed allocation", nettype, versnum);
+			error(error_buf, sv_errno);
+			(void) t_close(fd);
+			(void) t_free((char *)bind_addr, T_BIND);
+			continue;
+		}
+
+		if (strcmp(nconf->nc_protofmly, NC_INET6) == 0) {
+			struct sockaddr_in6 *sin;
+			reqb->qlen = 1;
+			reqb->addr.len = sizeof (struct sockaddr_in6);
+			/* LINTED E_BAD_PTR_CAST_ALIGN */
+			sin = (struct sockaddr_in6 *)reqb->addr.buf;
+			(void) memset((void *)sin, 0,
+			    sizeof (struct sockaddr_in6));
+			sin->sin6_family = AF_INET6;
+			sin->sin6_port = port;
+		} else if (strcmp(nconf->nc_protofmly, NC_INET) == 0) {
+			struct sockaddr_in *sin;
+			reqb->qlen = 1;
+			reqb->addr.len = sizeof (struct sockaddr_in);
+			/* LINTED E_BAD_PTR_CAST_ALIGN */
+			sin = (struct sockaddr_in *)reqb->addr.buf;
+			(void) memset((void *)sin, 0,
+			    sizeof (struct sockaddr_in));
+			sin->sin_family = AF_INET;
+			sin->sin_port = port;
+		} else if (strcmp(nconf->nc_protofmly, NC_LOOPBACK) == 0) {
+			(void) t_free((char *)bind_addr, T_BIND);
+			(void) t_free((char *)reqb, T_BIND);
+			bind_addr = NULL;
+			reqb = NULL;
+		} else {
+			(void) t_close(fd);
+			(void) t_free((char *)bind_addr, T_BIND);
+			(void) t_free((char *)reqb, T_BIND);
+			(void) syslog(LOG_ERR, "Unhandled protofmly %s, %s\n",
+				nconf->nc_protofmly, nettype);
+			continue;
+		}
+
+		if (t_bind(fd, reqb, bind_addr) == -1) {
+			error("Bind failed", errno);
+			(void) t_close(fd);
+			if (bind_addr != NULL) {
+				(void) t_free((char *)bind_addr, T_BIND);
+				(void) t_free((char *)reqb, T_BIND);
+			}
+			continue;
+		}
+
+		if ((xprt = svc_tli_create(fd, nconf, bind_addr, 0, 0)) ==
+		    NULL) {
+			error("Service creation failed", errno);
+			(void) t_unbind(fd);
+			(void) t_close(fd);
+			if (bind_addr != NULL) {
+				(void) t_free((char *)bind_addr, T_BIND);
+				(void) t_free((char *)reqb, T_BIND);
+			}
+			continue;
+		}
+		(void) rpcb_unset(prognum, versnum, nconf);
+		if (svc_reg(xprt, prognum, versnum, dispatch, nconf) == FALSE) {
+			error("Failed to register service", errno);
+			(void) t_unbind(fd);
+			(void) t_close(fd);
+			SVC_DESTROY(xprt);
+			xprt = NULL;
+		} else {
+			num_reg++;
+		}
+
+		if (xprt && !__svc_add_to_xlist(&_svc_xprtlist, xprt,
+		    &xprtlist_lock)) {
+			(void) syslog(LOG_ERR, "svc_create_port: no memory");
+			return (0);
+		}
+
+		if (bind_addr != NULL) {
+			(void) t_free((char *)bind_addr, T_BIND);
+			(void) t_free((char *)reqb, T_BIND);
+		}
+	}
+	__rpc_endconf(handle);
+	return (num_reg);
+}
+
 int
 svc_create(void (*dispatch)(), const rpcprog_t prognum, const rpcvers_t versnum,
 							const char *nettype)
@@ -151,18 +367,19 @@ svc_create(void (*dispatch)(), const rpcprog_t prognum, const rpcvers_t versnum,
 			}
 		}
 		(void) mutex_unlock(&xprtlist_lock);
-		if (l == NULL) {
-			/* It was not found. Now create a new one */
-			xprt = svc_tp_create(dispatch, prognum, versnum, nconf);
-			if (xprt) {
-				if (!__svc_add_to_xlist(&_svc_xprtlist, xprt,
-				    &xprtlist_lock)) {
-					(void) syslog(LOG_ERR,
-					    "svc_create: no memory");
-					return (0);
-				}
-				num++;
+		if (l != NULL)
+			continue;
+
+		/* It was not found. Now create a new one */
+		xprt = svc_tp_create(dispatch, prognum, versnum, nconf);
+		if (xprt) {
+			if (!__svc_add_to_xlist(&_svc_xprtlist, xprt,
+				&xprtlist_lock)) {
+				(void) syslog(LOG_ERR,
+					"svc_create: no memory");
+				return (0);
 			}
+			num++;
 		}
 	}
 	__rpc_endconf(handle);

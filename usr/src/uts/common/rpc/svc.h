@@ -21,6 +21,7 @@
 /*
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
+ * Copyright (c) 2016 by Delphix. All rights reserved.
  */
 /* Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T */
 /* All Rights Reserved */
@@ -917,6 +918,17 @@ extern int	svc_create(void (*)(struct svc_req *, SVCXPRT *),
 	 *	const char *nettype;		-- network type
 	 */
 
+extern int	svc_create_port(void (*)(struct svc_req *, SVCXPRT *),
+				const rpcprog_t, const rpcvers_t,
+				const char *, in_port_t port);
+	/*
+	 *	void (*dispatch)();		-- dispatch routine
+	 *	const rpcprog_t prognum;	-- program number
+	 *	const rpcvers_t versnum;	-- version number
+	 *	const char *nettype;		-- network type
+	 *	in_port_t port			-- port to allow connections to
+	 */
+
 /*
  * Generic server creation routine. It takes a netconfig structure
  * instead of a nettype.
@@ -1007,6 +1019,7 @@ extern	bool_t	svc_control(SVCXPRT *, const uint_t, void *);
 extern int svc_dg_enablecache(SVCXPRT *, const uint_t);
 #else	/* __STDC__ */
 extern int	svc_create();
+extern int	svc_create_port();
 extern SVCXPRT	*svc_tp_create();
 extern SVCXPRT	*svc_tli_create();
 extern SVCXPRT	*svc_vc_create();
