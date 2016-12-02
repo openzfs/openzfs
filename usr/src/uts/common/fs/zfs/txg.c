@@ -720,9 +720,9 @@ txg_list_empty(txg_list_t *tl, uint64_t txg)
 /*
  * Returns true if all txg lists are empty.
  *
- * Warning: this is inherently racy (an item could be added immediately after this
- * function returns). We don't bother with the lock because it wouldn't change the
- * semantics.
+ * Warning: this is inherently racy (an item could be added immediately
+ * after this function returns). We don't bother with the lock because
+ * it wouldn't change the semantics.
  */
 boolean_t
 txg_all_lists_empty(txg_list_t *tl)
@@ -799,6 +799,8 @@ txg_list_remove(txg_list_t *tl, uint64_t txg)
 
 	mutex_enter(&tl->tl_lock);
 	if ((tn = tl->tl_head[t]) != NULL) {
+		ASSERT(tn->tn_member[t]);
+		ASSERT(tn->tn_next[t] == NULL || tn->tn_next[t]->tn_member[t]);
 		p = (char *)tn - tl->tl_offset;
 		tl->tl_head[t] = tn->tn_next[t];
 		tn->tn_next[t] = NULL;

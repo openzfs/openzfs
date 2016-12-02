@@ -58,6 +58,7 @@ SUBDIRS = acl \
 	redundancy \
 	refquota \
 	refreserv \
+	removal \
 	rename_dirs \
 	replacement \
 	reservation \

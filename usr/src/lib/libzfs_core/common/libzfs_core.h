@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  */
 
@@ -46,6 +46,7 @@ enum lzc_dataset_type {
 	LZC_DATSET_TYPE_ZVOL
 };
 
+int lzc_remap(const char *fsname);
 int lzc_snapshot(nvlist_t *, nvlist_t *, nvlist_t **);
 int lzc_create(const char *, enum lzc_dataset_type, nvlist_t *);
 int lzc_clone(const char *, const char *, nvlist_t *);

@@ -1320,6 +1320,13 @@ zpool_add(zpool_handle_t *zhp, nvlist_t *nvroot)
 			(void) zfs_error(hdl, EZFS_BADDEV, msg);
 			break;
 
+		case EINVAL:
+			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+			    "Invalid config; a pool with removing/removed "
+			    "vdevs does not support redundant vdevs"));
+			(void) zfs_error(hdl, EZFS_BADDEV, msg);
+			break;
+
 		case EOVERFLOW:
 			/*
 			 * This occurrs when one of the devices is below
@@ -2719,7 +2726,8 @@ zpool_vdev_attach(zpool_handle_t *zhp,
 		break;
 
 	case EBUSY:
-		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN, "%s is busy"),
+		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN, "%s is busy, "
+		    "or pool has removing/removed vdevs"),
 		    new_disk);
 		(void) zfs_error(hdl, EZFS_BADDEV, msg);
 		break;
@@ -3062,8 +3070,7 @@ out:
 }
 
 /*
- * Remove the given device.  Currently, this is supported only for hot spares
- * and level 2 cache devices.
+ * Remove the given device.
  */
 int
 zpool_vdev_remove(zpool_handle_t *zhp, const char *path)
@@ -3082,24 +3089,60 @@ zpool_vdev_remove(zpool_handle_t *zhp, const char *path)
 	if ((tgt = zpool_find_vdev(zhp, path, &avail_spare, &l2cache,
 	    &islog)) == 0)
 		return (zfs_error(hdl, EZFS_NODEVICE, msg));
-	/*
-	 * XXX - this should just go away.
-	 */
-	if (!avail_spare && !l2cache && !islog) {
-		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-		    "only inactive hot spares, cache, top-level, "
-		    "or log devices can be removed"));
-		return (zfs_error(hdl, EZFS_NODEVICE, msg));
-	}
 
 	version = zpool_get_prop_int(zhp, ZPOOL_PROP_VERSION, NULL);
 	if (islog && version < SPA_VERSION_HOLES) {
 		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-		    "pool must be upgrade to support log removal"));
+		    "pool must be upgraded to support log removal"));
 		return (zfs_error(hdl, EZFS_BADVERSION, msg));
 	}
 
+	if (!islog && !avail_spare && !l2cache && zpool_is_bootable(zhp)) {
+		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+		    "root pool can not have removed devices, "
+		    "because GRUB does not understand them"));
+		return (zfs_error(hdl, EINVAL, msg));
+	}
+
 	verify(nvlist_lookup_uint64(tgt, ZPOOL_CONFIG_GUID, &zc.zc_guid) == 0);
+
+	if (zfs_ioctl(hdl, ZFS_IOC_VDEV_REMOVE, &zc) == 0)
+		return (0);
+
+	switch (errno) {
+
+	case EINVAL:
+		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+		    "invalid config; all top-level vdevs must be "
+		    "non-redundant (i.e. not mirror or raidz), and "
+		    "all have the same sector size"));
+		(void) zfs_error(hdl, EZFS_INVALCONFIG, msg);
+		break;
+
+	case EBUSY:
+		zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+		    "Pool busy; removal may already be in progress"));
+		(void) zfs_error(hdl, EZFS_BUSY, msg);
+		break;
+
+	default:
+		(void) zpool_standard_error(hdl, errno, msg);
+	}
+	return (-1);
+}
+
+int
+zpool_vdev_remove_cancel(zpool_handle_t *zhp)
+{
+	zfs_cmd_t zc = { 0 };
+	char msg[1024];
+	libzfs_handle_t *hdl = zhp->zpool_hdl;
+
+	(void) snprintf(msg, sizeof (msg),
+	    dgettext(TEXT_DOMAIN, "cannot cancel removal"));
+
+	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
+	zc.zc_cookie = 1;
 
 	if (zfs_ioctl(hdl, ZFS_IOC_VDEV_REMOVE, &zc) == 0)
 		return (0);

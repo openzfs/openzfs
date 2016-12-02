@@ -19,7 +19,7 @@
 # CDDL HEADER END
 #
 # Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2015 by Delphix. All rights reserved.
 #
 # MAPFILE HEADER START
 #
@@ -54,6 +54,7 @@ SYMBOL_VERSION ILLUMOS_0.1 {
 	lzc_receive_resumable;
 	lzc_receive_with_header;
 	lzc_release;
+	lzc_remap;
 	lzc_rollback;
 	lzc_send;
 	lzc_send_resume;

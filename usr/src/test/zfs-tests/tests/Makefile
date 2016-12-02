@@ -15,6 +15,6 @@
 
 .PARALLEL: $(SUBDIRS)
 
-SUBDIRS = functional perf
+SUBDIRS = functional perf stress
 
 include $(SRC)/test/Makefile.com

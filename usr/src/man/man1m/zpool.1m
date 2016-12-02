@@ -20,7 +20,7 @@
 .\"
 .\"
 .\" Copyright (c) 2007, Sun Microsystems, Inc. All Rights Reserved.
-.\" Copyright (c) 2013 by Delphix. All rights reserved.
+.\" Copyright (c) 2012, 2014 by Delphix. All rights reserved.
 .\" Copyright 2016 Nexenta Systems, Inc.
 .\"
 .Dd March 30, 2016
@@ -130,6 +130,10 @@
 .Nm
 .Cm remove
 .Ar pool Ar device Ns ...
+.Nm
+.Cm remove
+.Fl s
+.Ar pool
 .Nm
 .Cm replace
 .Op Fl f
@@ -1265,12 +1269,33 @@ Reopen all the vdevs associated with the pool.
 .Cm remove
 .Ar pool Ar device Ns ...
 .Xc
-Removes the specified device from the pool. This command currently only supports
-removing hot spares, cache, and log devices. A mirrored log device can be
-removed by specifying the top-level mirror for the log. Non-log devices that are
-part of a mirrored configuration can be removed using the
-.Nm zpool Cm detach
+Removes the specified device from the pool. This command supports removing hot
+spares, cache, and log devices; and removing top-level vdevs from non-redundant
+pools.
+.sp
+Removing a top-level vdev reduces the total amount of space in the storage pool.
+The specified device must be evacuated by copying all allocated space from it to
+the other devices in the pool.  In this case, the
+.Nm zpool Cm remove
+command initiates the removal and continues while the evacuation continues in
+the background.  The removal progress can be monitored with
+.Nm zpool Cm status.
+This feature must be enabled to be used, see
+.Xr zpool-features 5
+for details.
+.sp
+A mirrored log device can removed by specifying the top-level mirror for the
+log. Non-log devices that are part of a mirrored configuration can be removed
+using the
+.Nm detach
 command. Non-redundant and raidz devices cannot be removed from a pool.
+.It Xo
+.Nm
+.Cm remove
+.Fl s
+.Ar pool
+.Xc
+Stops and cancels an in-progress removal of a top-level vdev.
 .It Xo
 .Nm
 .Cm replace

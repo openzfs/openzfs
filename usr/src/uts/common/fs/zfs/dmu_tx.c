@@ -406,6 +406,23 @@ out:
 		txh->txh_tx->tx_err = err;
 }
 
+/*
+ * Update the hold to account for the fact that we will remap the L1 block at
+ * the given offset in the file.
+ */
+static void
+dmu_tx_count_remap_l1indirect(dmu_tx_hold_t *txh, uint64_t offset)
+{
+	dnode_t *dn = txh->txh_dnode;
+	uint64_t l1blkid = dbuf_whichblock(dn, 1, offset);
+	uint64_t history[DN_MAX_LEVELS];
+
+	for (int l = 0; l < DN_MAX_LEVELS; l++) {
+		history[l] = -1ULL;
+	}
+	dmu_tx_count_twig(txh, dn, NULL, 1, l1blkid, B_FALSE, history);
+}
+
 static void
 dmu_tx_count_dnode(dmu_tx_hold_t *txh)
 {
@@ -430,7 +447,7 @@ dmu_tx_count_dnode(dmu_tx_hold_t *txh)
 }
 
 void
-dmu_tx_hold_write(dmu_tx_t *tx, uint64_t object, uint64_t off, int len)
+dmu_tx_hold_write(dmu_tx_t *tx, uint64_t object, uint64_t off, uint64_t len)
 {
 	dmu_tx_hold_t *txh;
 
@@ -444,6 +461,21 @@ dmu_tx_hold_write(dmu_tx_t *tx, uint64_t object, uint64_t off, int len)
 		return;
 
 	dmu_tx_count_write(txh, off, len);
+	dmu_tx_count_dnode(txh);
+}
+
+void
+dmu_tx_hold_remap_l1indirect(dmu_tx_t *tx, uint64_t object, uint64_t off)
+{
+	dmu_tx_hold_t *txh;
+
+	ASSERT(tx->tx_txg == 0);
+	txh = dmu_tx_hold_object_impl(tx, tx->tx_objset,
+	    object, THT_WRITE, 0, 0);
+	if (txh == NULL)
+		return;
+
+	dmu_tx_count_remap_l1indirect(txh, off);
 	dmu_tx_count_dnode(txh);
 }
 

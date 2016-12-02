@@ -127,6 +127,11 @@ extern inline dsl_dir_phys_t *dsl_dir_phys(dsl_dir_t *dd);
 
 static uint64_t dsl_dir_space_towrite(dsl_dir_t *dd);
 
+typedef struct ddulrt_arg {
+	dsl_dir_t	*ddulrta_dd;
+	uint64_t	ddlrta_txg;
+} ddulrt_arg_t;
+
 static void
 dsl_dir_evict_async(void *dbu)
 {
@@ -729,6 +734,35 @@ dsl_enforce_ds_ss_limits(dsl_dir_t *dd, zfs_prop_t prop, cred_t *cr)
 	return (enforce);
 }
 
+static void
+dsl_dir_update_last_remap_txg_sync(void *varg, dmu_tx_t *tx)
+{
+	ddulrt_arg_t *arg = varg;
+	uint64_t last_remap_txg;
+	dsl_dir_t *dd = arg->ddulrta_dd;
+	objset_t *mos = dd->dd_pool->dp_meta_objset;
+
+	dsl_dir_zapify(dd, tx);
+	if (zap_lookup(mos, dd->dd_object, DD_FIELD_LAST_REMAP_TXG,
+	    sizeof (last_remap_txg), 1, &last_remap_txg) != 0 ||
+	    last_remap_txg < arg->ddlrta_txg) {
+		VERIFY0(zap_update(mos, dd->dd_object, DD_FIELD_LAST_REMAP_TXG,
+		    sizeof (arg->ddlrta_txg), 1, &arg->ddlrta_txg, tx));
+	}
+}
+
+int
+dsl_dir_update_last_remap_txg(dsl_dir_t *dd, uint64_t txg)
+{
+	ddulrt_arg_t arg;
+	arg.ddulrta_dd = dd;
+	arg.ddlrta_txg = txg;
+
+	return (dsl_sync_task(spa_name(dd->dd_pool->dp_spa),
+	    NULL, dsl_dir_update_last_remap_txg_sync, &arg,
+	    1, ZFS_SPACE_CHECK_RESERVED));
+}
+
 /*
  * Check if adding additional child filesystem(s) would exceed any filesystem
  * limits or adding additional snapshot(s) would exceed any snapshot limits.
@@ -967,6 +1001,11 @@ dsl_dir_stats(dsl_dir_t *dd, nvlist_t *nv)
 		    sizeof (count), 1, &count) == 0) {
 			dsl_prop_nvlist_add_uint64(nv,
 			    ZFS_PROP_SNAPSHOT_COUNT, count);
+		}
+		if (zap_lookup(os, dd->dd_object, DD_FIELD_LAST_REMAP_TXG,
+		    sizeof (count), 1, &count) == 0) {
+			dsl_prop_nvlist_add_uint64(nv,
+			    ZFS_PROP_REMAPTXG, count);
 		}
 	}
 

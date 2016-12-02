@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  */
@@ -193,6 +193,16 @@ lzc_clone(const char *fsname, const char *origin,
 	if (props != NULL)
 		fnvlist_add_nvlist(args, "props", props);
 	error = lzc_ioctl(ZFS_IOC_CLONE, fsname, args, NULL);
+	nvlist_free(args);
+	return (error);
+}
+
+int
+lzc_remap(const char *fsname)
+{
+	int error;
+	nvlist_t *args = fnvlist_alloc();
+	error = lzc_ioctl(ZFS_IOC_REMAP, fsname, args, NULL);
 	nvlist_free(args);
 	return (error);
 }

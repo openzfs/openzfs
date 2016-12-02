@@ -101,6 +101,16 @@ struct dsl_pool;
 #define	DS_FIELD_RESUME_COMPRESSOK "com.delphix:resume_compressok"
 
 /*
+ * This field is set to the object number of the remap deadlist if one exists.
+ */
+#define	DS_FIELD_REMAP_DEADLIST	"com.delphix:remap_deadlist"
+
+/*
+ * This field is set to the object number of the remap deadlist if one exists.
+ */
+#define	DS_FIELD_REMAP_DEADLIST	"com.delphix:remap_deadlist"
+
+/*
  * DS_FLAG_CI_DATASET is set if the dataset contains a file system whose
  * name lookups should be performed case-insensitively.
  */
@@ -160,6 +170,22 @@ typedef struct dsl_dataset {
 	/* has internal locking: */
 	dsl_deadlist_t ds_deadlist;
 	bplist_t ds_pending_deadlist;
+
+	/*
+	 * The remap deadlist contains blocks (DVA's, really) that are
+	 * referenced by the previous snapshot and point to indirect vdevs,
+	 * but in this dataset they have been remapped to point to concrete
+	 * (or at least, less-indirect) vdevs.  In other words, the
+	 * physical DVA is referenced by the previous snapshot but not by
+	 * this dataset.  Logically, the DVA continues to be referenced,
+	 * but we are using a different (less indirect) physical DVA.
+	 * This deadlist is used to determine when physical DVAs that
+	 * point to indirect vdevs are no longer referenced anywhere,
+	 * and thus should be marked obsolete.
+	 *
+	 * This is only used if SPA_FEATURE_OBSOLETE_COUNTS is enabled.
+	 */
+	dsl_deadlist_t ds_remap_deadlist;
 
 	/* protected by lock on pool's dp_dirty_datasets list */
 	txg_node_t ds_dirty_link;
@@ -282,6 +308,8 @@ void dsl_dataset_block_born(dsl_dataset_t *ds, const blkptr_t *bp,
     dmu_tx_t *tx);
 int dsl_dataset_block_kill(dsl_dataset_t *ds, const blkptr_t *bp,
     dmu_tx_t *tx, boolean_t async);
+void dsl_dataset_block_remapped(dsl_dataset_t *ds, uint64_t vdev,
+    uint64_t offset, uint64_t size, uint64_t birth, dmu_tx_t *tx);
 boolean_t dsl_dataset_block_freeable(dsl_dataset_t *ds, const blkptr_t *bp,
     uint64_t blk_birth);
 uint64_t dsl_dataset_prev_snap_txg(dsl_dataset_t *ds);
@@ -338,6 +366,11 @@ void dsl_dataset_zapify(dsl_dataset_t *ds, dmu_tx_t *tx);
 boolean_t dsl_dataset_is_zapified(dsl_dataset_t *ds);
 boolean_t dsl_dataset_has_resume_receive_state(dsl_dataset_t *ds);
 int dsl_dataset_rollback(const char *fsname, void *owner, nvlist_t *result);
+
+uint64_t dsl_dataset_get_remap_deadlist_object(dsl_dataset_t *ds);
+void dsl_dataset_create_remap_deadlist(dsl_dataset_t *ds, dmu_tx_t *tx);
+boolean_t dsl_dataset_remap_deadlist_exists(dsl_dataset_t *ds);
+void dsl_dataset_destroy_remap_deadlist(dsl_dataset_t *ds, dmu_tx_t *tx);
 
 void dsl_dataset_deactivate_feature(uint64_t dsobj,
     spa_feature_t f, dmu_tx_t *tx);
