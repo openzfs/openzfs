@@ -1229,7 +1229,9 @@ zprop_parse_value(libzfs_handle_t *hdl, nvpair_t *elem, int prop,
 		 * Quota special: force 'none' and don't allow 0.
 		 */
 		if ((type & ZFS_TYPE_DATASET) && *ivalp == 0 && !isnone &&
-		    (prop == ZFS_PROP_QUOTA || prop == ZFS_PROP_REFQUOTA)) {
+		    (prop == ZFS_PROP_QUOTA || prop == ZFS_PROP_REFQUOTA ||
+		    prop == ZFS_PROP_LOGICALQUOTA ||
+		    prop == ZFS_PROP_LOGICALREFQUOTA)) {
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "use 'none' to disable quota/refquota"));
 			goto error;

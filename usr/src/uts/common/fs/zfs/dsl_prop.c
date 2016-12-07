@@ -372,6 +372,8 @@ dsl_prop_predict(dsl_dir_t *dd, const char *propname,
 
 	switch (prop) {
 	case ZFS_PROP_QUOTA:
+	case ZFS_PROP_LOGICALQUOTA:
+	case ZFS_PROP_LOGICALREFQUOTA:
 	case ZFS_PROP_RESERVATION:
 	case ZFS_PROP_REFQUOTA:
 	case ZFS_PROP_REFRESERVATION:

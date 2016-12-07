@@ -1,0 +1,109 @@
+#
+# CDDL HEADER START
+#
+# The contents of this file are subject to the terms of the
+# Common Development and Distribution License (the "License").
+# You may not use this file except in compliance with the License.
+#
+# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+# or http://www.opensolaris.org/os/licensing.
+# See the License for the specific language governing permissions
+# and limitations under the License.
+#
+# When distributing Covered Code, include this CDDL HEADER in each
+# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+# If applicable, add the following below this CDDL HEADER, with the
+# fields enclosed by brackets "[]" replaced with your own identifying
+# information: Portions Copyright [yyyy] [name of copyright owner]
+#
+# CDDL HEADER END
+#
+
+#
+# Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
+# Use is subject to license terms.
+#
+
+#
+# Copyright (c) 2013 by Delphix. All rights reserved.
+#
+
+. $STF_SUITE/tests/functional/logicalrefquota/logicalrefquota.cfg
+
+# BLOCK_SIZE, logicalrefquota_VALUE and TOLERANCE set in logicalrefquota.cfg
+readonly EDQUOT=49
+
+#
+# Function to fill a file of the size of the
+# logicalrefquota of a zfs filesystem, minus 1
+#
+function fill_file
+{
+	typeset FILE="$1"
+	typeset -i size=${2-$LOGICALREFQUOTA_VALUE}
+
+	typeset -i write_size=0
+	(( write_size = size / BLOCK_SIZE - 1 ))
+
+	typeset -i zret=0
+	$FILE_WRITE -o create -f $FILE -b $BLOCK_SIZE \
+		 -c $write_size -d 0
+	zret=$?
+	return $zret
+}
+#
+# Function to fill the quota of a zfs filesystem
+#
+# $1 - The File system or container to fill.
+# $2 - The mountpoint to use.
+#
+function fill_logicalrefquota
+{
+	typeset FILESYSTEM="$1"
+	typeset MNTPT="$2"
+
+	log_must $ZFS set logicalrefquota=$LOGICALREFQUOTA_VALUE $FILESYSTEM
+
+	typeset -i write_size=0
+	(( write_size = 2 * LOGICALREFQUOTA_VALUE ))
+
+	typeset -i zret=0
+	$FILE_WRITE -o create -f $MNTPT/$TESTFILE1 -b $BLOCK_SIZE \
+		 -c $write_size -d 0
+	zret=$?
+        [[ $zret -ne EDQUOT ]] && \
+            log_fail "Returned error code: $zret. Expected: $EDQUOT."
+
+	typeset -i file_size=`$LS -ls $MNTPT/$TESTFILE1 | $AWK '{ print $1 }'`
+	typeset -i limit=0
+	(( file_size = file_size * 512 ))
+	(( limit = LOGICALREFQUOTA_VALUE + TOLERANCE ))
+	(( file_size > limit )) && \
+	    log_fail "File was created larger than the quota value, aborting!!!"
+	return 0
+}
+
+#
+# Function attempts to write another file in a ZFS filesystem
+# that has already filled its quota
+#
+function exceed_logicalrefquota
+{
+	typeset FILESYSTEM="$1"
+	typeset MNTPT="$2"
+
+	log_must fill_logicalrefquota $FILESYSTEM $MNTPT
+	typeset -i write_size=0
+        (( write_size = 2 * LOGICALREFQUOTA_VALUE ))
+	typeset -i zret=0
+	#
+	# Writing a file without API to access return code
+	#
+	log_note "Creating a file in a FS that has already exceeded its quota"
+	$FILE_WRITE -o create -f $MNTPT/$TESTFILE2 \
+		-b $BLOCK_SIZE -c $write_size -d 0
+	zret=$?
+	[[ $zret -ne EDQUOT ]] && \
+	    log_fail "Returned error code: $zret. Expected: EDQUOT."
+	return 0
+}

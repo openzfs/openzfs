@@ -1089,6 +1089,18 @@ the ancestor's quota, but rather imposes an additional limit.
 Quotas cannot be set on volumes, as the
 .Sy volsize
 property acts as an implicit quota.
+.It Sy logicalquota Ns = Ns Em on Ns | Ns Sy off
+This property enforces a hard limit on the amount of logical space used.
+This includes all logical space consumed by descendents, including file systems
+and snapshots.
+This property can also be referred to by its shortened column name,
+.Sy lquota .
+.It Sy logicalrefquota Ns = Ns Em on Ns | Ns Sy off
+Limits the amount of logical space a dataset can consume. This property enforces
+a hard limit on the amount of space used. This hard limit does not include space
+used by descendents, including file systems and snapshots.
+This property can also be referred to by its shortened column name,
+.Sy lrefquota .
 .It Sy snapshot_limit Ns = Ns Em count Ns | Ns Sy none
 Limits the number of snapshots that can be created on a dataset and its
 descendents. Setting a

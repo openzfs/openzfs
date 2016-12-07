@@ -15,4 +15,68 @@
 #
 
 include $(SRC)/test/zfs-tests/Makefile.com
-include $(SRC)/test/Makefile.com
+.PARALLEL: $(SUBDIRS)
+
+SUBDIRS = acl \
+	atime \
+	bootfs \
+	cache \
+	cachefile \
+	casenorm \
+	checksum \
+	clean_mirror \
+	cli_root \
+	cli_user \
+	compression \
+	ctime \
+	delegate \
+	devices \
+	exec \
+	features \
+	grow_pool \
+	grow_replicas \
+	history \
+	holes \
+	inheritance \
+	inuse \
+	large_files \
+	largest_pool \
+	libzfs \
+	link_count \
+	logicalquota \
+	logicalrefquota \
+	mdb \
+	migration \
+	mmap \
+	mount \
+	mv_files \
+	nestedfs \
+	no_space \
+	nopwrite \
+	online_offline \
+	pool_names \
+	poolversion \
+	privilege \
+	quota \
+	redundancy \
+	refquota \
+	refreserv \
+	rename_dirs \
+	replacement \
+	reservation \
+	rootpool \
+	rsend \
+	scrub_mirror \
+	slog \
+	snapshot \
+	snapused \
+	sparse \
+	threadsappend \
+	truncate \
+	userquota \
+	utils_test \
+	vdev_zaps \
+	write_dirs \
+	xattr \
+	zvol
+

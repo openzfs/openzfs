@@ -2423,6 +2423,16 @@ zfs_prop_set_special(const char *dsname, zprop_source_t source,
 	case ZFS_PROP_REFQUOTA:
 		err = dsl_dataset_set_refquota(dsname, source, intval);
 		break;
+	case ZFS_PROP_LOGICALREFQUOTA:
+		err = dsl_dataset_set_logicalrefquota(dsname, source, intval);
+		if (err == 0)
+			err = -1;
+		break;
+	case ZFS_PROP_LOGICALQUOTA:
+		err = dsl_dir_set_logicalquota(dsname, source, intval);
+		if (err == 0)
+			err = -1;
+		break;
 	case ZFS_PROP_FILESYSTEM_LIMIT:
 	case ZFS_PROP_SNAPSHOT_LIMIT:
 		if (intval == UINT64_MAX) {
@@ -4114,7 +4124,8 @@ extract_delay_props(nvlist_t *props)
 {
 	nvlist_t *delayprops;
 	nvpair_t *nvp, *tmp;
-	static const zfs_prop_t delayable[] = { ZFS_PROP_REFQUOTA, 0 };
+	static const zfs_prop_t delayable[] =
+	    { ZFS_PROP_REFQUOTA, ZFS_PROP_LOGICALREFQUOTA, 0 };
 	int i;
 
 	VERIFY(nvlist_alloc(&delayprops, NV_UNIQUE_NAME, KM_SLEEP) == 0);

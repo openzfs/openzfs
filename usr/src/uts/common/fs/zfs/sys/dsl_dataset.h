@@ -101,6 +101,11 @@ struct dsl_pool;
 #define	DS_FIELD_RESUME_COMPRESSOK "com.delphix:resume_compressok"
 
 /*
+ * These fields for logical refquota
+ */
+#define	DS_FIELD_LOGICALREFQUOTA "com.ovh:logicalrefquota"
+
+/*
  * DS_FLAG_CI_DATASET is set if the dataset contains a file system whose
  * name lookups should be performed case-insensitively.
  */
@@ -306,6 +311,8 @@ int dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
     uint64_t *ref_rsrv);
 int dsl_dataset_set_refquota(const char *dsname, zprop_source_t source,
     uint64_t quota);
+int dsl_dataset_set_logicalrefquota(const char *ddname, zprop_source_t source,
+    uint64_t logicalrefquota);
 int dsl_dataset_set_refreservation(const char *dsname, zprop_source_t source,
     uint64_t reservation);
 

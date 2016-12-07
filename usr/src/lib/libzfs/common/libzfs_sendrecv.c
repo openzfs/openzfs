@@ -697,6 +697,8 @@ send_iterate_prop(zfs_handle_t *zhp, nvlist_t *nv)
 		verify(nvpair_value_nvlist(elem, &propnv) == 0);
 		if (prop == ZFS_PROP_QUOTA || prop == ZFS_PROP_RESERVATION ||
 		    prop == ZFS_PROP_REFQUOTA ||
+		    prop == ZFS_PROP_LOGICALQUOTA ||
+		    prop == ZFS_PROP_LOGICALREFQUOTA ||
 		    prop == ZFS_PROP_REFRESERVATION) {
 			char *source;
 			uint64_t value;

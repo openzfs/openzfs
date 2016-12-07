@@ -107,6 +107,8 @@ dir path=opt/zfs-tests/tests/functional/large_files
 dir path=opt/zfs-tests/tests/functional/largest_pool
 dir path=opt/zfs-tests/tests/functional/libzfs
 dir path=opt/zfs-tests/tests/functional/link_count
+dir path=opt/zfs-tests/tests/functional/logicalquota
+dir path=opt/zfs-tests/tests/functional/logicalrefquota
 dir path=opt/zfs-tests/tests/functional/mdb
 dir path=opt/zfs-tests/tests/functional/migration
 dir path=opt/zfs-tests/tests/functional/mmap
@@ -1871,6 +1873,69 @@ file path=opt/zfs-tests/tests/functional/libzfs/many_fds mode=0555
 file path=opt/zfs-tests/tests/functional/link_count/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/link_count/link_count_001 mode=0555
 file path=opt/zfs-tests/tests/functional/link_count/setup mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota.cfg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota.kshlib \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_001_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_002_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_003_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_004_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_005_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_006_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_007_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_008_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_009_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_010_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_011_neg \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalquota/setup mode=0555
+file path=opt/zfs-tests/tests/functional/logicalrefquota/cleanup mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_001_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_002_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_003_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_004_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_005_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_006_neg \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_007_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_008_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_009_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_010_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_011_pos \
+    mode=0555
+file path=opt/zfs-tests/tests/functional/logicalrefquota/setup mode=0555
 file path=opt/zfs-tests/tests/functional/mdb/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/mdb/mdb_001_pos mode=0555
 file path=opt/zfs-tests/tests/functional/mdb/setup mode=0555

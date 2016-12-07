@@ -1513,7 +1513,9 @@ zfs_setprop_error(libzfs_handle_t *hdl, zfs_prop_t prop, int err,
 		 */
 		switch (prop) {
 		case ZFS_PROP_QUOTA:
+		case ZFS_PROP_LOGICALQUOTA:
 		case ZFS_PROP_REFQUOTA:
+		case ZFS_PROP_LOGICALREFQUOTA:
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
 			    "size is less than current used or "
 			    "reserved space"));
@@ -2068,7 +2070,9 @@ get_numeric_property(zfs_handle_t *zhp, zfs_prop_t prop, zprop_source_t *src,
 	case ZFS_PROP_CANMOUNT:
 	case ZFS_PROP_VOLSIZE:
 	case ZFS_PROP_QUOTA:
+	case ZFS_PROP_LOGICALQUOTA:
 	case ZFS_PROP_REFQUOTA:
+	case ZFS_PROP_LOGICALREFQUOTA:
 	case ZFS_PROP_RESERVATION:
 	case ZFS_PROP_REFRESERVATION:
 	case ZFS_PROP_FILESYSTEM_LIMIT:
@@ -2452,7 +2456,9 @@ zfs_prop_get(zfs_handle_t *zhp, zfs_prop_t prop, char *propbuf, size_t proplen,
 		break;
 
 	case ZFS_PROP_QUOTA:
+	case ZFS_PROP_LOGICALQUOTA:
 	case ZFS_PROP_REFQUOTA:
+	case ZFS_PROP_LOGICALREFQUOTA:
 	case ZFS_PROP_RESERVATION:
 	case ZFS_PROP_REFRESERVATION:
 

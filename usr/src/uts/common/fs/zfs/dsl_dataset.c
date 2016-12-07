@@ -1979,6 +1979,10 @@ dsl_dataset_space(dsl_dataset_t *ds,
     uint64_t *refdbytesp, uint64_t *availbytesp,
     uint64_t *usedobjsp, uint64_t *availobjsp)
 {
+	uint64_t logicalrefquota = 0;
+	dsl_dir_t *dd = ds->ds_dir;
+	objset_t *os = dd->dd_pool->dp_meta_objset;
+
 	*refdbytesp = dsl_dataset_phys(ds)->ds_referenced_bytes;
 	*availbytesp = dsl_dir_space_available(ds->ds_dir, NULL, 0, TRUE);
 	if (ds->ds_reserved > dsl_dataset_phys(ds)->ds_unique_bytes)
@@ -1998,6 +2002,26 @@ dsl_dataset_space(dsl_dataset_t *ds,
 	*usedobjsp = BP_GET_FILL(&dsl_dataset_phys(ds)->ds_bp);
 	rrw_exit(&ds->ds_bp_rwlock, FTAG);
 	*availobjsp = DN_MAX_OBJECT - *usedobjsp;
+
+	if (dsl_dataset_is_zapified(ds) && zap_contains(os, ds->ds_object,
+	    DS_FIELD_LOGICALREFQUOTA) == 0) {
+		VERIFY0(zap_lookup(os, ds->ds_object,
+		    DS_FIELD_LOGICALREFQUOTA, 8, 1, &logicalrefquota));
+	}
+
+	if (logicalrefquota != 0) {
+		uint64_t lref, lavail;
+		lref = dsl_dataset_phys(ds)->ds_uncompressed_bytes;
+		if (lref < logicalrefquota) {
+			lavail = logicalrefquota - lref;
+		} else {
+			lavail = 0;
+		}
+		if (lavail < *availbytesp) {
+			*availbytesp = lavail;
+			*refdbytesp = lref;
+		}
+	}
 }
 
 boolean_t
@@ -3166,6 +3190,14 @@ dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
     uint64_t asize, uint64_t inflight, uint64_t *used, uint64_t *ref_rsrv)
 {
 	int error = 0;
+	uint64_t logicalrefquota = 0;
+
+	objset_t *os = ds->ds_dir->dd_pool->dp_meta_objset;
+	if (dsl_dataset_is_zapified(ds) && zap_contains(os, ds->ds_object,
+	    DS_FIELD_LOGICALREFQUOTA) == 0) {
+		VERIFY0(zap_lookup(os, ds->ds_object,
+		    DS_FIELD_LOGICALREFQUOTA, 8, 1, &logicalrefquota));
+	}
 
 	ASSERT3S(asize, >, 0);
 
@@ -3188,7 +3220,7 @@ dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
 		    asize - MIN(asize, parent_delta(ds, asize + inflight));
 	}
 
-	if (!check_quota || ds->ds_quota == 0) {
+	if (!check_quota || (ds->ds_quota == 0 && logicalrefquota == 0)) {
 		mutex_exit(&ds->ds_lock);
 		return (0);
 	}
@@ -3198,7 +3230,8 @@ dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
 	 * on-disk is over quota and there are no pending changes (which
 	 * may free up space for us).
 	 */
-	if (dsl_dataset_phys(ds)->ds_referenced_bytes + inflight >=
+	if (ds->ds_quota > 0 &&
+	    dsl_dataset_phys(ds)->ds_referenced_bytes + inflight >=
 	    ds->ds_quota) {
 		if (inflight > 0 ||
 		    dsl_dataset_phys(ds)->ds_referenced_bytes < ds->ds_quota)
@@ -3206,6 +3239,18 @@ dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
 		else
 			error = SET_ERROR(EDQUOT);
 	}
+
+	if (logicalrefquota > 0 && error != EDQUOT &&
+	    dsl_dataset_phys(ds)->ds_uncompressed_bytes + inflight >=
+	    logicalrefquota) {
+		if (inflight > 0 ||
+		    dsl_dataset_phys(ds)->ds_uncompressed_bytes <
+		    logicalrefquota)
+			error = SET_ERROR(ERESTART);
+		else
+			error = SET_ERROR(EDQUOT);
+	}
+
 	mutex_exit(&ds->ds_lock);
 
 	return (error);
@@ -3301,6 +3346,116 @@ dsl_dataset_set_refquota(const char *dsname, zprop_source_t source,
 	return (dsl_sync_task(dsname, dsl_dataset_set_refquota_check,
 	    dsl_dataset_set_refquota_sync, &ddsqra, 0, ZFS_SPACE_CHECK_NONE));
 }
+
+/*
+ * logical refquota
+ */
+typedef struct dsl_dataset_set_lrq_arg {
+		const char *ddslrqa_name;
+		zprop_source_t ddslrqa_source;
+		uint64_t ddslrqa_value;
+} dsl_dataset_set_lrq_arg_t;
+
+static int
+dsl_dataset_set_logicalrefquota_check(void *arg, dmu_tx_t *tx)
+{
+	dsl_dataset_set_lrq_arg_t *ddslrqa = arg;
+	dsl_pool_t *dp = dmu_tx_pool(tx);
+	dsl_dataset_t *ds;
+	int error;
+	uint64_t newval;
+
+	/*
+	 * add check version
+	 */
+	if (spa_version(dp->dp_spa) < SPA_VERSION_REFQUOTA)
+		return (SET_ERROR(ENOTSUP));
+
+	error = dsl_dataset_hold(dp, ddslrqa->ddslrqa_name, FTAG, &ds);
+	if (error != 0)
+		return (error);
+
+	if (ds->ds_is_snapshot) {
+		dsl_dataset_rele(ds, FTAG);
+		return (SET_ERROR(EINVAL));
+	}
+
+	error = dsl_prop_predict(ds->ds_dir,
+	    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA),
+	    ddslrqa->ddslrqa_source, ddslrqa->ddslrqa_value, &newval);
+	if (error != 0) {
+		dsl_dataset_rele(ds, FTAG);
+		return (error);
+	}
+
+	if (newval == 0) {
+		dsl_dataset_rele(ds, FTAG);
+		return (0);
+	}
+
+	/*
+	 * Need to check on logical referenced / reserved bytes
+	 */
+	if (newval < dsl_dataset_phys(ds)->ds_referenced_bytes ||
+	    newval < ds->ds_reserved) {
+		dsl_dataset_rele(ds, FTAG);
+		return (SET_ERROR(ENOSPC));
+	}
+
+	dsl_dataset_rele(ds, FTAG);
+	return (error);
+}
+
+void
+dsl_dataset_set_logicalrefquota_sync(void *arg, dmu_tx_t *tx)
+{
+	dsl_dataset_set_lrq_arg_t *ddslrqa = arg;
+	dsl_pool_t *dp = dmu_tx_pool(tx);
+	dsl_dataset_t *ds;
+	dsl_dir_t *dd;
+	uint64_t newval, dffc;
+	newval = ddslrqa->ddslrqa_value;
+
+	VERIFY0(dsl_dataset_hold(dp, ddslrqa->ddslrqa_name, FTAG, &ds));
+	dd = ds->ds_dir;
+	objset_t *os = dd->dd_pool->dp_meta_objset;
+
+	if (!dsl_dataset_is_zapified(ds)) {
+		dsl_dataset_zapify(ds, tx);
+	}
+
+	if (zap_lookup(os, ds->ds_object,
+	    DS_FIELD_LOGICALREFQUOTA, sizeof (dffc), 1, &dffc))
+		VERIFY0(zap_add(os, ds->ds_object,
+		    DS_FIELD_LOGICALREFQUOTA, sizeof (newval), 1, &newval, tx));
+	else
+		VERIFY0(zap_update(os, ds->ds_object,
+		    DS_FIELD_LOGICALREFQUOTA, sizeof (newval), 1, &newval, tx));
+
+	spa_history_log_internal_ds(ds, "set", tx, "%s=%lld",
+	    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA), (longlong_t)newval);
+
+	dsl_dataset_rele(ds, FTAG);
+}
+
+int
+dsl_dataset_set_logicalrefquota(const char *ddname, zprop_source_t source,
+    uint64_t logicalrefquota)
+{
+	dsl_dataset_set_lrq_arg_t ddslrqa;
+
+	ddslrqa.ddslrqa_name = ddname;
+	ddslrqa.ddslrqa_source = source;
+	ddslrqa.ddslrqa_value = logicalrefquota;
+
+	return (dsl_sync_task(ddname, dsl_dataset_set_logicalrefquota_check,
+	    dsl_dataset_set_logicalrefquota_sync, &ddslrqa, 0,
+	    ZFS_SPACE_CHECK_NONE));
+}
+
+/*
+ * End logical quota
+ */
 
 static int
 dsl_dataset_set_refreservation_check(void *arg, dmu_tx_t *tx)

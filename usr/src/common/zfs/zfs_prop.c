@@ -390,6 +390,12 @@ zfs_prop_init(void)
 	zprop_register_number(ZFS_PROP_SNAPSHOT_COUNT, "snapshot_count",
 	    UINT64_MAX, PROP_READONLY, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME,
 	    "<count>", "SSCOUNT");
+	zprop_register_number(ZFS_PROP_LOGICALQUOTA, "logicalquota", 0,
+	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
+	    "LQUOTA");
+	zprop_register_number(ZFS_PROP_LOGICALREFQUOTA, "logicalrefquota", 0,
+	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
+	    "LREFQUOTA");
 
 	/* default number properties */
 	zprop_register_number(ZFS_PROP_QUOTA, "quota", 0, PROP_DEFAULT,

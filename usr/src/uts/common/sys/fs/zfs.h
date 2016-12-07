@@ -140,6 +140,8 @@ typedef enum {
 	ZFS_PROP_STMF_SHAREINFO,	/* not exposed to the user */
 	ZFS_PROP_DEFER_DESTROY,
 	ZFS_PROP_USERREFS,
+	ZFS_PROP_LOGICALQUOTA,
+	ZFS_PROP_LOGICALREFQUOTA,
 	ZFS_PROP_LOGBIAS,
 	ZFS_PROP_UNIQUE,		/* not exposed to the user */
 	ZFS_PROP_OBJSETID,		/* not exposed to the user */
