@@ -32,8 +32,11 @@ PROGS = cleanup \
 	logicalrefquota_011_pos \
 	setup
 
-CMDS = $(PROGS:%=$(TESTDIR)/%)
-$(CMDS) := FILEMODE = 0555
+FILES = logicalrefquota.cfg \
+    logicalrefquota.kshlib
+
+CMDS = $(PROGS:%=$(TESTDIR)/%) $(FILES:%=$(TESTDIR)/%)
+    $(CMDS) := FILEMODE = 0555
 
 all lint clean clobber:
 
