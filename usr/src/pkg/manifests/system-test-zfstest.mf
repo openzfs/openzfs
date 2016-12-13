@@ -2302,6 +2302,6 @@ file path=opt/zfs-tests/tests/perf/scripts/prefetch_io.d mode=0555
 license cr_Sun license=cr_Sun
 license lic_CDDL license=lic_CDDL
 depend fmri=system/file-system/zfs/tests type=require
-depend fmri=system/test/fio type=require
+depend fmri=system/test/fio type=optional
 depend fmri=system/test/testrunner type=require
 depend fmri=system/xopen/xcu4 type=require
