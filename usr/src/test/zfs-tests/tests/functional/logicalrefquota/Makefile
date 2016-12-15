@@ -10,45 +10,13 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2016 OVH [ovh.com].
 #
 
 include $(SRC)/Makefile.master
 
 ROOTOPTPKG = $(ROOT)/opt/zfs-tests
-TESTDIR = $(ROOTOPTPKG)/tests/functional/logicalrefquota
+TARGETDIR = $(ROOTOPTPKG)/tests/functional/logicalrefquota
 
-PROGS = cleanup \
-	logicalrefquota_001_pos \
-	logicalrefquota_002_pos \
-	logicalrefquota_003_pos \
-	logicalrefquota_004_pos \
-	logicalrefquota_005_pos \
-	logicalrefquota_006_neg \
-	logicalrefquota_007_pos \
-	logicalrefquota_008_pos \
-	logicalrefquota_009_pos \
-	logicalrefquota_010_pos \
-	logicalrefquota_011_pos \
-	setup
-
-FILES = logicalrefquota.cfg \
-    logicalrefquota.kshlib
-
-CMDS = $(PROGS:%=$(TESTDIR)/%) $(FILES:%=$(TESTDIR)/%)
-    $(CMDS) := FILEMODE = 0555
-
-all lint clean clobber:
-
-install: $(CMDS)
-
-$(CMDS): $(TESTDIR)
-
-$(TESTDIR):
-	$(INS.dir)
-
-$(TESTDIR)/%: %.ksh
-	$(INS.rename)
-
-$(TESTDIR)/%: %
-	$(INS.file)
+include $(SRC)/test/zfs-tests/Makefile.com

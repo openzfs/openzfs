@@ -23,6 +23,7 @@
  * Copyright (c) 2013 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #ifndef	_SYS_DSL_DIR_H
@@ -45,7 +46,6 @@ struct dsl_dataset;
  * They should be of the format <reverse-dns>:<field>.
  */
 
-#define	DD_FIELD_LOGICALQUOTA		"com.ovh:logicalquota"
 #define	DD_FIELD_FILESYSTEM_COUNT	"com.joyent:filesystem_count"
 #define	DD_FIELD_SNAPSHOT_COUNT		"com.joyent:snapshot_count"
 
@@ -114,6 +114,8 @@ struct dsl_dir {
 
 	/* protected by dd_lock; keep at end of struct for better locality */
 	char dd_myname[ZFS_MAX_DATASET_NAME_LEN];
+
+	uint64_t dd_lquota; /* Cached logicalquota */
 };
 
 inline dsl_dir_phys_t *

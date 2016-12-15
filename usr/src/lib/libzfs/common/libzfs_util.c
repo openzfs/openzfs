@@ -24,6 +24,7 @@
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 /*

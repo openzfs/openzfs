@@ -24,6 +24,7 @@
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016, Joyent, Inc.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -390,12 +391,6 @@ zfs_prop_init(void)
 	zprop_register_number(ZFS_PROP_SNAPSHOT_COUNT, "snapshot_count",
 	    UINT64_MAX, PROP_READONLY, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME,
 	    "<count>", "SSCOUNT");
-	zprop_register_number(ZFS_PROP_LOGICALQUOTA, "logicalquota", 0,
-	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
-	    "LQUOTA");
-	zprop_register_number(ZFS_PROP_LOGICALREFQUOTA, "logicalrefquota", 0,
-	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
-	    "LREFQUOTA");
 
 	/* default number properties */
 	zprop_register_number(ZFS_PROP_QUOTA, "quota", 0, PROP_DEFAULT,
@@ -416,6 +411,12 @@ zfs_prop_init(void)
 	zprop_register_number(ZFS_PROP_SNAPSHOT_LIMIT, "snapshot_limit",
 	    UINT64_MAX, PROP_DEFAULT, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME,
 	    "<count> | none", "SSLIMIT");
+	zprop_register_number(ZFS_PROP_LOGICALQUOTA, "logicalquota", 0,
+	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
+	    "LQUOTA");
+	zprop_register_number(ZFS_PROP_LOGICALREFQUOTA, "logicalrefquota", 0,
+	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
+	    "LREFQUOTA");
 
 	/* inherit number properties */
 	zprop_register_number(ZFS_PROP_RECORDSIZE, "recordsize",

@@ -25,6 +25,7 @@
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #ifndef	_SYS_DSL_DATASET_H
@@ -99,11 +100,6 @@ struct dsl_pool;
 #define	DS_FIELD_RESUME_LARGEBLOCK "com.delphix:resume_largeblockok"
 #define	DS_FIELD_RESUME_EMBEDOK "com.delphix:resume_embedok"
 #define	DS_FIELD_RESUME_COMPRESSOK "com.delphix:resume_compressok"
-
-/*
- * These fields for logical refquota
- */
-#define	DS_FIELD_LOGICALREFQUOTA "com.ovh:logicalrefquota"
 
 /*
  * DS_FLAG_CI_DATASET is set if the dataset contains a file system whose
@@ -195,6 +191,7 @@ typedef struct dsl_dataset {
 
 	uint64_t ds_reserved;	/* cached refreservation */
 	uint64_t ds_quota;	/* cached refquota */
+	uint64_t ds_lquota;	/* cached logicalrefquota */
 
 	kmutex_t ds_sendstream_lock;
 	list_t ds_sendstreams;

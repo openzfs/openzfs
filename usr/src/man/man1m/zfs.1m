@@ -27,6 +27,7 @@
 .\" Copyright (c) 2014 by Adam Stevko. All rights reserved.
 .\" Copyright (c) 2014 Integros [integros.com]
 .\" Copyright 2016 Nexenta Systems, Inc.
+.\" Copyright (c) 2016 OVH [ovh.com].
 .\"
 .Dd September 16, 2016
 .Dt ZFS 1M
@@ -1089,18 +1090,12 @@ the ancestor's quota, but rather imposes an additional limit.
 Quotas cannot be set on volumes, as the
 .Sy volsize
 property acts as an implicit quota.
-.It Sy logicalquota Ns = Ns Em on Ns | Ns Sy off
-This property enforces a hard limit on the amount of logical space used.
-This includes all logical space consumed by descendents, including file systems
-and snapshots.
+.It Sy logicalquota Ns = Ns Em size Ns | Ns Sy none
+This property have the same behaviour as quota, but on logical space used.
+When compression or deduplication is active, the space accounting is done on
+logical used property.
 This property can also be referred to by its shortened column name,
 .Sy lquota .
-.It Sy logicalrefquota Ns = Ns Em on Ns | Ns Sy off
-Limits the amount of logical space a dataset can consume. This property enforces
-a hard limit on the amount of space used. This hard limit does not include space
-used by descendents, including file systems and snapshots.
-This property can also be referred to by its shortened column name,
-.Sy lrefquota .
 .It Sy snapshot_limit Ns = Ns Em count Ns | Ns Sy none
 Limits the number of snapshots that can be created on a dataset and its
 descendents. Setting a
@@ -1257,6 +1252,12 @@ The default value is
 Limits the amount of space a dataset can consume. This property enforces a hard
 limit on the amount of space used. This hard limit does not include space used
 by descendents, including file systems and snapshots.
+.It Sy logicalrefquota Ns = Ns Em size Ns | Ns Sy none
+This property have the same behaviour as refquota, but on logical space used.
+When compression or deduplication is active, the space accounting is done on
+logicalused property, and reference the logicalreferenced property.
+This property can also be referred to by its shortened column name,
+.Sy lrefquota .
 .It Sy refreservation Ns = Ns Em size Ns | Ns Sy none
 The minimum amount of space guaranteed to a dataset, not including its
 descendents. When the amount of space used is below this value, the dataset is

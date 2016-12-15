@@ -26,7 +26,8 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2016 OVH [ovh.com].
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -56,7 +57,7 @@ log_assert "Verify that file size is limited by the file system logicalquota"
 function cleanup
 {
 	[[ -e $TESTDIR/$TESTFILE1 ]] && \
-	    log_must $RM $TESTDIR/$TESTFILE1
+	    log_must rm $TESTDIR/$TESTFILE1
 	#
 	# Need to allow time for space to be released back to
 	# pool, otherwise next test will fail trying to set a

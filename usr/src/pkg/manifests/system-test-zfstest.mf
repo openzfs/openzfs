@@ -13,6 +13,7 @@
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
 # Copyright 2016, OmniTI Computer Consulting, Inc. All rights reserved.
 # Copyright 2016 Nexenta Systems, Inc.
+# Copyright (c) 2016 OVH [ovh.com].
 #
 
 set name=pkg.fmri value=pkg:/system/test/zfstest@$(PKGVERS)
@@ -719,6 +720,12 @@ file \
     mode=0555
 file \
     path=opt/zfs-tests/tests/functional/cli_root/zfs_receive/zfs_receive_013_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_receive/zfs_receive_014_pos \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_receive/zfs_receive_015_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_rename/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_rename/setup mode=0555
@@ -1875,9 +1882,9 @@ file path=opt/zfs-tests/tests/functional/link_count/link_count_001 mode=0555
 file path=opt/zfs-tests/tests/functional/link_count/setup mode=0555
 file path=opt/zfs-tests/tests/functional/logicalquota/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota.cfg \
-    mode=0555
+    mode=0444
 file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota.kshlib \
-    mode=0555
+    mode=0444
 file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_001_pos \
     mode=0555
 file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_002_pos \
@@ -1902,6 +1909,11 @@ file path=opt/zfs-tests/tests/functional/logicalquota/logicalquota_011_neg \
     mode=0555
 file path=opt/zfs-tests/tests/functional/logicalquota/setup mode=0555
 file path=opt/zfs-tests/tests/functional/logicalrefquota/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota.cfg \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota.kshlib \
+    mode=0444
 file \
     path=opt/zfs-tests/tests/functional/logicalrefquota/logicalrefquota_001_pos \
     mode=0555

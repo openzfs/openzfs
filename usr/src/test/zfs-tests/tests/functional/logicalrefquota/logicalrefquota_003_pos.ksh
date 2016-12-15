@@ -26,7 +26,8 @@
 #
 
 #
-# Copyright (c) 2013 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2016 OVH [ovh.com].
 #
 
 . $STF_SUITE/include/libtest.shlib

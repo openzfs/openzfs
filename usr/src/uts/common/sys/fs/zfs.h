@@ -25,6 +25,7 @@
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -140,8 +141,6 @@ typedef enum {
 	ZFS_PROP_STMF_SHAREINFO,	/* not exposed to the user */
 	ZFS_PROP_DEFER_DESTROY,
 	ZFS_PROP_USERREFS,
-	ZFS_PROP_LOGICALQUOTA,
-	ZFS_PROP_LOGICALREFQUOTA,
 	ZFS_PROP_LOGBIAS,
 	ZFS_PROP_UNIQUE,		/* not exposed to the user */
 	ZFS_PROP_OBJSETID,		/* not exposed to the user */
@@ -161,6 +160,8 @@ typedef enum {
 	ZFS_PROP_REDUNDANT_METADATA,
 	ZFS_PROP_PREV_SNAP,
 	ZFS_PROP_RECEIVE_RESUME_TOKEN,
+	ZFS_PROP_LOGICALQUOTA,
+	ZFS_PROP_LOGICALREFQUOTA,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 

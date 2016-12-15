@@ -30,6 +30,7 @@
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Nexenta Systems, Inc.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <ctype.h>

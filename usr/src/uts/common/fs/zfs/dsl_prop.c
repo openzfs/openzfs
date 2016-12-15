@@ -23,6 +23,7 @@
  * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 Martin Matuska. All rights reserved.
  * Copyright 2015, Joyent, Inc.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <sys/zfs_context.h>

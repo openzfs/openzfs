@@ -25,6 +25,7 @@
  * Copyright (c) 2014 Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright 2015 Nexenta Systems, Inc. All rights reserved.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <sys/dmu.h>
@@ -876,9 +877,9 @@ dsl_fs_ss_count_adjust(dsl_dir_t *dd, int64_t delta, const char *prop,
 }
 
 typedef struct dsl_dir_set_lq_arg {
-		const char *ddslqa_name;
-		zprop_source_t ddslqa_source;
-		uint64_t ddslqa_value;
+	const char *ddslqa_name;
+	zprop_source_t ddslqa_source;
+	uint64_t ddslqa_value;
 } dsl_dir_set_lq_arg_t;
 
 static int
@@ -933,28 +934,22 @@ dsl_dir_set_logicalquota_sync(void *arg, dmu_tx_t *tx)
 	dsl_pool_t *dp = dmu_tx_pool(tx);
 	dsl_dataset_t *ds;
 	dsl_dir_t *dd;
-	uint64_t newval, dffc;
+	uint64_t newval;
 	newval = ddslqa->ddslqa_value;
 
 	VERIFY0(dsl_dataset_hold(dp, ddslqa->ddslqa_name, FTAG, &ds));
 	dd = ds->ds_dir;
-	objset_t *os = dd->dd_pool->dp_meta_objset;
 
-	if (!dsl_dir_is_zapified(dd)) {
-		dsl_dir_zapify(dd, tx);
+	dsl_prop_set_sync_impl(ds, zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA),
+	    ddslqa->ddslqa_source, sizeof (ddslqa->ddslqa_value), 1,
+	    &ddslqa->ddslqa_value, tx);
+	VERIFY0(dsl_prop_get_int_ds(ds,
+	    zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA), &newval));
+
+	if (dd->dd_lquota != newval) {
+		dmu_buf_will_dirty(dd->dd_dbuf, tx);
+		dd->dd_lquota = newval;
 	}
-
-	if (zap_lookup(os, dd->dd_object,
-	    DD_FIELD_LOGICALQUOTA, sizeof (dffc), 1, &dffc)) {
-		VERIFY0(zap_add(os, dd->dd_object,
-		    DD_FIELD_LOGICALQUOTA, sizeof (dffc), 1, &dffc, tx));
-	}
-
-	VERIFY0(zap_update(os, dd->dd_object,
-	    DD_FIELD_LOGICALQUOTA, sizeof (newval), 1, &newval, tx));
-
-	spa_history_log_internal_ds(ds, "set", tx, "%s=%lld",
-	    zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA), (longlong_t)newval);
 
 	dsl_dataset_rele(ds, FTAG);
 }
@@ -1031,6 +1026,8 @@ dsl_dir_stats(dsl_dir_t *dd, nvlist_t *nv)
 	    dsl_dir_phys(dd)->dd_used_bytes);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_QUOTA,
 	    dsl_dir_phys(dd)->dd_quota);
+	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_LOGICALQUOTA,
+	    dd->dd_lquota);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_RESERVATION,
 	    dsl_dir_phys(dd)->dd_reserved);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_COMPRESSRATIO,
@@ -1065,11 +1062,6 @@ dsl_dir_stats(dsl_dir_t *dd, nvlist_t *nv)
 		    sizeof (count), 1, &count) == 0) {
 			dsl_prop_nvlist_add_uint64(nv,
 			    ZFS_PROP_SNAPSHOT_COUNT, count);
-		}
-		if (zap_lookup(os, dd->dd_object, DD_FIELD_LOGICALQUOTA,
-		    sizeof (count), 1, &count) == 0) {
-			dsl_prop_nvlist_add_uint64(nv,
-			    ZFS_PROP_LOGICALQUOTA, count);
 		}
 	}
 
@@ -1147,15 +1139,15 @@ uint64_t
 dsl_dir_space_available(dsl_dir_t *dd,
     dsl_dir_t *ancestor, int64_t delta, int ondiskonly)
 {
-	uint64_t parentspace, myspace, quota, used, logicalused, logicalquota;
+	uint64_t parentspace, myspace, quota, used, logicalused, lquota;
 
 	/*
 	 * If there are no restrictions otherwise, assume we have
 	 * unlimited space available.
 	 */
 	quota = UINT64_MAX;
+	lquota = UINT64_MAX;
 	parentspace = UINT64_MAX;
-	logicalquota = UINT64_MAX;
 
 	if (dd->dd_parent != NULL) {
 		parentspace = dsl_dir_space_available(dd->dd_parent,
@@ -1165,19 +1157,8 @@ dsl_dir_space_available(dsl_dir_t *dd,
 	mutex_enter(&dd->dd_lock);
 	if (dsl_dir_phys(dd)->dd_quota != 0)
 		quota = dsl_dir_phys(dd)->dd_quota;
-
-	/*
-	 * Prototype to return the min space avail if lquota is set
-	 */
-	objset_t *os = dd->dd_pool->dp_meta_objset;
-	if (dsl_dir_is_zapified(dd) &&
-	    zap_contains(os, dd->dd_object, DD_FIELD_LOGICALQUOTA) == 0) {
-		VERIFY0(zap_lookup(os, dd->dd_object,
-		    DD_FIELD_LOGICALQUOTA, 8, 1, &logicalquota));
-	}
-
-	if (logicalquota == 0)
-		logicalquota = UINT64_MAX;
+	if (dd->dd_lquota != 0)
+		lquota = dd->dd_lquota;
 
 	used = dsl_dir_phys(dd)->dd_used_bytes;
 	logicalused = dsl_dir_phys(dd)->dd_uncompressed_bytes;
@@ -1212,7 +1193,7 @@ dsl_dir_space_available(dsl_dir_t *dd,
 			parentspace -= delta;
 	}
 
-	if (used > quota || logicalused > logicalquota) {
+	if (used > quota || logicalused > lquota) {
 		/* over quota */
 		myspace = 0;
 	} else {
@@ -1224,7 +1205,7 @@ dsl_dir_space_available(dsl_dir_t *dd,
 		/*
 		 * The lesser of the space left in logicalquota or in quota
 		 */
-		myspace = MIN(myspace, logicalquota - logicalused);
+		myspace = MIN(myspace, lquota - logicalused);
 	}
 
 	mutex_exit(&dd->dd_lock);
@@ -1244,7 +1225,8 @@ dsl_dir_tempreserve_impl(dsl_dir_t *dd, uint64_t asize, boolean_t netfree,
 {
 	uint64_t txg = tx->tx_txg;
 	uint64_t est_inflight, used_on_disk, quota, parent_rsrv;
-	uint64_t logical_used_on_disk = 0, logicalquota = 0;
+	uint64_t logical_used_on_disk = 0;
+	uint64_t logicalquota = 0;
 	uint64_t deferred = 0;
 	struct tempreserve *tr;
 	int retval = EDQUOT;
@@ -1267,16 +1249,6 @@ dsl_dir_tempreserve_impl(dsl_dir_t *dd, uint64_t asize, boolean_t netfree,
 
 	used_on_disk = dsl_dir_phys(dd)->dd_used_bytes;
 	logical_used_on_disk = dsl_dir_phys(dd)->dd_uncompressed_bytes;
-
-	/*
-	 * Prototype to check logical quota
-	 */
-	objset_t *os = dd->dd_pool->dp_meta_objset;
-	if (dsl_dir_is_zapified(dd) &&
-	    zap_contains(os, dd->dd_object, DD_FIELD_LOGICALQUOTA) == 0) {
-		VERIFY0(zap_lookup(os, dd->dd_object,
-		    DD_FIELD_LOGICALQUOTA, 8, 1, &logicalquota));
-	}
 
 	/*
 	 * On the first iteration, fetch the dataset's used-on-disk and
@@ -1304,6 +1276,7 @@ dsl_dir_tempreserve_impl(dsl_dir_t *dd, uint64_t asize, boolean_t netfree,
 	else
 		quota = dsl_dir_phys(dd)->dd_quota;
 
+	logicalquota = dd->dd_lquota;
 	if (ignorequota || netfree || logicalquota == 0)
 		logicalquota = UINT64_MAX;
 

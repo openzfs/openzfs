@@ -29,6 +29,7 @@
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>.
  * Copyright 2016 Nexenta Systems, Inc.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <assert.h>
