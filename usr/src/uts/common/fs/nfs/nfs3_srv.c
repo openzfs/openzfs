@@ -22,7 +22,7 @@
 /*
  * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 1994, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2013 by Delphix. All rights reserved.
+ * Copyright (c) 2013, 2015 by Delphix. All rights reserved.
  */
 
 /* Copyright (c) 1983, 1984, 1985, 1986, 1987, 1988, 1989 AT&T */
@@ -85,6 +85,8 @@ static int	rdma_setup_read_data3(READ3args *, READ3resok *);
 extern int nfs_loaned_buffers;
 
 u_longlong_t nfs3_srv_caller_id;
+
+boolean_t log_nfs_deletions = B_FALSE;
 
 /* ARGSUSED */
 void
@@ -2386,6 +2388,35 @@ rfs3_mknod_getfh(MKNOD3args *args)
 }
 
 void
+rfs_log_deletions(rpcvers_t rfs_version, char *name, struct svc_req *req,
+    cred_t *cr, vnode_t *vp, struct exportinfo *exi, boolean_t file)
+{
+	struct sockaddr *ca;
+	struct sockaddr_in *si;
+	char addrbuf[INET6_ADDRSTRLEN];
+	char *addr;
+
+	if (!log_nfs_deletions)
+		return;
+
+	ca = (struct sockaddr *)svc_getrpccaller(req->rq_xprt)->buf;
+	si = (struct sockaddr_in *)ca;
+	addr = inet_ntop(ca->sa_family, &si->sin_addr, addrbuf,
+	    sizeof (addrbuf));
+
+	if (vp->v_path == NULL) {
+		cmn_err(CE_NOTE, "rfs%u: %s <uncached>/%s (mount %s) deleted "
+		    "by %d from %s\n", rfs_version,
+		    (file ? "File" : "Directory"), exi->exi_export.ex_path,
+		    name, crgetuid(cr), addr);
+	} else {
+		cmn_err(CE_NOTE, "rfs%u: %s %s/%s deleted by %d from %s\n",
+		    rfs_version, (file ? "File" : "Directory"),  vp->v_path,
+		    name, crgetuid(cr), addr);
+	}
+}
+
+void
 rfs3_remove(REMOVE3args *args, REMOVE3res *resp, struct exportinfo *exi,
     struct svc_req *req, cred_t *cr, bool_t ro)
 {
@@ -2502,6 +2533,8 @@ rfs3_remove(REMOVE3args *args, REMOVE3res *resp, struct exportinfo *exi,
 
 	resp->status = NFS3_OK;
 	vattr_to_wcc_data(bvap, avap, &resp->resok.dir_wcc);
+
+	rfs_log_deletions(NFS_V3, args->object.name, req, cr, vp, exi, B_TRUE);
 	goto out;
 
 err:
@@ -2632,6 +2665,7 @@ rfs3_rmdir(RMDIR3args *args, RMDIR3res *resp, struct exportinfo *exi,
 
 	resp->status = NFS3_OK;
 	vattr_to_wcc_data(bvap, avap, &resp->resok.dir_wcc);
+	rfs_log_deletions(NFS_V3, args->object.name, req, cr, vp, exi, B_FALSE);
 	goto out;
 
 err:
