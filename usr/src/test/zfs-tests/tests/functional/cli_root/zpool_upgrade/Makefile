@@ -28,7 +28,8 @@ PROGS = cleanup \
 	zpool_upgrade_006_neg \
 	zpool_upgrade_007_pos \
 	zpool_upgrade_008_pos \
-	zpool_upgrade_009_neg
+	zpool_upgrade_009_neg \
+	zpool_upgrade_010_pos
 
 FILES = zpool_upgrade.cfg \
 	zpool_upgrade.kshlib
