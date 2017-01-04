@@ -533,13 +533,8 @@ dsl_dataset_hold_obj(dsl_pool_t *dp, uint64_t dsobj, void *tag,
 				    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA),
 				    &ds->ds_lquota);
 			}
-			if (err == 0) {
-				err = dsl_prop_get_int_ds(ds,
-				    zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA),
-				    &ds->ds_dir->dd_lquota);
-			}
 		} else {
-			ds->ds_reserved = ds->ds_quota = ds->ds_lquota = ds->ds_dir->dd_lquota = 0;
+			ds->ds_reserved = ds->ds_quota = ds->ds_lquota = 0;
 		}
 
 		dmu_buf_init_user(&ds->ds_dbu, dsl_dataset_evict_sync,
@@ -2007,24 +2002,26 @@ dsl_dataset_space(dsl_dataset_t *ds,
 		else
 			*availbytesp = 0;
 	}
-	rrw_enter(&ds->ds_bp_rwlock, RW_READER, FTAG);
-	*usedobjsp = BP_GET_FILL(&dsl_dataset_phys(ds)->ds_bp);
-	rrw_exit(&ds->ds_bp_rwlock, FTAG);
-	*availobjsp = DN_MAX_OBJECT - *usedobjsp;
 
 	if (ds->ds_lquota > 0) {
+		/*
+		 * Adjust available bytes according to lrefquota
+		 * and uncompressed_bytes
+		 */
 		uint64_t lref, lavail;
 		lref = dsl_dataset_phys(ds)->ds_uncompressed_bytes;
 		if (lref < ds->ds_lquota) {
 			lavail = ds->ds_lquota - lref;
+			*availbytesp = MIN(*availbytesp, lavail);
 		} else {
-			lavail = 0;
-		}
-		if (lavail < *availbytesp) {
-			*availbytesp = lavail;
-			*refdbytesp = lref;
+			*availbytesp = 0;
 		}
 	}
+
+	rrw_enter(&ds->ds_bp_rwlock, RW_READER, FTAG);
+	*usedobjsp = BP_GET_FILL(&dsl_dataset_phys(ds)->ds_bp);
+	rrw_exit(&ds->ds_bp_rwlock, FTAG);
+	*availobjsp = DN_MAX_OBJECT - *usedobjsp;
 }
 
 boolean_t
@@ -3385,9 +3382,6 @@ dsl_dataset_set_logicalrefquota_check(void *arg, dmu_tx_t *tx)
 		return (0);
 	}
 
-	/*
-	 * Need to check on logical referenced / reserved bytes
-	 */
 	if (newval < dsl_dataset_phys(ds)->ds_referenced_bytes ||
 	    newval < ds->ds_reserved) {
 		dsl_dataset_rele(ds, FTAG);

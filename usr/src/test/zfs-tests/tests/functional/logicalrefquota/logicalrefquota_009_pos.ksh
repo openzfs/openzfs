@@ -47,20 +47,20 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-	log_must $ZFS create $TESTPOOL/$TESTFS
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs destroy -rf $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_assert "Sub-filesystem quotas are not enforced by property 'logicalrefquota'"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS
-log_must $ZFS set logicalquota=25M $fs
-log_must $ZFS set logicalrefquota=10M $fs
-log_must $ZFS set compression=on $fs
-log_must $ZFS create $fs/subfs
-log_must $ZFS set compression=on $fs/subfs
+log_must zfs set logicalquota=25M $fs
+log_must zfs set logicalrefquota=10M $fs
+log_must zfs set compression=on $fs
+log_must zfs create $fs/subfs
+log_must zfs set compression=on $fs/subfs
 
 mntpnt=$(get_prop mountpoint $fs/subfs)
 # fill a file of the size 20M

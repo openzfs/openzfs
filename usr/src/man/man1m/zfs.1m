@@ -1091,9 +1091,11 @@ Quotas cannot be set on volumes, as the
 .Sy volsize
 property acts as an implicit quota.
 .It Sy logicalquota Ns = Ns Em size Ns | Ns Sy none
-This property have the same behaviour as quota, but on logical space used.
-When compression or deduplication is active, the space accounting is done on
-logical used property.
+This property have the same behaviour as quota, but on logical (i.e. uncompressed)
+space used, referred by
+.Sy logicalused
+property.
+.Pp
 This property can also be referred to by its shortened column name,
 .Sy lquota .
 .It Sy snapshot_limit Ns = Ns Em count Ns | Ns Sy none
@@ -1253,9 +1255,11 @@ Limits the amount of space a dataset can consume. This property enforces a hard
 limit on the amount of space used. This hard limit does not include space used
 by descendents, including file systems and snapshots.
 .It Sy logicalrefquota Ns = Ns Em size Ns | Ns Sy none
-This property have the same behaviour as refquota, but on logical space used.
-When compression or deduplication is active, the space accounting is done on
-logicalused property, and reference the logicalreferenced property.
+This property have the same behaviour as refquota, but on logical (i.e. uncompressed)
+space used, referred by
+.Sy logicalreferenced
+property.
+.Pp
 This property can also be referred to by its shortened column name,
 .Sy lrefquota .
 .It Sy refreservation Ns = Ns Em size Ns | Ns Sy none

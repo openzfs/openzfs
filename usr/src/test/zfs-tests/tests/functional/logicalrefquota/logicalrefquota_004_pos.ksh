@@ -46,9 +46,9 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-	log_must $ZFS create $TESTPOOL/$TESTFS
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs destroy -rf $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_assert "logicalrefquotas are not limited by snapshots."
@@ -56,15 +56,15 @@ log_onexit cleanup
 
 TESTFILE='testfile'
 fs=$TESTPOOL/$TESTFS
-log_must $ZFS set logicalquota=25M $fs
-log_must $ZFS set logicalrefquota=15M $fs
+log_must zfs set logicalquota=25M $fs
+log_must zfs set logicalrefquota=15M $fs
 
 mntpnt=$(get_prop mountpoint $fs)
 typeset -i i=0
 while ((i < 3)); do
-	log_must $MKFILE 7M $mntpnt/$TESTFILE.$i
-	log_must $ZFS snapshot $fs@snap.$i
-	log_must $RM $mntpnt/$TESTFILE.$i
+	log_must mkfile 7M $mntpnt/$TESTFILE.$i
+	log_must zfs snapshot $fs@snap.$i
+	log_must rm $mntpnt/$TESTFILE.$i
 
 	((i += 1))
 done
@@ -72,6 +72,6 @@ done
 #
 # Verify out of the limitation of 'logicalquota'
 #
-log_mustnot $MKFILE 7M $mntpnt/$TESTFILE
+log_mustnot mkfile 7M $mntpnt/$TESTFILE
 
 log_pass "logicalrefquotas are not limited by snapshots."

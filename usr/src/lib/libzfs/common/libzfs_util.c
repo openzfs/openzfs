@@ -1232,7 +1232,7 @@ zprop_parse_value(libzfs_handle_t *hdl, nvpair_t *elem, int prop,
 		if ((type & ZFS_TYPE_DATASET) && *ivalp == 0 && !isnone &&
 		    zfs_prop_quotas(prop)) {
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-			    "use 'none' to disable quota/refquota"));
+			    "use 'none' to disable quotas"));
 			goto error;
 		}
 

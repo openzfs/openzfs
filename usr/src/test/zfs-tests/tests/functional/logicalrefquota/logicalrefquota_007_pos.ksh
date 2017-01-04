@@ -49,9 +49,9 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-	log_must $ZFS create $TESTPOOL/$TESTFS
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs destroy -rf $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_assert "logicalrefquota limits the amount of logical space a dataset can consume, " \
@@ -60,17 +60,17 @@ log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS
 sub=$fs/sub
-log_must $ZFS create $sub
+log_must zfs create $sub
 
-log_must $ZFS set logicalrefquota=10M $fs
-log_must $ZFS set compression=on $fs
+log_must zfs set logicalrefquota=10M $fs
+log_must zfs set compression=on $fs
 mntpnt=$(get_prop mountpoint $fs)
 
 #
 # Fills the logicalrefquota & attempts to write another file
 #
 log_must fill_logicalrefquota $TESTPOOL/$TESTFS $TESTDIR
-log_must $ZFS snapshot $fs@snap
+log_must zfs snapshot $fs@snap
 
 #
 # Fills the logicalrefquota & attempts to write another file
@@ -84,7 +84,7 @@ log_must exceed_logicalrefquota $TESTPOOL/$TESTFS $TESTDIR
 #
 mntpnt=$(get_prop mountpoint $sub)
 log_must fill_file $mntpnt/$TESTFILE1 
-log_must $ZFS snapshot $sub@snap
+log_must zfs snapshot $sub@snap
 log_must fill_file $mntpnt/$TESTFILE2
 
 log_pass "logicalrefquota limits the amount of space a dataset can consume, " \

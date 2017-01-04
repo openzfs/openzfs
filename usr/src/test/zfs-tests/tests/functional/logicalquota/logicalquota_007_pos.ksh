@@ -65,12 +65,12 @@ function cleanup
 	# logicalquota which is less than the space used.
 	#
 	sleep 5
-	log_must $ZFS set compression=off $TESTPOOL/$TESTFS
+	log_must zfs set compression=off $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
 
-log_must $ZFS set compression=on $TESTPOOL/$TESTFS
+log_must zfs set compression=on $TESTPOOL/$TESTFS
 #
 # Sets the logicalquota value and attempts to fill it with a file
 # twice the size of the logicalquota

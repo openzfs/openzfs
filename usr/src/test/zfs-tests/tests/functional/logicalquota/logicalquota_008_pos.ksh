@@ -64,12 +64,12 @@ function cleanup
 		[[ -e $TESTDIR/$TESTFILE2 ]] && \
             log_must rm $TESTDIR/$TESTFILE2
 
-		log_must $ZFS set compression=off $TESTPOOL/$TESTFS
+		log_must zfs set compression=off $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
 
-log_must $ZFS set compression=on $TESTPOOL/$TESTFS
+log_must zfs set compression=on $TESTPOOL/$TESTFS
 #
 # Fills the logicalquota & attempts to write another file
 #

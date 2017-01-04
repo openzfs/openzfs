@@ -52,12 +52,12 @@ log_assert "Verify cannot set logicalquota lower than the space currently in use
 
 function cleanup
 {
-	log_must $ZFS set logicalquota=none $TESTPOOL/$TESTFS
+	log_must zfs set logicalquota=none $TESTPOOL/$TESTFS
 }
 
 log_onexit cleanup
 
-log_must $ZFS set compression=on $TESTPOOL/$TESTFS
+log_must zfs set compression=on $TESTPOOL/$TESTFS
 typeset -i logicalquota_integer_size=0
 typeset invalid_size="123! @456 7#89 0\$ abc123% 123%s 12%s3 %c123 123%d %x123 12%p3 \
 	^def456 789&ghi"
@@ -67,8 +67,8 @@ logicalquota_fp_size=${logicalquota_integer_size}.123
 
 for size in 0 -1 $logicalquota_integer_size -$logicalquota_integer_size $logicalquota_fp_size -$logicalquota_fp_size \
 	$invalid_size ; do
-	log_mustnot $ZFS set logicalquota=$size $TESTPOOL/$TESTFS
+	log_mustnot zfs set logicalquota=$size $TESTPOOL/$TESTFS
 done
-log_must $ZFS set logicalquota=$logicalspace_used $TESTPOOL/$TESTFS
+log_must zfs set logicalquota=$logicalspace_used $TESTPOOL/$TESTFS
 
 log_pass "As expected cannot set logicalquota lower than logicalspace currently in use"

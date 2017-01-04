@@ -49,18 +49,18 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-	log_must $ZFS create $TESTPOOL/$TESTFS
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs destroy -rf $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_assert "Logical quotas are enforced using the minimum of the two properties"
 log_onexit cleanup
 
 fs=$TESTPOOL/$TESTFS
-log_must $ZFS set compression=on $fs
-log_must $ZFS set logicalquota=15M $fs
-log_must $ZFS set logicalrefquota=25M $fs
+log_must zfs set compression=on $fs
+log_must zfs set logicalquota=15M $fs
+log_must zfs set logicalrefquota=25M $fs
 
 mntpnt=$(get_prop mountpoint $fs)
  
@@ -79,9 +79,9 @@ fi
 #
 # Switch the value of them and try again
 #
-log_must $RM $mntpnt/$TESTFILE1
-log_must $ZFS set logicalquota=25M $fs
-log_must $ZFS set logicalrefquota=15M $fs
+log_must rm $mntpnt/$TESTFILE1
+log_must zfs set logicalquota=25M $fs
+log_must zfs set logicalrefquota=15M $fs
 
 # fill a file of the size 20M
 log_mustnot fill_file $mntpnt/$TESTFILE1 20000000

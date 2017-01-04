@@ -47,7 +47,7 @@ function fill_file
 	(( write_size = size / BLOCK_SIZE - 1 ))
 
 	typeset -i zret=0
-	$FILE_WRITE -o create -f $FILE -b $BLOCK_SIZE \
+	file_write -o create -f $FILE -b $BLOCK_SIZE \
 		 -c $write_size -d 0
 	zret=$?
 	return $zret
@@ -63,13 +63,13 @@ function fill_logicalrefquota
 	typeset FILESYSTEM="$1"
 	typeset MNTPT="$2"
 
-	log_must $ZFS set logicalrefquota=$LOGICALREFQUOTA_VALUE $FILESYSTEM
+	log_must zfs set logicalrefquota=$LOGICALREFQUOTA_VALUE $FILESYSTEM
 
 	typeset -i write_size=0
 	(( write_size = 2 * LOGICALREFQUOTA_VALUE ))
 
 	typeset -i zret=0
-	$FILE_WRITE -o create -f $MNTPT/$TESTFILE1 -b $BLOCK_SIZE \
+	file_write -o create -f $MNTPT/$TESTFILE1 -b $BLOCK_SIZE \
 		 -c $write_size -d 0
 	zret=$?
         [[ $zret -ne EDQUOT ]] && \
@@ -101,7 +101,7 @@ function exceed_logicalrefquota
 	# Writing a file without API to access return code
 	#
 	log_note "Creating a file in a FS that has already exceeded its quota"
-	$FILE_WRITE -o create -f $MNTPT/$TESTFILE2 \
+	file_write -o create -f $MNTPT/$TESTFILE2 \
 		-b $BLOCK_SIZE -c $write_size -d 0
 	zret=$?
 	[[ $zret -ne EDQUOT ]] && \

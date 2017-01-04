@@ -940,11 +940,17 @@ dsl_dir_set_logicalquota_sync(void *arg, dmu_tx_t *tx)
 	VERIFY0(dsl_dataset_hold(dp, ddslqa->ddslqa_name, FTAG, &ds));
 	dd = ds->ds_dir;
 
-	dsl_prop_set_sync_impl(ds, zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA),
-	    ddslqa->ddslqa_source, sizeof (ddslqa->ddslqa_value), 1,
-	    &ddslqa->ddslqa_value, tx);
-	VERIFY0(dsl_prop_get_int_ds(ds,
-	    zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA), &newval));
+	if (spa_version(dp->dp_spa) >= SPA_VERSION_RECVD_PROPS) {
+		dsl_prop_set_sync_impl(ds, zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA),
+			ddslqa->ddslqa_source, sizeof (ddslqa->ddslqa_value), 1,
+			&ddslqa->ddslqa_value, tx);
+		VERIFY0(dsl_prop_get_int_ds(ds,
+			zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA), &newval));
+	} else {
+		spa_history_log_internal_ds(ds, "set", tx, "%s=%lld",
+		    zfs_prop_to_name(ZFS_PROP_LOGICALQUOTA),
+		    (longlong_t)ddslqa->ddslqa_value);
+	}
 
 	if (dd->dd_lquota != newval) {
 		dmu_buf_will_dirty(dd->dd_dbuf, tx);
@@ -1026,8 +1032,6 @@ dsl_dir_stats(dsl_dir_t *dd, nvlist_t *nv)
 	    dsl_dir_phys(dd)->dd_used_bytes);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_QUOTA,
 	    dsl_dir_phys(dd)->dd_quota);
-	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_LOGICALQUOTA,
-	    dd->dd_lquota);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_RESERVATION,
 	    dsl_dir_phys(dd)->dd_reserved);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_COMPRESSRATIO,

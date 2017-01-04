@@ -68,8 +68,8 @@ function cleanup
 
 log_onexit cleanup
 
-log_must $ZFS set compression=on $TESTPOOL/$TESTCTR
-log_must $ZFS set compression=on $TESTPOOL/$TESTCTR/$TESTFS1
+log_must zfs set compression=on $TESTPOOL/$TESTCTR
+log_must zfs set compression=on $TESTPOOL/$TESTCTR/$TESTFS1
 #
 # Fills the logicalquota & attempts to write another file
 #

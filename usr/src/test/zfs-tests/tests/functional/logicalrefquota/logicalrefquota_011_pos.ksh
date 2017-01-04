@@ -47,9 +47,9 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-	log_must $ZFS create $TESTPOOL/$TESTFS
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs destroy -rf $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_assert "logicalrefquotas are not limited by sub-filesystem snapshots."
@@ -57,18 +57,18 @@ log_onexit cleanup
 
 TESTFILE='testfile'
 fs=$TESTPOOL/$TESTFS
-log_must $ZFS set logicalquota=25M $fs
-log_must $ZFS set logicalrefquota=15M $fs
-log_must $ZFS set compression=on $fs
-log_must $ZFS create $fs/subfs
-log_must $ZFS set compression=on $fs/subfs
+log_must zfs set logicalquota=25M $fs
+log_must zfs set logicalrefquota=15M $fs
+log_must zfs set compression=on $fs
+log_must zfs create $fs/subfs
+log_must zfs set compression=on $fs/subfs
 
 mntpnt=$(get_prop mountpoint $fs/subfs)
 typeset -i i=0
 while ((i < 3)); do
 	log_must fill_file $mntpnt/$TESTFILE.$i 7000000
-	log_must $ZFS snapshot $fs/subfs@snap.$i
-	log_must $RM $mntpnt/$TESTFILE.$i
+	log_must zfs snapshot $fs/subfs@snap.$i
+	log_must rm $mntpnt/$TESTFILE.$i
 
 	((i += 1))
 done

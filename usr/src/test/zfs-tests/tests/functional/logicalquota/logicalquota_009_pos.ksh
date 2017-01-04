@@ -62,9 +62,9 @@ function cleanup
 	[[ -e $TESTDIR1/$TESTFILE1 ]] && \
 	    log_must rm $TESTDIR1/$TESTFILE1
 
-	log_must $ZFS set compression=off $TESTPOOL/$TESTFS
-	log_must $ZFS set compression=off $TESTPOOL/$TESTCTR
-	log_must $ZFS set compression=off $TESTPOOL/$TESTCTR/$TESTFS1 
+	log_must zfs set compression=off $TESTPOOL/$TESTFS
+	log_must zfs set compression=off $TESTPOOL/$TESTCTR
+	log_must zfs set compression=off $TESTPOOL/$TESTCTR/$TESTFS1 
 		#
         # Need to allow time for space to be released back to
         # pool, otherwise next test will fail trying to set a
@@ -75,9 +75,9 @@ function cleanup
 
 log_onexit cleanup
 
-log_must $ZFS set compression=on $TESTPOOL/$TESTFS
-log_must $ZFS set compression=on $TESTPOOL/$TESTCTR
-log_must $ZFS set compression=on $TESTPOOL/$TESTCTR/$TESTFS1 
+log_must zfs set compression=on $TESTPOOL/$TESTFS
+log_must zfs set compression=on $TESTPOOL/$TESTCTR
+log_must zfs set compression=on $TESTPOOL/$TESTCTR/$TESTFS1 
 #
 # Sets the logicalquota value and attempts to fill it with a file
 # twice the size of the logicalquota

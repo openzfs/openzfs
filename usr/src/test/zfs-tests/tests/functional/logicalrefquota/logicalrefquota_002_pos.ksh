@@ -48,9 +48,9 @@ verify_runnable "both"
 
 function cleanup
 {
-	log_must $ZFS destroy -rf $TESTPOOL/$TESTFS
-	log_must $ZFS create $TESTPOOL/$TESTFS
-	log_must $ZFS set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
+	log_must zfs destroy -rf $TESTPOOL/$TESTFS
+	log_must zfs create $TESTPOOL/$TESTFS
+	log_must zfs set mountpoint=$TESTDIR $TESTPOOL/$TESTFS
 }
 
 log_assert "Logical quotas are enforced using the minimum of the two properties"
@@ -58,11 +58,11 @@ log_onexit cleanup
 
 TESTFILE='testfile'
 fs=$TESTPOOL/$TESTFS
-log_must $ZFS set logicalquota=15M $fs
-log_must $ZFS set logicalrefquota=25M $fs
+log_must zfs set logicalquota=15M $fs
+log_must zfs set logicalrefquota=25M $fs
 
 mntpnt=$(get_prop mountpoint $fs)
-log_mustnot $MKFILE 20M $mntpnt/$TESTFILE
+log_mustnot mkfile 20M $mntpnt/$TESTFILE
 typeset -i logicalused quota
 logicalused=$(get_prop logicalused $fs)
 logicalquota=$(get_prop logicalquota $fs)
@@ -75,11 +75,11 @@ fi
 #
 # Switch the value of them and try again
 #
-log_must $RM $mntpnt/$TESTFILE
-log_must $ZFS set logicalquota=25M $fs
-log_must $ZFS set logicalrefquota=15M $fs
+log_must rm $mntpnt/$TESTFILE
+log_must zfs set logicalquota=25M $fs
+log_must zfs set logicalrefquota=15M $fs
 
-log_mustnot $MKFILE 20M $mntpnt/$TESTFILE
+log_mustnot mkfile 20M $mntpnt/$TESTFILE
 logicalused=$(get_prop logicalused $fs)
 logicalrefquota=$(get_prop logicalrefquota $fs)
 ((logicalused = logicalused / (1024 * 1024)))

@@ -50,9 +50,9 @@ verify_runnable "both"
 function cleanup
 {
 	datasetexists $fs_child && \
-		log_must $ZFS destroy $fs_child
+		log_must zfs destroy $fs_child
 
-	log_must $ZFS set logicalquota=$logicalquota_val $fs
+	log_must zfs set logicalquota=$logicalquota_val $fs
 }
 
 log_onexit cleanup
@@ -67,9 +67,9 @@ space_avail=$(get_prop available $fs)
 logicalquota_val=$(get_prop logicalquota $fs)
 typeset -i logicalquotasize=$space_avail
 ((logicalquotasize = logicalquotasize * 2 ))
-log_must $ZFS set logicalquota=$logicalquotasize $fs
+log_must zfs set logicalquota=$logicalquotasize $fs
 
-log_must $ZFS create $fs_child
+log_must zfs create $fs_child
 logicalquota_space=$(get_prop logicalquota $fs_child)
 [[ $logicalquota_space == $logicalquotasize ]] && \
 	log_fail "The logicalquota of child dataset inherits its value from parent."
