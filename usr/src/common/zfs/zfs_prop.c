@@ -57,6 +57,14 @@ const char *zfs_userquota_prop_prefixes[] = {
 	"groupquota@"
 };
 
+/* quota related props */
+zfs_prop_t zfs_quotas_prop[] = {
+	ZFS_PROP_QUOTA,
+	ZFS_PROP_REFQUOTA,
+	ZFS_PROP_LOGICALQUOTA,
+	ZFS_PROP_LOGICALREFQUOTA
+};
+
 zprop_desc_t *
 zfs_prop_get_table(void)
 {
@@ -512,6 +520,21 @@ zfs_prop_user(const char *name)
 	return (B_TRUE);
 }
 
+/*
+ * Returns true if this is a valid quotas-type property.
+ */
+boolean_t
+zfs_prop_quotas(zfs_prop_t prop)
+{
+	int i;
+	for (i = 0; i < sizeof (zfs_quotas_prop) / sizeof (zfs_quotas_prop[0]);
+	    i++) {
+		if (prop == zfs_quotas_prop[i]) {
+			return (B_TRUE);
+		}
+	}
+	return (B_FALSE);
+}
 /*
  * Returns true if this is a valid userspace-type property (one with a '@').
  * Note that after the @, any character is valid (eg, another @, for SID

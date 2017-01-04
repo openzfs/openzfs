@@ -132,6 +132,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_prop_to_name;
 	zfs_prop_user;
 	zfs_prop_userquota;
+	zfs_prop_quotas;
 	zfs_prop_valid_for_type;
 	zfs_prop_values;
 	zfs_prop_written;

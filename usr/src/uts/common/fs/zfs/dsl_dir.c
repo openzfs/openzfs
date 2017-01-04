@@ -1164,11 +1164,6 @@ dsl_dir_space_available(dsl_dir_t *dd,
 	logicalused = dsl_dir_phys(dd)->dd_uncompressed_bytes;
 	if (!ondiskonly) {
 		used += dsl_dir_space_towrite(dd);
-		/*
-		 * To check :
-		 * Can't predict how many uncompressed bytes to write
-		 * if compression is enable so arbitrary add bytes to write
-		 */
 		logicalused += dsl_dir_space_towrite(dd);
 	}
 

@@ -1919,11 +1919,8 @@ zfs_do_inherit(int argc, char **argv)
 		if (!zfs_prop_inheritable(prop) && !received) {
 			(void) fprintf(stderr, gettext("'%s' property cannot "
 			    "be inherited\n"), propname);
-			if (prop == ZFS_PROP_QUOTA ||
-			    prop == ZFS_PROP_LOGICALQUOTA ||
+			if (zfs_prop_quotas(prop) ||
 			    prop == ZFS_PROP_RESERVATION ||
-			    prop == ZFS_PROP_REFQUOTA ||
-			    prop == ZFS_PROP_LOGICALREFQUOTA ||
 			    prop == ZFS_PROP_REFRESERVATION) {
 				(void) fprintf(stderr, gettext("use 'zfs set "
 				    "%s=none' to clear\n"), propname);

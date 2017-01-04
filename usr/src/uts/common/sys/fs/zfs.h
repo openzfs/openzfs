@@ -266,6 +266,7 @@ boolean_t zfs_prop_setonce(zfs_prop_t);
 const char *zfs_prop_to_name(zfs_prop_t);
 zfs_prop_t zfs_name_to_prop(const char *);
 boolean_t zfs_prop_user(const char *);
+boolean_t zfs_prop_quotas(zfs_prop_t);
 boolean_t zfs_prop_userquota(const char *);
 boolean_t zfs_prop_written(const char *);
 int zfs_prop_index_to_string(zfs_prop_t, uint64_t, const char **);
