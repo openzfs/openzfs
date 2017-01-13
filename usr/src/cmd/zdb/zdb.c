@@ -120,18 +120,19 @@ static void
 usage(void)
 {
 	(void) fprintf(stderr,
-	    "Usage: %s [-CmMdibcsDvhLXFPAG] [-t txg] [-e [-p path...]] "
-	    "[-U config] [-I inflight I/Os] [-x dumpdir] [-o var=value] "
-	    "poolname [object...]\n"
-	    "       %s [-divPA] [-e -p path...] [-U config] dataset "
-	    "[object...]\n"
-	    "       %s -mM [-LXFPA] [-t txg] [-e [-p path...]] [-U config] "
-	    "poolname [vdev [metaslab...]]\n"
-	    "       %s -R [-A] [-e [-p path...]] poolname "
-	    "vdev:offset:size[:flags]\n"
-	    "       %s -S [-PA] [-e [-p path...]] [-U config] poolname\n"
-	    "       %s -l [-Aqu] device\n"
-	    "       %s -C [-A] [-U config]\n\n",
+	    "Usage:\t%s [-AbcCdDFGhiLmMPsvX] [-e [-p <path> ...]] "
+	    "[-I <inflight I/Os>]\n"
+	    "\t\t[-o <var>=<value>]... [-t <txg>] [-U <cache>] [-x <dumpdir>]\n"
+	    "\t\t[<poolname> [<object> ...]]\n"
+	    "\t%s [-AdiPv] [-e [-p <path> ...]] [-U <cache>] <dataset> "
+	    "[<object> ...]\n"
+	    "\t%s -m [-AFLMPX] [-e [-p <path> ...]] [-t <txg>] [-U <cache>]\n"
+	    "\t\t<poolname> [<vdev> [<metaslab> ...]]\n"
+	    "\t%s -R [-A] [-e [-p <path> ...]] [-U <cache>]\n"
+	    "\t\t<poolname> <vdev>:<offset>:<size>[:<flags>]\n"
+	    "\t%s -S [-AP] [-e [-p <path> ...]] [-U <cache>] <poolname>\n"
+	    "\t%s -l [-Aqu] <device>\n"
+	    "\t%s -C [-A] [-U <cache>]\n\n",
 	    cmdname, cmdname, cmdname, cmdname, cmdname, cmdname, cmdname);
 
 	(void) fprintf(stderr, "    Dataset name must include at least one "
