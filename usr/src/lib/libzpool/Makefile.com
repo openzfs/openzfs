@@ -20,7 +20,7 @@
 #
 #
 # Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright (c) 2013, 2015 by Delphix. All rights reserved.
+# Copyright (c) 2013, 2016 by Delphix. All rights reserved.
 #
 
 LIBRARY= libzpool.a
@@ -31,16 +31,17 @@ include ../../../uts/common/Makefile.files
 KERNEL_OBJS = kernel.o taskq.o util.o
 DTRACE_OBJS = zfs.o
 
-OBJECTS=$(ZFS_COMMON_OBJS) $(ZFS_SHARED_OBJS) $(KERNEL_OBJS)
+OBJECTS=$(LUA_OBJS) $(ZFS_COMMON_OBJS) $(ZFS_SHARED_OBJS) $(KERNEL_OBJS)
 
 # include library definitions
 include ../../Makefile.lib
 
+LUA_SRCS=		$(LUA_OBJS:%.o=../../../uts/common/fs/zfs/lua/%.c)
 ZFS_COMMON_SRCS=	$(ZFS_COMMON_OBJS:%.o=../../../uts/common/fs/zfs/%.c)
 ZFS_SHARED_SRCS=	$(ZFS_SHARED_OBJS:%.o=../../../common/zfs/%.c)
 KERNEL_SRCS=		$(KERNEL_OBJS:%.o=../common/%.c)
 
-SRCS=$(ZFS_COMMON_SRCS) $(ZFS_SHARED_SRCS) $(KERNEL_SRCS)
+SRCS=$(LUA_SRCS) $(ZFS_COMMON_SRCS) $(ZFS_SHARED_SRCS) $(KERNEL_SRCS)
 SRCDIR=		../common
 
 # There should be a mapfile here
@@ -50,6 +51,7 @@ LIBS +=		$(LINTLIB)
 
 INCS += -I../common
 INCS += -I../../../uts/common/fs/zfs
+INCS += -I../../../uts/common/fs/zfs/lua
 INCS += -I../../../common/zfs
 INCS += -I../../../common
 
@@ -86,6 +88,10 @@ include ../../Makefile.targ
 EXTPICS= $(DTRACE_OBJS:%=pics/%)
 
 pics/%.o: ../../../uts/common/fs/zfs/%.c ../common/zfs.h
+	$(COMPILE.c) -o $@ $<
+	$(POST_PROCESS_O)
+
+pics/%.o: ../../../uts/common/fs/zfs/lua/%.c
 	$(COMPILE.c) -o $@ $<
 	$(POST_PROCESS_O)
 
