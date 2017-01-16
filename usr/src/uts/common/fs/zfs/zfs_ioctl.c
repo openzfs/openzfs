@@ -2426,13 +2426,9 @@ zfs_prop_set_special(const char *dsname, zprop_source_t source,
 		break;
 	case ZFS_PROP_LOGICALREFQUOTA:
 		err = dsl_dataset_set_logicalrefquota(dsname, source, intval);
-		if (err == 0)
-			err = -1;
 		break;
 	case ZFS_PROP_LOGICALQUOTA:
 		err = dsl_dir_set_logicalquota(dsname, source, intval);
-		if (err == 0)
-			err = -1;
 		break;
 	case ZFS_PROP_FILESYSTEM_LIMIT:
 	case ZFS_PROP_SNAPSHOT_LIMIT:
