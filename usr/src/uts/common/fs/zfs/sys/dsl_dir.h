@@ -23,6 +23,7 @@
  * Copyright (c) 2013 by Delphix. All rights reserved.
  * Copyright (c) 2014, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #ifndef	_SYS_DSL_DIR_H
@@ -113,6 +114,8 @@ struct dsl_dir {
 
 	/* protected by dd_lock; keep at end of struct for better locality */
 	char dd_myname[ZFS_MAX_DATASET_NAME_LEN];
+
+	uint64_t dd_lquota; /* Cached logicalquota */
 };
 
 inline dsl_dir_phys_t *
@@ -145,6 +148,8 @@ void dsl_dir_diduse_space(dsl_dir_t *dd, dd_used_t type,
     int64_t used, int64_t compressed, int64_t uncompressed, dmu_tx_t *tx);
 void dsl_dir_transfer_space(dsl_dir_t *dd, int64_t delta,
     dd_used_t oldtype, dd_used_t newtype, dmu_tx_t *tx);
+int dsl_dir_set_logicalquota(const char *ddname, zprop_source_t source,
+    uint64_t logicalquota);
 int dsl_dir_set_quota(const char *ddname, zprop_source_t source,
     uint64_t quota);
 int dsl_dir_set_reservation(const char *ddname, zprop_source_t source,

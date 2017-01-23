@@ -26,6 +26,7 @@
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016, OmniTI Computer Consulting, Inc. All rights reserved.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <sys/dmu_objset.h>
@@ -527,8 +528,13 @@ dsl_dataset_hold_obj(dsl_pool_t *dp, uint64_t dsobj, void *tag,
 				    zfs_prop_to_name(ZFS_PROP_REFQUOTA),
 				    &ds->ds_quota);
 			}
+			if (err == 0) {
+				err = dsl_prop_get_int_ds(ds,
+				    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA),
+				    &ds->ds_lquota);
+			}
 		} else {
-			ds->ds_reserved = ds->ds_quota = 0;
+			ds->ds_reserved = ds->ds_quota = ds->ds_lquota = 0;
 		}
 
 		dmu_buf_init_user(&ds->ds_dbu, dsl_dataset_evict_sync,
@@ -1879,6 +1885,8 @@ dsl_dataset_stats(dsl_dataset_t *ds, nvlist_t *nv)
 	    dsl_dataset_phys(ds)->ds_creation_txg);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_REFQUOTA,
 	    ds->ds_quota);
+	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_LOGICALREFQUOTA,
+	    ds->ds_lquota);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_REFRESERVATION,
 	    ds->ds_reserved);
 	dsl_prop_nvlist_add_uint64(nv, ZFS_PROP_GUID,
@@ -1994,6 +2002,22 @@ dsl_dataset_space(dsl_dataset_t *ds,
 		else
 			*availbytesp = 0;
 	}
+
+	if (ds->ds_lquota > 0) {
+		/*
+		 * Adjust available bytes according to lrefquota
+		 * and uncompressed_bytes
+		 */
+		uint64_t lref, lavail;
+		lref = dsl_dataset_phys(ds)->ds_uncompressed_bytes;
+		if (lref < ds->ds_lquota) {
+			lavail = ds->ds_lquota - lref;
+			*availbytesp = MIN(*availbytesp, lavail);
+		} else {
+			*availbytesp = 0;
+		}
+	}
+
 	rrw_enter(&ds->ds_bp_rwlock, RW_READER, FTAG);
 	*usedobjsp = BP_GET_FILL(&dsl_dataset_phys(ds)->ds_bp);
 	rrw_exit(&ds->ds_bp_rwlock, FTAG);
@@ -3188,7 +3212,7 @@ dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
 		    asize - MIN(asize, parent_delta(ds, asize + inflight));
 	}
 
-	if (!check_quota || ds->ds_quota == 0) {
+	if (!check_quota || (ds->ds_quota == 0 && ds->ds_lquota == 0)) {
 		mutex_exit(&ds->ds_lock);
 		return (0);
 	}
@@ -3198,7 +3222,8 @@ dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
 	 * on-disk is over quota and there are no pending changes (which
 	 * may free up space for us).
 	 */
-	if (dsl_dataset_phys(ds)->ds_referenced_bytes + inflight >=
+	if (ds->ds_quota > 0 &&
+	    dsl_dataset_phys(ds)->ds_referenced_bytes + inflight >=
 	    ds->ds_quota) {
 		if (inflight > 0 ||
 		    dsl_dataset_phys(ds)->ds_referenced_bytes < ds->ds_quota)
@@ -3206,6 +3231,18 @@ dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
 		else
 			error = SET_ERROR(EDQUOT);
 	}
+
+	if (ds->ds_lquota > 0 && error != EDQUOT &&
+	    dsl_dataset_phys(ds)->ds_uncompressed_bytes + inflight >=
+	    ds->ds_lquota) {
+		if (inflight > 0 ||
+		    dsl_dataset_phys(ds)->ds_uncompressed_bytes <
+		    ds->ds_lquota)
+			error = SET_ERROR(ERESTART);
+		else
+			error = SET_ERROR(EDQUOT);
+	}
+
 	mutex_exit(&ds->ds_lock);
 
 	return (error);
@@ -3301,6 +3338,107 @@ dsl_dataset_set_refquota(const char *dsname, zprop_source_t source,
 	return (dsl_sync_task(dsname, dsl_dataset_set_refquota_check,
 	    dsl_dataset_set_refquota_sync, &ddsqra, 0, ZFS_SPACE_CHECK_NONE));
 }
+
+/*
+ * logical refquota
+ */
+typedef struct dsl_dataset_set_lrq_arg {
+	const char *ddslrqa_name;
+	zprop_source_t ddslrqa_source;
+	uint64_t ddslrqa_value;
+} dsl_dataset_set_lrq_arg_t;
+
+static int
+dsl_dataset_set_logicalrefquota_check(void *arg, dmu_tx_t *tx)
+{
+	dsl_dataset_set_lrq_arg_t *ddslrqa = arg;
+	dsl_pool_t *dp = dmu_tx_pool(tx);
+	dsl_dataset_t *ds;
+	int error;
+	uint64_t newval;
+
+	if (spa_version(dp->dp_spa) < SPA_VERSION_REFQUOTA)
+		return (SET_ERROR(ENOTSUP));
+
+	error = dsl_dataset_hold(dp, ddslrqa->ddslrqa_name, FTAG, &ds);
+	if (error != 0)
+		return (error);
+
+	if (ds->ds_is_snapshot) {
+		dsl_dataset_rele(ds, FTAG);
+		return (SET_ERROR(EINVAL));
+	}
+
+	error = dsl_prop_predict(ds->ds_dir,
+	    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA),
+	    ddslrqa->ddslrqa_source, ddslrqa->ddslrqa_value, &newval);
+	if (error != 0) {
+		dsl_dataset_rele(ds, FTAG);
+		return (error);
+	}
+
+	if (newval == 0) {
+		dsl_dataset_rele(ds, FTAG);
+		return (0);
+	}
+
+	if (newval < dsl_dataset_phys(ds)->ds_referenced_bytes ||
+	    newval < ds->ds_reserved) {
+		dsl_dataset_rele(ds, FTAG);
+		return (SET_ERROR(ENOSPC));
+	}
+
+	dsl_dataset_rele(ds, FTAG);
+	return (error);
+}
+
+void
+dsl_dataset_set_logicalrefquota_sync(void *arg, dmu_tx_t *tx)
+{
+	dsl_dataset_set_lrq_arg_t *ddslrqa = arg;
+	dsl_pool_t *dp = dmu_tx_pool(tx);
+	dsl_dataset_t *ds;
+	uint64_t newval;
+	newval = ddslrqa->ddslrqa_value;
+
+	VERIFY0(dsl_dataset_hold(dp, ddslrqa->ddslrqa_name, FTAG, &ds));
+
+	spa_history_log_internal_ds(ds, "set", tx, "%s=%lld",
+	    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA), (longlong_t)newval);
+
+	dsl_prop_set_sync_impl(ds,
+	    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA),
+	    ddslrqa->ddslrqa_source, sizeof (newval), 1,
+	    &newval, tx);
+	VERIFY0(dsl_prop_get_int_ds(ds,
+	    zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA), &newval));
+
+	if (ds->ds_lquota != newval) {
+		dmu_buf_will_dirty(ds->ds_dbuf, tx);
+		ds->ds_lquota = newval;
+	}
+
+	dsl_dataset_rele(ds, FTAG);
+}
+
+int
+dsl_dataset_set_logicalrefquota(const char *ddname, zprop_source_t source,
+    uint64_t logicalrefquota)
+{
+	dsl_dataset_set_lrq_arg_t ddslrqa;
+
+	ddslrqa.ddslrqa_name = ddname;
+	ddslrqa.ddslrqa_source = source;
+	ddslrqa.ddslrqa_value = logicalrefquota;
+
+	return (dsl_sync_task(ddname, dsl_dataset_set_logicalrefquota_check,
+	    dsl_dataset_set_logicalrefquota_sync, &ddslrqa, 0,
+	    ZFS_SPACE_CHECK_NONE));
+}
+
+/*
+ * End logical quota
+ */
 
 static int
 dsl_dataset_set_refreservation_check(void *arg, dmu_tx_t *tx)

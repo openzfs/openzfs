@@ -28,6 +28,7 @@
  * Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <assert.h>
@@ -704,8 +705,8 @@ send_iterate_prop(zfs_handle_t *zhp, nvlist_t *nv)
 		}
 
 		verify(nvpair_value_nvlist(elem, &propnv) == 0);
-		if (prop == ZFS_PROP_QUOTA || prop == ZFS_PROP_RESERVATION ||
-		    prop == ZFS_PROP_REFQUOTA ||
+		if (zfs_prop_quotas(prop) ||
+		    prop == ZFS_PROP_RESERVATION ||
 		    prop == ZFS_PROP_REFRESERVATION) {
 			char *source;
 			uint64_t value;
@@ -3406,7 +3407,9 @@ zfs_receive_one(libzfs_handle_t *hdl, int infd, const char *tosnap,
 			} else if (snapname == NULL || finalsnap == NULL ||
 			    strcmp(finalsnap, snapname) == 0 ||
 			    strcmp(nvpair_name(prop_err),
-			    zfs_prop_to_name(ZFS_PROP_REFQUOTA)) != 0) {
+			    zfs_prop_to_name(ZFS_PROP_REFQUOTA)) != 0 ||
+				strcmp(nvpair_name(prop_err),
+				zfs_prop_to_name(ZFS_PROP_LOGICALREFQUOTA)) != 0) {
 				/*
 				 * Skip the special case of, for example,
 				 * "refquota", errors on intermediate

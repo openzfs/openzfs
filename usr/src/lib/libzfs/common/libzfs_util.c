@@ -24,6 +24,7 @@
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 /*
@@ -1229,9 +1230,9 @@ zprop_parse_value(libzfs_handle_t *hdl, nvpair_t *elem, int prop,
 		 * Quota special: force 'none' and don't allow 0.
 		 */
 		if ((type & ZFS_TYPE_DATASET) && *ivalp == 0 && !isnone &&
-		    (prop == ZFS_PROP_QUOTA || prop == ZFS_PROP_REFQUOTA)) {
+		    zfs_prop_quotas(prop)) {
 			zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
-			    "use 'none' to disable quota/refquota"));
+			    "use 'none' to disable quotas"));
 			goto error;
 		}
 

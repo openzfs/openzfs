@@ -23,6 +23,7 @@
  * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 Martin Matuska. All rights reserved.
  * Copyright 2015, Joyent, Inc.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <sys/zfs_context.h>
@@ -372,6 +373,8 @@ dsl_prop_predict(dsl_dir_t *dd, const char *propname,
 
 	switch (prop) {
 	case ZFS_PROP_QUOTA:
+	case ZFS_PROP_LOGICALQUOTA:
+	case ZFS_PROP_LOGICALREFQUOTA:
 	case ZFS_PROP_RESERVATION:
 	case ZFS_PROP_REFQUOTA:
 	case ZFS_PROP_REFRESERVATION:

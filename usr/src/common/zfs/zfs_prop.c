@@ -24,6 +24,7 @@
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016, Joyent, Inc.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -54,6 +55,14 @@ const char *zfs_userquota_prop_prefixes[] = {
 	"userquota@",
 	"groupused@",
 	"groupquota@"
+};
+
+/* quota related props */
+zfs_prop_t zfs_quotas_prop[] = {
+	ZFS_PROP_QUOTA,
+	ZFS_PROP_REFQUOTA,
+	ZFS_PROP_LOGICALQUOTA,
+	ZFS_PROP_LOGICALREFQUOTA
 };
 
 zprop_desc_t *
@@ -410,6 +419,12 @@ zfs_prop_init(void)
 	zprop_register_number(ZFS_PROP_SNAPSHOT_LIMIT, "snapshot_limit",
 	    UINT64_MAX, PROP_DEFAULT, ZFS_TYPE_FILESYSTEM | ZFS_TYPE_VOLUME,
 	    "<count> | none", "SSLIMIT");
+	zprop_register_number(ZFS_PROP_LOGICALQUOTA, "logicalquota", 0,
+	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
+	    "LQUOTA");
+	zprop_register_number(ZFS_PROP_LOGICALREFQUOTA, "logicalrefquota", 0,
+	    PROP_DEFAULT, ZFS_TYPE_FILESYSTEM, "<size> | none",
+	    "LREFQUOTA");
 
 	/* inherit number properties */
 	zprop_register_number(ZFS_PROP_RECORDSIZE, "recordsize",
@@ -505,6 +520,21 @@ zfs_prop_user(const char *name)
 	return (B_TRUE);
 }
 
+/*
+ * Returns true if this is a valid quotas-type property.
+ */
+boolean_t
+zfs_prop_quotas(zfs_prop_t prop)
+{
+	int i;
+	for (i = 0; i < sizeof (zfs_quotas_prop) / sizeof (zfs_quotas_prop[0]);
+	    i++) {
+		if (prop == zfs_quotas_prop[i]) {
+			return (B_TRUE);
+		}
+	}
+	return (B_FALSE);
+}
 /*
  * Returns true if this is a valid userspace-type property (one with a '@').
  * Note that after the @, any character is valid (eg, another @, for SID

@@ -25,6 +25,7 @@
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Spectra Logic Corporation, All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #ifndef	_SYS_DSL_DATASET_H
@@ -190,6 +191,7 @@ typedef struct dsl_dataset {
 
 	uint64_t ds_reserved;	/* cached refreservation */
 	uint64_t ds_quota;	/* cached refquota */
+	uint64_t ds_lquota;	/* cached logicalrefquota */
 
 	kmutex_t ds_sendstream_lock;
 	list_t ds_sendstreams;
@@ -306,6 +308,8 @@ int dsl_dataset_check_quota(dsl_dataset_t *ds, boolean_t check_quota,
     uint64_t *ref_rsrv);
 int dsl_dataset_set_refquota(const char *dsname, zprop_source_t source,
     uint64_t quota);
+int dsl_dataset_set_logicalrefquota(const char *ddname, zprop_source_t source,
+    uint64_t logicalrefquota);
 int dsl_dataset_set_refreservation(const char *dsname, zprop_source_t source,
     uint64_t reservation);
 

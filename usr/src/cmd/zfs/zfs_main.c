@@ -29,6 +29,7 @@
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>.
  * Copyright 2016 Nexenta Systems, Inc.
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 #include <assert.h>
@@ -1918,9 +1919,8 @@ zfs_do_inherit(int argc, char **argv)
 		if (!zfs_prop_inheritable(prop) && !received) {
 			(void) fprintf(stderr, gettext("'%s' property cannot "
 			    "be inherited\n"), propname);
-			if (prop == ZFS_PROP_QUOTA ||
+			if (zfs_prop_quotas(prop) ||
 			    prop == ZFS_PROP_RESERVATION ||
-			    prop == ZFS_PROP_REFQUOTA ||
 			    prop == ZFS_PROP_REFRESERVATION) {
 				(void) fprintf(stderr, gettext("use 'zfs set "
 				    "%s=none' to clear\n"), propname);

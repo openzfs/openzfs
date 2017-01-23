@@ -152,7 +152,7 @@ tests = ['zfs_receive_001_pos', 'zfs_receive_002_pos', 'zfs_receive_003_pos',
     'zfs_receive_005_neg', 'zfs_receive_006_pos',
     'zfs_receive_007_neg', 'zfs_receive_008_pos', 'zfs_receive_009_neg',
     'zfs_receive_010_pos', 'zfs_receive_011_pos', 'zfs_receive_012_pos',
-    'zfs_receive_013_pos']
+    'zfs_receive_013_pos', 'zfs_receive_014_pos', 'zfs_receive_015_pos']
 
 [/opt/zfs-tests/tests/functional/cli_root/zfs_rename]
 tests = ['zfs_rename_001_pos', 'zfs_rename_002_pos', 'zfs_rename_003_pos',
@@ -449,6 +449,12 @@ tests = ['privilege_001_pos', 'privilege_002_pos']
 tests = ['quota_001_pos', 'quota_002_pos', 'quota_003_pos', 'quota_004_pos',
     'quota_005_pos', 'quota_006_neg']
 
+[/opt/zfs-tests/tests/functional/logicalquota]
+tests = ['logicalquota_001_pos', 'logicalquota_002_pos', 'logicalquota_003_pos',
+    'logicalquota_004_pos', 'logicalquota_005_pos', 'logicalquota_006_neg',
+    'logicalquota_007_pos', 'logicalquota_008_pos', 'logicalquota_009_pos',
+    'logicalquota_010_pos', 'logicalquota_011_neg']
+
 [/opt/zfs-tests/tests/functional/redundancy]
 tests = ['redundancy_001_pos', 'redundancy_002_pos', 'redundancy_003_pos',
     'redundancy_004_neg']
@@ -456,6 +462,14 @@ tests = ['redundancy_001_pos', 'redundancy_002_pos', 'redundancy_003_pos',
 [/opt/zfs-tests/tests/functional/refquota]
 tests = ['refquota_001_pos', 'refquota_002_pos', 'refquota_003_pos',
     'refquota_004_pos', 'refquota_005_pos', 'refquota_006_neg']
+
+[/opt/zfs-tests/tests/functional/logicalrefquota]
+tests = ['logicalrefquota_001_pos', 'logicalrefquota_002_pos',
+    'logicalrefquota_003_pos', 'logicalrefquota_004_pos',
+    'logicalrefquota_005_pos', 'logicalrefquota_006_neg',
+    'logicalrefquota_007_pos', 'logicalrefquota_008_pos',
+    'logicalrefquota_009_pos', 'logicalrefquota_010_pos',
+    'logicalrefquota_011_pos']
 
 [/opt/zfs-tests/tests/functional/refreserv]
 tests = ['refreserv_001_pos', 'refreserv_002_pos', 'refreserv_003_pos',

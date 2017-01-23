@@ -1266,6 +1266,7 @@ adjust_total_blocks(struct df_request *dfrp, fsblkcnt64_t *total,
 	while (slash != NULL) {
 		zfs_handle_t *zhp;
 		uint64_t this_quota;
+		boolean_t logical = FALSE;
 
 		*slash = '\0';
 
@@ -1282,15 +1283,33 @@ adjust_total_blocks(struct df_request *dfrp, fsblkcnt64_t *total,
 		}
 
 		this_quota = _zfs_prop_get_int(zhp, ZFS_PROP_QUOTA);
-		if (this_quota && this_quota < quota)
+		if (this_quota && this_quota < quota) {
 			quota = this_quota;
+			logical = FALSE;
+		}
+
+		this_quota = _zfs_prop_get_int(zhp, ZFS_PROP_LOGICALREFQUOTA);
+		if (this_quota && this_quota < quota) {
+			quota = this_quota;
+			logical = TRUE;
+		}
+
+		this_quota = _zfs_prop_get_int(zhp, ZFS_PROP_LOGICALQUOTA);
+		if (this_quota && this_quota < quota) {
+			quota = this_quota;
+			logical = TRUE;
+		}
 
 		/* true at last iteration of loop */
 		if ((slash = strrchr(dataset, '/')) == NULL) {
 			uint64_t size;
 
-			size = _zfs_prop_get_int(zhp, ZFS_PROP_USED) +
-			    _zfs_prop_get_int(zhp, ZFS_PROP_AVAILABLE);
+			if (logical)
+				size = _zfs_prop_get_int(zhp, ZFS_PROP_LOGICALUSED) +
+					_zfs_prop_get_int(zhp, ZFS_PROP_AVAILABLE);
+			else
+				size = _zfs_prop_get_int(zhp, ZFS_PROP_USED) +
+					_zfs_prop_get_int(zhp, ZFS_PROP_AVAILABLE);
 			if (size < quota)
 				quota = size;
 		}

@@ -25,6 +25,7 @@
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright (c) 2016 OVH [ovh.com].
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -159,6 +160,8 @@ typedef enum {
 	ZFS_PROP_REDUNDANT_METADATA,
 	ZFS_PROP_PREV_SNAP,
 	ZFS_PROP_RECEIVE_RESUME_TOKEN,
+	ZFS_PROP_LOGICALQUOTA,
+	ZFS_PROP_LOGICALREFQUOTA,
 	ZFS_NUM_PROPS
 } zfs_prop_t;
 
@@ -263,6 +266,7 @@ boolean_t zfs_prop_setonce(zfs_prop_t);
 const char *zfs_prop_to_name(zfs_prop_t);
 zfs_prop_t zfs_name_to_prop(const char *);
 boolean_t zfs_prop_user(const char *);
+boolean_t zfs_prop_quotas(zfs_prop_t);
 boolean_t zfs_prop_userquota(const char *);
 boolean_t zfs_prop_written(const char *);
 int zfs_prop_index_to_string(zfs_prop_t, uint64_t, const char **);
