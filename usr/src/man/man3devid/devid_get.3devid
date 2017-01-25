@@ -32,6 +32,7 @@
 .Nm devid_valid ,
 .Nm devid_str_encode ,
 .Nm devid_str_decode ,
+.Nm devid_str_from_path ,
 .Nm devid_str_free
 .Nd device ID interfaces for user applications
 .Sh SYNOPSIS
@@ -85,6 +86,10 @@
 .Fa "char *devidstr"
 .Fa "ddi_devid_t *retdevid"
 .Fa "char **retminor_name"
+.Fc
+.Ft char *
+.Fo devid_str_from_path
+.Fa "const char *path"
 .Fc
 .Ft void
 .Fo devid_str_free
@@ -285,6 +290,19 @@ The string returned must be freed by calling
 .Fn devid_str_free .
 .Pp
 The
+.Fn devid_str_from_path
+is similar to
+.Fn devid_str_encode ,
+but takes a
+.Fa path
+argument instead.
+If
+.Fa path
+includes the minor name, it will be encoded as well.
+The string returned must be freed by calling
+.Fn devid_str_free .
+.Pp
+The
 .Fn devid_str_decode
 function takes a string previously produced by the
 .Fn devid_str_encode
@@ -370,7 +388,9 @@ is invalid.
 .Pp
 The
 .Fn devid_str_encode
-function returns NULL to indicate failure.
+and
+.Fn devid_str_from_path
+functions return NULL to indicate failure.
 Failure may be caused by attempting to encode an invalid string.
 If the return value is non-null, the caller must free the returned string by
 using the
