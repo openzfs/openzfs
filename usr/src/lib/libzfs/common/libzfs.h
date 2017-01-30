@@ -26,7 +26,7 @@
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
- * Copyright 2016 Nexenta Systems, Inc.
+ * Copyright 2017 Nexenta Systems, Inc.
  */
 
 #ifndef	_LIBZFS_H
@@ -776,6 +776,8 @@ extern int zpool_disable_datasets(zpool_handle_t *, boolean_t);
 extern void libzfs_fru_refresh(libzfs_handle_t *);
 extern const char *libzfs_fru_lookup(libzfs_handle_t *, const char *);
 extern const char *libzfs_fru_devpath(libzfs_handle_t *, const char *);
+extern int libzfs_fru_cmp_slot(libzfs_handle_t *, const char *, const char *,
+    size_t);
 extern boolean_t libzfs_fru_compare(libzfs_handle_t *, const char *,
     const char *);
 extern boolean_t libzfs_fru_notself(libzfs_handle_t *, const char *);

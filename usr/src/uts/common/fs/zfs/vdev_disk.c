@@ -18,11 +18,12 @@
  *
  * CDDL HEADER END
  */
+
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
- * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 Joyent, Inc.  All rights reserved.
+ * Copyright 2017 Nexenta Systems, Inc.
  */
 
 #include <sys/zfs_context.h>
@@ -547,6 +548,16 @@ skip_open:
 	 * try again.
 	 */
 	vd->vdev_nowritecache = B_FALSE;
+
+	/*
+	 * vdev open has succeeded - reset fault flags if last fault was due
+	 * to a failed open since the open fault looks to have been transient
+	 */
+	if (vd->vdev_removed || (vd->vdev_faulted &&
+	    vd->vdev_label_aux == VDEV_AUX_OPEN_FAILED)) {
+		vd->vdev_faulted = vd->vdev_removed = 0ULL;
+		vd->vdev_label_aux = VDEV_AUX_NONE;
+	}
 
 	return (0);
 }
