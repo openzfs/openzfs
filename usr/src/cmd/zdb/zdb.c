@@ -2175,6 +2175,8 @@ dump_label_uberblocks(vdev_label_t *lbl, uint64_t ashift)
 	}
 }
 
+static char curpath[PATH_MAX];
+
 /*
  * Iterate through the path components, recursively passing
  * current one's obj and remaining path until we find the obj
@@ -2194,9 +2196,11 @@ dump_path_impl(objset_t *os, uint64_t obj, char *name)
 		*s = '\0';
 	err = zap_lookup(os, obj, name, 8, 1, &child_obj);
 
+	(void) strlcat(curpath, name, sizeof (curpath));
+
 	if (err != 0) {
-		(void) fprintf(stderr, "failed to lookup '%s': %s\n",
-		    name, strerror(err));
+		(void) fprintf(stderr, "failed to lookup %s: %s\n",
+		    curpath, strerror(err));
 		return (err);
 	}
 
@@ -2219,10 +2223,12 @@ dump_path_impl(objset_t *os, uint64_t obj, char *name)
 	}
 
 	if (dump_opt['v'] > 6) {
-		(void) printf("obj %llu name '%s' type %d bonustype %d\n",
-		    (u_longlong_t)child_obj, name, doi.doi_type,
+		(void) printf("obj=%llu %s type=%d bonustype=%d\n",
+		    (u_longlong_t)child_obj, curpath, doi.doi_type,
 		    doi.doi_bonus_type);
 	}
+
+	(void) strlcat(curpath, "/", sizeof (curpath));
 
 	switch (doi.doi_type) {
 	case DMU_OT_DIRECTORY_CONTENTS:
@@ -2262,6 +2268,8 @@ dump_path(char *ds, char *path)
 		dmu_objset_disown(os, FTAG);
 		return (EINVAL);
 	}
+
+	(void) snprintf(curpath, sizeof (curpath), "dataset=%s path=/", ds);
 
 	err = dump_path_impl(os, root_obj, path);
 
