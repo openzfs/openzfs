@@ -1596,25 +1596,26 @@ open_objset(const char *path, dmu_objset_type_t type, void *tag, objset_t **osp)
 	VERIFY3P(sa_os, ==, NULL);
 	err = dmu_objset_own(path, type, B_TRUE, tag, osp);
 	if (err != 0) {
-		(void) fprintf(stderr, "can't own dataset '%s': %s\n", path,
+		(void) fprintf(stderr, "failed to own dataset '%s': %s\n", path,
 		    strerror(err));
 		return (err);
 	}
 
-	if ((*osp)->os_phys->os_type == DMU_OST_ZFS) {
+	if (dmu_objset_type(*osp) == DMU_OST_ZFS) {
 		(void) zap_lookup(*osp, MASTER_NODE_OBJ, ZPL_VERSION_STR,
 		    8, 1, &version);
 		if (version >= ZPL_VERSION_SA) {
 			(void) zap_lookup(*osp, MASTER_NODE_OBJ, ZFS_SA_ATTRS,
 			    8, 1, &sa_attrs);
 		}
-	}
-	err = sa_setup(*osp, sa_attrs, zfs_attr_table, ZPL_END, &sa_attr_table);
-	if (err != 0) {
-		(void) fprintf(stderr, "sa_setup failed: %s\n",
-		    strerror(err));
-		dmu_objset_disown(*osp, tag);
-		*osp = NULL;
+		err = sa_setup(*osp, sa_attrs, zfs_attr_table, ZPL_END,
+		    &sa_attr_table);
+		if (err != 0) {
+			(void) fprintf(stderr, "sa_setup failed: %s\n",
+			    strerror(err));
+			dmu_objset_disown(*osp, tag);
+			*osp = NULL;
+		}
 	}
 	sa_os = *osp;
 
@@ -2174,31 +2175,24 @@ dump_label_uberblocks(vdev_label_t *lbl, uint64_t ashift)
 	}
 }
 
+/*
+ * Iterate through the path components, recursively passing
+ * current one's obj and remaining path until we find the obj
+ * for the last one.
+ */
 static int
-dump_specific_path(objset_t *os, uint64_t obj)
-{
-	int print_header = 1;
-
-	dump_object(os, obj, dump_opt['v'], &print_header);
-
-	return (0);
-}
-
-static int
-dump_specific_dir(objset_t *os, uint64_t obj, char *topname, char *name)
+dump_path_impl(objset_t *os, uint64_t obj, char *name)
 {
 	int err;
+	int header = 1;
 	uint64_t child_obj;
-	char *slash = strchr(name, '/');
-	char *namep = name;
+	char *s;
 	dmu_buf_t *db;
 	dmu_object_info_t doi;
 
-	if (slash != NULL)
-		*slash = '\0';
-	err = zap_lookup(os, obj, namep, 8, 1, &child_obj);
-	if (slash != NULL)
-		*slash = '/';
+	if ((s = strchr(name, '/')) != NULL)
+		*s = '\0';
+	err = zap_lookup(os, obj, name, 8, 1, &child_obj);
 
 	if (err != 0) {
 		(void) fprintf(stderr, "failed to lookup '%s': %s\n",
@@ -2211,44 +2205,33 @@ dump_specific_dir(objset_t *os, uint64_t obj, char *topname, char *name)
 	if (err != 0) {
 		(void) fprintf(stderr,
 		    "failed to get SA dbuf for obj %llu: %s\n",
-		    (u_longlong_t)obj, strerror(err));
+		    (u_longlong_t)child_obj, strerror(err));
 		return (EINVAL);
 	}
 	dmu_object_info_from_db(db, &doi);
 	sa_buf_rele(db, FTAG);
 
-	if (dump_opt['v'] > 6) {
-		(void) fprintf(stderr, "%s: obj %llu name '%s' type %d "
-		    "bonustype %d\n", __func__, (u_longlong_t)obj, name,
-		    doi.doi_type, doi.doi_bonus_type);
-	}
-
 	if (doi.doi_bonus_type != DMU_OT_SA &&
 	    doi.doi_bonus_type != DMU_OT_ZNODE) {
 		(void) fprintf(stderr, "invalid bonus type %d for obj %llu\n",
-		    doi.doi_bonus_type, (u_longlong_t)obj);
+		    doi.doi_bonus_type, (u_longlong_t)child_obj);
 		return (EINVAL);
 	}
 
+	if (dump_opt['v'] > 6) {
+		(void) printf("obj %llu name '%s' type %d bonustype %d\n",
+		    (u_longlong_t)child_obj, name, doi.doi_type,
+		    doi.doi_bonus_type);
+	}
+
 	switch (doi.doi_type) {
-	case DMU_OT_PLAIN_FILE_CONTENTS:
-		if (slash != NULL) {
-			*slash = '\0';
-			(void) fprintf(stderr, "error: path '/%s' specifies "
-			    "a file\n", topname);
-			break;
-		}
-		return (dump_specific_path(os, child_obj));
 	case DMU_OT_DIRECTORY_CONTENTS:
-		if (slash == NULL || *(slash + 1) == '\0') {
-			if (dump_opt['v'] > 6)
-				(void) fprintf(stderr, "obj %llu name '%s' is "
-				    "a directory at the end of the chain\n",
-				    (u_longlong_t)obj, name);
-			/* Directory is the end of the chain */
-			return (dump_specific_path(os, child_obj));
-		}
-		return (dump_specific_dir(os, child_obj, topname, slash + 1));
+		if (s != NULL && *(s + 1) != '\0')
+			return (dump_path_impl(os, child_obj, s + 1));
+		/*FALLTHROUGH*/
+	case DMU_OT_PLAIN_FILE_CONTENTS:
+		dump_object(os, child_obj, dump_opt['v'], &header);
+		return (0);
 	default:
 		(void) fprintf(stderr, "object %llu has non-file/directory "
 		    "type %d\n", (u_longlong_t)obj, doi.doi_type);
@@ -2259,11 +2242,10 @@ dump_specific_dir(objset_t *os, uint64_t obj, char *topname, char *name)
 }
 
 /*
- * Dump the blocks for the specified object.
- * Args: <dataset> <path>
+ * Dump the blocks for the object specified by path inside the dataset.
  */
 static int
-dump_specific_object(char *ds, char *path)
+dump_path(char *ds, char *path)
 {
 	int err;
 	objset_t *os;
@@ -2280,7 +2262,9 @@ dump_specific_object(char *ds, char *path)
 		dmu_objset_disown(os, FTAG);
 		return (EINVAL);
 	}
-	err = dump_specific_dir(os, root_obj, path, path);
+
+	err = dump_path_impl(os, root_obj, path);
+
 	close_objset(os, FTAG);
 	return (err);
 }
@@ -3866,8 +3850,7 @@ main(int argc, char **argv)
 	argc -= optind;
 	argv += optind;
 
-	if ((argc < 2 && (dump_opt['O'] || dump_opt['R'])) ||
-	    (argc > 2 && dump_opt['O']))
+	if (argc < 2 && dump_opt['R'])
 		usage();
 	if (argc < 1) {
 		if (!dump_opt['e'] && dump_opt['C']) {
@@ -3881,8 +3864,10 @@ main(int argc, char **argv)
 		return (dump_label(argv[0]));
 
 	if (dump_opt['O']) {
+		if (argc != 2)
+			usage();
 		dump_opt['v'] = verbose + 3;
-		return (dump_specific_object(argv[0], argv[1]));
+		return (dump_path(argv[0], argv[1]));
 	}
 
 	if (dump_opt['X'] || dump_opt['F'])
@@ -4002,7 +3987,10 @@ main(int argc, char **argv)
 			zdb_read_block(argv[i], spa);
 	}
 
-	(os != NULL) ? close_objset(os, FTAG) : spa_close(spa, FTAG);
+	if (os != NULL)
+		close_objset(os, FTAG);
+	else
+		spa_close(spa, FTAG);
 
 	fuid_table_destroy();
 
