@@ -1723,9 +1723,11 @@ get_clones_stat(dsl_dataset_t *ds, nvlist_t *nv)
 	zap_cursor_t zc;
 	zap_attribute_t za;
 	nvlist_t *propval = fnvlist_alloc();
-	nvlist_t *val = fnvlist_alloc();
+	nvlist_t *val;
 
 	ASSERT(dsl_pool_config_held(ds->ds_dir->dd_pool));
+
+	VERIFY0(nvlist_alloc(&val, 0, KM_SLEEP));
 
 	/*
 	 * There may be missing entries in ds_next_clones_obj
