@@ -198,11 +198,15 @@ percentage of free space in each space map.
 .It Fl MMM
 Display every spacemap record.
 .It Fl O Ar dataset path
-In the
-.Ar dataset ,
-look up the requested
-.Ar path ,
+Look up the specified
+.Ar path
+inside of the
+.Ar dataset
 and display its metadata and indirect blocks.
+Specified
+.Ar path
+must be relative to the root of
+.Ar dataset .
 This option can be combined with
 .Fl v
 for increasing verbosity.
