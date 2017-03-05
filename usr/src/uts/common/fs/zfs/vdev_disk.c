@@ -23,6 +23,7 @@
  * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2017 James S Blachly, MD <james.blachly@gmail.com>
  */
 
 #include <sys/zfs_context.h>
@@ -271,6 +272,8 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	boolean_t validate_devid = B_FALSE;
 	ddi_devid_t devid;
 	uint64_t capacity = 0, blksz = 0, pbsize;
+	int device_solid_state;
+	char *vendorp;	/* will point to inquiry-vendor-id */
 
 	/*
 	 * We must have a pathname, and it must be absolute.
@@ -541,6 +544,26 @@ skip_open:
 		(void) ldi_ioctl(dvd->vd_lh, DKIOCSETWCE, (intptr_t)&wce,
 		    FKIOCTL, kcred, NULL);
 	}
+
+	/* Inform the ZIO pipeline if we are non-rotational */
+	/* Check if device is SSD */
+	device_solid_state = ldi_prop_get_int(dvd->vd_lh, LDI_DEV_T_ANY,
+	    "device-solid-state", 0);
+	vd->vdev_nonrot = (device_solid_state ? B_TRUE : B_FALSE);
+
+	/* If not SSD, check if device is Virtio */
+	if (device_solid_state == 0 &&
+	    ldi_prop_exists(dvd->vd_lh, LDI_DEV_T_ANY, "inquiry-vendor-id")) {
+		ldi_prop_lookup_string(dvd->vd_lh, LDI_DEV_T_ANY,
+		    "inquiry-vendor-id", &vendorp);
+		if (strncmp(vendorp, "Virtio", 6) == 0)
+		    vd->vdev_nonrot = B_TRUE;
+		ddi_prop_free(vendorp);
+	}
+
+	cmn_err(CE_NOTE, "[vdev_disk_open] %s :: device-solid-state "
+	    "== %d :: vd->vdev_nonrot == %d\n", vd->vdev_path,
+	    device_solid_state, (int) vd->vdev_nonrot);
 
 	/*
 	 * Clear the nowritecache bit, so that on a vdev_reopen() we will
