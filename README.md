@@ -118,7 +118,7 @@ Committers
 Committers are experts in OpenZFS and illumos who can directly make
 changes to this repository.  They are listed on the
 [github account](https://github.com/orgs/openzfs/people).  If you are
-interested in becoming a committer, contact Matt Ahrens (@ahrens).
+interested in becoming a committer, contact Matt Ahrens (@mharens1).
 
 
 Further Discussion
