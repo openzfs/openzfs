@@ -991,7 +991,7 @@ zprop_print_one_property(const char *name, zprop_get_cbdata_t *cbp,
 			break;
 
 		case GET_COL_VALUE:
-			str = value;
+			str = (*value == '\0') ? "-" : value;
 			break;
 
 		case GET_COL_SOURCE:
