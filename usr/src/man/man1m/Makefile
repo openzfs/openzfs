@@ -13,7 +13,7 @@
 # Copyright 2011, Richard Lowe
 # Copyright 2016 Joyent, Inc.
 # Copyright 2016 Toomas Soome <tsoome@me.com>
-# Copyright 2016 Nexenta Systems, Inc.
+# Copyright 2017 Nexenta Systems, Inc.
 #
 
 include		$(SRC)//Makefile.master
@@ -409,7 +409,6 @@ _MANFILES=	6to4relay.1m		\
 		route.1m		\
 		routeadm.1m		\
 		rpc.bootparamd.1m	\
-		rpc.rexd.1m		\
 		rpc.rstatd.1m		\
 		rpc.rusersd.1m		\
 		rpc.rwalld.1m		\
@@ -451,9 +450,6 @@ _MANFILES=	6to4relay.1m		\
 		smbios.1m		\
 		smbstat.1m		\
 		smrsh.1m		\
-		smtnrhdb.1m		\
-		smtnrhtp.1m		\
-		smtnzonecfg.1m		\
 		sndradm.1m		\
 		sndrd.1m		\
 		sndrsyncd.1m		\
@@ -558,8 +554,7 @@ _MANFILES=	6to4relay.1m		\
 
 i386_MANFILES=				\
 		acpidump.1m		\
-		acpixtract.1m		\
-		lms.1m
+		acpixtract.1m
 
 sparc_MANFILES=	cvcd.1m			\
 		dcs.1m			\
@@ -610,7 +605,6 @@ MANLINKS=	acctcon1.1m			\
 		rdisc.1m			\
 		reject.1m			\
 		restricted_shell.1m		\
-		rexd.1m				\
 		rexecd.1m			\
 		rlogind.1m			\
 		routed.1m			\
@@ -728,7 +722,6 @@ grpck.1m			:= LINKSRC = pwck.1m
 quotaoff.1m			:= LINKSRC = quotaon.1m
 
 bootparamd.1m			:= LINKSRC = rpc.bootparamd.1m
-rexd.1m				:= LINKSRC = rpc.rexd.1m
 rstatd.1m			:= LINKSRC = rpc.rstatd.1m
 rusersd.1m			:= LINKSRC = rpc.rusersd.1m
 rwalld.1m			:= LINKSRC = rpc.rwalld.1m

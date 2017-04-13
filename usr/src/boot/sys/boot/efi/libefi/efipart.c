@@ -25,8 +25,8 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
 
+#include <sys/disk.h>
 #include <sys/param.h>
 #include <sys/time.h>
 #include <stddef.h>
@@ -45,6 +45,7 @@ static int efipart_strategy(void *, int, daddr_t, size_t, char *, size_t *);
 static int efipart_realstrategy(void *, int, daddr_t, size_t, char *, size_t *);
 static int efipart_open(struct open_file *, ...);
 static int efipart_close(struct open_file *);
+static int efipart_ioctl(struct open_file *, u_long, void *);
 static int efipart_print(int);
 
 struct devsw efipart_dev = {
@@ -54,7 +55,7 @@ struct devsw efipart_dev = {
 	.dv_strategy = efipart_strategy,
 	.dv_open = efipart_open,
 	.dv_close = efipart_close,
-	.dv_ioctl = noioctl,
+	.dv_ioctl = efipart_ioctl,
 	.dv_print = efipart_print,
 	.dv_cleanup = NULL
 };
@@ -241,6 +242,32 @@ efipart_close(struct open_file *f)
 	return (0);
 }
 
+static int
+efipart_ioctl(struct open_file *f, u_long cmd, void *data)
+{
+	struct devdesc *dev;
+	EFI_BLOCK_IO *blkio;
+
+	dev = (struct devdesc *)(f->f_devdata);
+	if (dev->d_opendata == NULL)
+		return (EINVAL);
+	blkio = dev->d_opendata;
+
+	switch (cmd) {
+	case DIOCGSECTORSIZE:
+		*(u_int *)data = blkio->Media->BlockSize;
+		break;
+	case DIOCGMEDIASIZE:
+		*(uint64_t *)data = blkio->Media->BlockSize *
+		    (blkio->Media->LastBlock + 1);
+		break;
+	default:
+		return (ENOTTY);
+	}
+
+	return (0);
+}
+
 /*
  * efipart_readwrite()
  * Internal equivalent of efipart_strategy(), which operates on the
@@ -301,7 +328,7 @@ efipart_realstrategy(void *devdata, int rw, daddr_t blk, size_t size,
 {
 	struct devdesc *dev = (struct devdesc *)devdata;
 	EFI_BLOCK_IO *blkio;
-	off_t off;
+	uint64_t off;
 	char *blkbuf;
 	size_t blkoff, blksz;
 	int error;
@@ -328,11 +355,14 @@ efipart_realstrategy(void *devdata, int rw, daddr_t blk, size_t size,
 	if (rsize != NULL)
 		*rsize = size;
 
-	if (blkio->Media->BlockSize == 512)
-		return (efipart_readwrite(blkio, rw, blk, size / 512, buf));
+	if ((size % blkio->Media->BlockSize == 0) &&
+	    (off % blkio->Media->BlockSize == 0))
+		return (efipart_readwrite(blkio, rw,
+		    off / blkio->Media->BlockSize,
+		    size / blkio->Media->BlockSize, buf));
 
 	/*
-	 * The block size of the media is not 512B per sector.
+	 * The buffer size is not a multiple of the media block size.
 	 */
 	blkbuf = malloc(blkio->Media->BlockSize);
 	if (blkbuf == NULL)

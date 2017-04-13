@@ -1109,34 +1109,30 @@ again:
 	ASSERT(!"out of entries!");
 }
 
-int
-zap_add(objset_t *os, uint64_t zapobj, const char *key,
+static int
+zap_add_impl(zap_t *zap, const char *key,
     int integer_size, uint64_t num_integers,
-    const void *val, dmu_tx_t *tx)
+    const void *val, dmu_tx_t *tx, void *tag)
 {
-	zap_t *zap;
-	int err;
+	int err = 0;
 	mzap_ent_t *mze;
 	const uint64_t *intval = val;
 	zap_name_t *zn;
 
-	err = zap_lockdir(os, zapobj, tx, RW_WRITER, TRUE, TRUE, FTAG, &zap);
-	if (err)
-		return (err);
 	zn = zap_name_alloc(zap, key, 0);
 	if (zn == NULL) {
-		zap_unlockdir(zap, FTAG);
+		zap_unlockdir(zap, tag);
 		return (SET_ERROR(ENOTSUP));
 	}
 	if (!zap->zap_ismicro) {
-		err = fzap_add(zn, integer_size, num_integers, val, FTAG, tx);
+		err = fzap_add(zn, integer_size, num_integers, val, tag, tx);
 		zap = zn->zn_zap;	/* fzap_add() may change zap */
 	} else if (integer_size != 8 || num_integers != 1 ||
 	    strlen(key) >= MZAP_NAME_LEN) {
-		err = mzap_upgrade(&zn->zn_zap, FTAG, tx, 0);
+		err = mzap_upgrade(&zn->zn_zap, tag, tx, 0);
 		if (err == 0) {
 			err = fzap_add(zn, integer_size, num_integers, val,
-			    FTAG, tx);
+			    tag, tx);
 		}
 		zap = zn->zn_zap;	/* fzap_add() may change zap */
 	} else {
@@ -1150,7 +1146,39 @@ zap_add(objset_t *os, uint64_t zapobj, const char *key,
 	ASSERT(zap == zn->zn_zap);
 	zap_name_free(zn);
 	if (zap != NULL)	/* may be NULL if fzap_add() failed */
-		zap_unlockdir(zap, FTAG);
+		zap_unlockdir(zap, tag);
+	return (err);
+}
+
+int
+zap_add(objset_t *os, uint64_t zapobj, const char *key,
+    int integer_size, uint64_t num_integers,
+    const void *val, dmu_tx_t *tx)
+{
+	zap_t *zap;
+	int err;
+
+	err = zap_lockdir(os, zapobj, tx, RW_WRITER, TRUE, TRUE, FTAG, &zap);
+	if (err != 0)
+		return (err);
+	err = zap_add_impl(zap, key, integer_size, num_integers, val, tx, FTAG);
+	/* zap_add_impl() calls zap_unlockdir() */
+	return (err);
+}
+
+int
+zap_add_by_dnode(dnode_t *dn, const char *key,
+    int integer_size, uint64_t num_integers,
+    const void *val, dmu_tx_t *tx)
+{
+	zap_t *zap;
+	int err;
+
+	err = zap_lockdir_by_dnode(dn, tx, RW_WRITER, TRUE, TRUE, FTAG, &zap);
+	if (err != 0)
+		return (err);
+	err = zap_add_impl(zap, key, integer_size, num_integers, val, tx, FTAG);
+	/* zap_add_impl() calls zap_unlockdir() */
 	return (err);
 }
 
@@ -1268,23 +1296,17 @@ zap_remove(objset_t *os, uint64_t zapobj, const char *name, dmu_tx_t *tx)
 	return (zap_remove_norm(os, zapobj, name, 0, tx));
 }
 
-int
-zap_remove_norm(objset_t *os, uint64_t zapobj, const char *name,
+static int
+zap_remove_impl(zap_t *zap, const char *name,
     matchtype_t mt, dmu_tx_t *tx)
 {
-	zap_t *zap;
-	int err;
 	mzap_ent_t *mze;
 	zap_name_t *zn;
+	int err = 0;
 
-	err = zap_lockdir(os, zapobj, tx, RW_WRITER, TRUE, FALSE, FTAG, &zap);
-	if (err)
-		return (err);
 	zn = zap_name_alloc(zap, name, mt);
-	if (zn == NULL) {
-		zap_unlockdir(zap, FTAG);
+	if (zn == NULL)
 		return (SET_ERROR(ENOTSUP));
-	}
 	if (!zap->zap_ismicro) {
 		err = fzap_remove(zn, tx);
 	} else {
@@ -1299,6 +1321,34 @@ zap_remove_norm(objset_t *os, uint64_t zapobj, const char *name,
 		}
 	}
 	zap_name_free(zn);
+	return (err);
+}
+
+int
+zap_remove_norm(objset_t *os, uint64_t zapobj, const char *name,
+    matchtype_t mt, dmu_tx_t *tx)
+{
+	zap_t *zap;
+	int err;
+
+	err = zap_lockdir(os, zapobj, tx, RW_WRITER, TRUE, FALSE, FTAG, &zap);
+	if (err)
+		return (err);
+	err = zap_remove_impl(zap, name, mt, tx);
+	zap_unlockdir(zap, FTAG);
+	return (err);
+}
+
+int
+zap_remove_by_dnode(dnode_t *dn, const char *name, dmu_tx_t *tx)
+{
+	zap_t *zap;
+	int err;
+
+	err = zap_lockdir_by_dnode(dn, tx, RW_WRITER, TRUE, FALSE, FTAG, &zap);
+	if (err)
+		return (err);
+	err = zap_remove_impl(zap, name, 0, tx);
 	zap_unlockdir(zap, FTAG);
 	return (err);
 }
@@ -1479,86 +1529,4 @@ zap_get_stats(objset_t *os, uint64_t zapobj, zap_stats_t *zs)
 	}
 	zap_unlockdir(zap, FTAG);
 	return (0);
-}
-
-int
-zap_count_write_by_dnode(dnode_t *dn, const char *name, int add,
-    refcount_t *towrite, refcount_t *tooverwrite)
-{
-	zap_t *zap;
-	int err = 0;
-
-	/*
-	 * Since, we don't have a name, we cannot figure out which blocks will
-	 * be affected in this operation. So, account for the worst case :
-	 * - 3 blocks overwritten: target leaf, ptrtbl block, header block
-	 * - 4 new blocks written if adding:
-	 *    - 2 blocks for possibly split leaves,
-	 *    - 2 grown ptrtbl blocks
-	 *
-	 * This also accommodates the case where an add operation to a fairly
-	 * large microzap results in a promotion to fatzap.
-	 */
-	if (name == NULL) {
-		(void) refcount_add_many(towrite,
-		    (3 + (add ? 4 : 0)) * SPA_OLD_MAXBLOCKSIZE, FTAG);
-		return (err);
-	}
-
-	/*
-	 * We lock the zap with adding == FALSE. Because, if we pass
-	 * the actual value of add, it could trigger a mzap_upgrade().
-	 * At present we are just evaluating the possibility of this operation
-	 * and hence we do not want to trigger an upgrade.
-	 */
-	err = zap_lockdir_by_dnode(dn, NULL, RW_READER, TRUE, FALSE,
-	    FTAG, &zap);
-	if (err != 0)
-		return (err);
-
-	if (!zap->zap_ismicro) {
-		zap_name_t *zn = zap_name_alloc(zap, name, 0);
-		if (zn) {
-			err = fzap_count_write(zn, add, towrite,
-			    tooverwrite);
-			zap_name_free(zn);
-		} else {
-			/*
-			 * We treat this case as similar to (name == NULL)
-			 */
-			(void) refcount_add_many(towrite,
-			    (3 + (add ? 4 : 0)) * SPA_OLD_MAXBLOCKSIZE, FTAG);
-		}
-	} else {
-		/*
-		 * We are here if (name != NULL) and this is a micro-zap.
-		 * We account for the header block depending on whether it
-		 * is freeable.
-		 *
-		 * Incase of an add-operation it is hard to find out
-		 * if this add will promote this microzap to fatzap.
-		 * Hence, we consider the worst case and account for the
-		 * blocks assuming this microzap would be promoted to a
-		 * fatzap.
-		 *
-		 * 1 block overwritten  : header block
-		 * 4 new blocks written : 2 new split leaf, 2 grown
-		 *			ptrtbl blocks
-		 */
-		if (dmu_buf_freeable(zap->zap_dbuf)) {
-			(void) refcount_add_many(tooverwrite,
-			    MZAP_MAX_BLKSZ, FTAG);
-		} else {
-			(void) refcount_add_many(towrite,
-			    MZAP_MAX_BLKSZ, FTAG);
-		}
-
-		if (add) {
-			(void) refcount_add_many(towrite,
-			    4 * MZAP_MAX_BLKSZ, FTAG);
-		}
-	}
-
-	zap_unlockdir(zap, FTAG);
-	return (err);
 }

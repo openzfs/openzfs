@@ -28,9 +28,7 @@ _MANFILES=	Intro.4				\
 		au.4				\
 		audit.log.4			\
 		audit_class.4			\
-		audit_control.4			\
 		audit_event.4			\
-		audit_user.4			\
 		auth_attr.4			\
 		autofs.4			\
 		bart_manifest.4			\
@@ -109,7 +107,6 @@ _MANFILES=	Intro.4				\
 		mailer.conf.4			\
 		mech.4				\
 		mnttab.4			\
-		mod_ipp.4			\
 		mpapi.conf.4			\
 		nca.if.4			\
 		ncad_addr.4			\
