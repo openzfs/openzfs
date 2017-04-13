@@ -1069,9 +1069,7 @@ dump_dtl(vdev_t *vd, int indent)
 			continue;
 		(void) snprintf(prefix, sizeof (prefix), "\t%*s%s",
 		    indent + 2, "", name[t]);
-		mutex_enter(rt->rt_lock);
 		range_tree_walk(rt, dump_dtl_seg, prefix);
-		mutex_exit(rt->rt_lock);
 		if (dump_opt['d'] > 5 && vd->vdev_children == 0)
 			dump_spacemap(spa->spa_meta_objset, vd->vdev_dtl_sm);
 	}

@@ -272,8 +272,10 @@ dsl_dataset_evict_async(void *dbu)
 	}
 
 	bplist_destroy(&ds->ds_pending_deadlist);
-	if (ds->ds_deadlist.dl_os != NULL)
+	if (dsl_deadlist_is_open(&ds->ds_deadlist))
 		dsl_deadlist_close(&ds->ds_deadlist);
+
+
 	if (ds->ds_dir)
 		dsl_dir_async_rele(ds->ds_dir, ds);
 
