@@ -59,7 +59,7 @@ do
 	log_mustnot zfs set $PROP=$NEW $TESTPOOL/$TESTFS/prop
 
 	# Now verify that the above command did nothing
-	ACTUAL=$(zfs get $PROP -o value -H snapdir $TESTPOOl/$TESTFS/prop )
+	ACTUAL=$(zfs get $PROP -o value -H snapdir $TESTPOOL/$TESTFS/prop )
 	if [ "$ACTUAL" != "$EXPECTED" ]
 	then
 		log_fail "Property $PROP was set to $ACTUAL, expected $EXPECTED"
