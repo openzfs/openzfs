@@ -18,8 +18,10 @@
 #
 # CDDL HEADER END
 #
+
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2017 Nexenta Systems, Inc.
 #
 
 LIBRARY=	zfs_mod
@@ -28,6 +30,8 @@ include ../Makefile.com
 
 CPPFLAGS += -I../../../../lib/libc/inc
 LDLIBS += -lzfs -ldevid -lcmdutils -lnvpair
+
+C99MODE=	$(C99_ENABLE)
 
 CERRWARN += -_gcc=-Wno-uninitialized
 

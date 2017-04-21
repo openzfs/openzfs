@@ -23,8 +23,8 @@
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
- * Copyright 2016 Nexenta Systems, Inc.
  * Copyright 2016 Igor Kozhukhov <ikozhukhov@gmail.com>
+ * Copyright 2017 Nexenta Systems, Inc.
  */
 
 #include <ctype.h>
@@ -2407,9 +2407,6 @@ zpool_vdev_online(zpool_handle_t *zhp, const char *path, int flags,
 		return (zfs_error(hdl, EZFS_NODEVICE, msg));
 
 	verify(nvlist_lookup_uint64(tgt, ZPOOL_CONFIG_GUID, &zc.zc_guid) == 0);
-
-	if (avail_spare)
-		return (zfs_error(hdl, EZFS_ISSPARE, msg));
 
 	if (flags & ZFS_ONLINE_EXPAND ||
 	    zpool_get_prop_int(zhp, ZPOOL_PROP_AUTOEXPAND, NULL)) {

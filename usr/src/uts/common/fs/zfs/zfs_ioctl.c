@@ -24,13 +24,13 @@
  * Copyright (c) 2011-2012 Pawel Jakub Dawidek. All rights reserved.
  * Portions Copyright 2011 Martin Matuska
  * Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014, 2016 Joyent, Inc. All rights reserved.
  * Copyright (c) 2011, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Toomas Soome <tsoome@me.com>
+ * Copyright 2017 Nexenta Systems, Inc.
  */
 
 /*
@@ -1918,7 +1918,8 @@ zfs_ioc_vdev_set_state(zfs_cmd_t *zc)
 
 	case VDEV_STATE_FAULTED:
 		if (zc->zc_obj != VDEV_AUX_ERR_EXCEEDED &&
-		    zc->zc_obj != VDEV_AUX_EXTERNAL)
+		    zc->zc_obj != VDEV_AUX_EXTERNAL &&
+		    zc->zc_obj != VDEV_AUX_OPEN_FAILED)
 			zc->zc_obj = VDEV_AUX_ERR_EXCEEDED;
 
 		error = vdev_fault(spa, zc->zc_guid, zc->zc_obj);
