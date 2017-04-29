@@ -552,6 +552,7 @@ typedef struct callb_cpr {
 #define	CALLB_CPR_INIT(cp, lockp, func, name)	{		\
 	(cp)->cc_lockp = lockp;					\
 }
+#define	CALLB_MAXNAME	31 /* copied from sys/callb.h */
 
 #define	CALLB_CPR_SAFE_BEGIN(cp) {				\
 	ASSERT(MUTEX_HELD((cp)->cc_lockp));			\

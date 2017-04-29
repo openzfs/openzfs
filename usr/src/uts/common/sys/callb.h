@@ -191,6 +191,11 @@ typedef struct callb_cpr {
 		cv_destroy(&(cp)->cc_stop_cv);		\
 	}
 
+/*
+ * Maximum callback function name length; matches TASKQ_NAMELEN.
+ */
+#define	CALLB_MAXNAME	31
+
 extern callb_cpr_t callb_cprinfo_safe;
 extern void	callb_init(void);
 extern callb_id_t callb_add(boolean_t  (*)(void *, int), void *, int, char *);

@@ -42,9 +42,6 @@
 #include <sys/thread.h>
 #include <sys/kobj.h>
 #include <sys/ddi.h>	/* for delay() */
-#include <sys/taskq.h>  /* For TASKQ_NAMELEN */
-
-#define	CB_MAXNAME	TASKQ_NAMELEN
 
 /*
  * The callb mechanism provides generic event scheduling/echoing.
@@ -58,7 +55,7 @@ typedef struct callb {
 	kcondvar_t	c_done_cv;	/* signal callb completion */
 	boolean_t	(*c_func)();	/* cb function: returns true if ok */
 	void		*c_arg;		/* arg to c_func */
-	char		c_name[CB_MAXNAME+1]; /* debug:max func name length */
+	char		c_name[CALLB_MAXNAME+1]; /* debug: func name */
 } callb_t;
 
 /*
@@ -131,13 +128,13 @@ callb_add_common(boolean_t (*func)(void *arg, int code),
 	cp->c_class = (uchar_t)class;
 	cp->c_flag |= CALLB_TAKEN;
 #ifdef DEBUG
-	if (strlen(name) > CB_MAXNAME)
+	if (strlen(name) > CALLB_MAXNAME)
 		cmn_err(CE_WARN, "callb_add: name of callback function '%s' "
 		    "too long -- truncated to %d chars",
-		    name, CB_MAXNAME);
+		    name, CALLB_MAXNAME);
 #endif
-	(void) strncpy(cp->c_name, name, CB_MAXNAME);
-	cp->c_name[CB_MAXNAME] = '\0';
+	(void) strncpy(cp->c_name, name, CALLB_MAXNAME);
+	cp->c_name[CALLB_MAXNAME] = '\0';
 
 	/*
 	 * Insert the new callb at the head of its class list.
