@@ -1690,6 +1690,7 @@ dsl_resilver_restart(dsl_pool_t *dp, uint64_t txg)
 	} else {
 		dp->dp_scan->scn_restart_txg = txg;
 	}
+	txg_kick(dp);
 	zfs_dbgmsg("restarting resilver txg=%llu", txg);
 }
 

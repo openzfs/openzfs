@@ -6786,6 +6786,13 @@ spa_sync(spa_t *spa, uint64_t txg)
 	spa->spa_ubsync = spa->spa_uberblock;
 	spa_config_exit(spa, SCL_CONFIG, FTAG);
 
+	/*
+	 * Check to see if a scan is still active, and if so, ensure that a
+	 * txg is waiting for the syncers to run.
+	 */
+	if (dsl_scan_active(dp->dp_scan))
+		txg_kick(dp);
+
 	spa_handle_ignored_writes(spa);
 
 	/*

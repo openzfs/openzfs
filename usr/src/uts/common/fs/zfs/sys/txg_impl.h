@@ -92,19 +92,20 @@ typedef struct tx_state {
 	kmutex_t	tx_sync_lock;	/* protects the rest of this struct */
 
 	uint64_t	tx_open_txg;	/* currently open txg id */
+	uint64_t	tx_quiescing_txg; /* txg being quiesced */
 	uint64_t	tx_quiesced_txg; /* quiesced txg waiting for sync */
-	uint64_t	tx_syncing_txg;	/* currently syncing txg id */
 	uint64_t	tx_synced_txg;	/* last synced txg id */
 
 	hrtime_t	tx_open_time;	/* start time of tx_open_txg */
+	hrtime_t	tx_sync_time;	/* start time of syncing */
 
-	uint64_t	tx_sync_txg_waiting; /* txg we're waiting to sync */
-	uint64_t	tx_quiesce_txg_waiting; /* txg we're waiting to open */
+	uint64_t	tx_waiting_txg;	/* txg we're waiting to sync */
 
 	kcondvar_t	tx_sync_more_cv;
 	kcondvar_t	tx_sync_done_cv;
+
 	kcondvar_t	tx_quiesce_more_cv;
-	kcondvar_t	tx_quiesce_done_cv;
+	kcondvar_t	tx_open_cv;
 	kcondvar_t	tx_timeout_cv;
 	kcondvar_t	tx_exit_cv;	/* wait for all threads to exit */
 
