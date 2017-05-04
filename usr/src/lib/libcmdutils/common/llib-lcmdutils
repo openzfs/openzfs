@@ -25,10 +25,12 @@
  * Copyright 2003 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  */
-
-#pragma ident	"%Z%%M%	%I%	%E% SMI"
+/*
+ * Copyright (c) 2014 by Delphix. All rights reserved.
+ */
 
 #include <sys/avl.h>
 #include <sys/types.h>
 #include <stdlib.h>
 #include <libcmdutils.h>
+#include <taskq.h>

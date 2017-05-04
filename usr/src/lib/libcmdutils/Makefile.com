@@ -21,12 +21,13 @@
 #
 # Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2013 RackTop Systems.
+# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 #
 
 LIBRARY=	libcmdutils.a
 VERS=		.1
 CMD_OBJS=	avltree.o sysattrs.o writefile.o process_xattrs.o uid.o gid.o \
-		custr.o
+		custr.o taskq.o
 COM_OBJS=	list.o
 OBJECTS=	$(CMD_OBJS) $(COM_OBJS)
 
@@ -35,7 +36,7 @@ include ../../Makefile.rootfs
 
 LIBS =		$(DYNLIB) $(LINTLIB)
 
-LDLIBS +=	-lc -lavl -lnvpair
+LDLIBS +=	-lc -lavl -lnvpair -lumem
 
 SRCDIR =	../common
 

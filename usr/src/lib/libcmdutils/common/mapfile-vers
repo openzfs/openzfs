@@ -21,6 +21,7 @@
 #
 # Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2013 RackTop Systems.
+# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 #
@@ -72,9 +73,18 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	list_remove_head;
 	list_remove_tail;
 	list_tail;
+	taskq_create;
+	taskq_dispatch;
+	taskq_dispatch_ent;
+	taskq_destroy;
+	taskq_wait;
+	taskq_member;
 	tnode_compare;
 	sysattr_type;
 	sysattr_support;
+	system_taskq;
+	system_taskq_init;
+	system_taskq_fini;
 	writefile;
 	get_attrdirs;
 	mv_xattrs;

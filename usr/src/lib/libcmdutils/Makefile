@@ -22,7 +22,7 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# ident	"%Z%%M%	%I%	%E% SMI"
+# Copyright (c) 2014 by Delphix. All rights reserved.
 #
 
 include ../Makefile.lib
@@ -37,7 +37,7 @@ install :=	TARGET= install
 lint :=		TARGET= lint
 
 # definitions for install_h target
-HDRS=		libcmdutils.h
+HDRS=		libcmdutils.h taskq.h
 ROOTHDRDIR=	$(ROOT)/usr/include
 ROOTHDRS=	$(HDRS:%=$(ROOTHDRDIR)/%)
 CHECKHDRS=	$(HDRS:%.h=%.check)
