@@ -20,6 +20,7 @@
  */
 /*
  * Copyright (c) 1986, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
 /*
@@ -3198,10 +3199,10 @@ nfs4_clnt_init(void)
 	    nfs4_mi_destroy);
 
 	/*
-	 * Initialise the reference count of the notsupp xattr cache vnode to 1
+	 * Initialize the reference count of the notsupp xattr cache vnode to 1
 	 * so that it never goes away (VOP_INACTIVE isn't called on it).
 	 */
-	nfs4_xattr_notsupp_vnode.v_count = 1;
+	vn_reinit(&nfs4_xattr_notsupp_vnode);
 }
 
 void
