@@ -2350,7 +2350,7 @@ zcp_check(zfs_handle_t *zhp, zfs_prop_t prop, uint64_t intval,
 	fnvlist_add_string(argnvl, "property", zfs_prop_to_name(prop));
 
 	error = lzc_channel_program(poolname, program,
-	    1000, 1024 * 1024 * 10, argnvl, &outnvl);
+	    10 * 1000 * 1000, 10 * 1024 * 1024, argnvl, &outnvl);
 
 	if (error == 0) {
 		retnvl = fnvlist_lookup_nvlist(outnvl, "return");

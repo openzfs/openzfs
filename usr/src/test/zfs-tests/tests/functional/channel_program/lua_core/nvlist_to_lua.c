@@ -93,7 +93,7 @@ test(const char *testname, boolean_t expect_success, boolean_t expect_match)
 	dump_nvlist(nvl, 4);
 
 	int err = lzc_channel_program(pool, progstr,
-	    1000, 1024 * 1024 * 10, nvl, &outnvl);
+	    10 * 1000 * 1000, 10 * 1024 * 1024, nvl, &outnvl);
 
 	(void) printf("lzc_channel_program returned %u\n", err);
 	dump_nvlist(outnvl, 5);

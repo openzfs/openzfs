@@ -329,7 +329,7 @@ get_usage(zfs_help_t idx)
 	case HELP_BOOKMARK:
 		return (gettext("\tbookmark <snapshot> <bookmark>\n"));
 	case HELP_CHANNEL_PROGRAM:
-		return (gettext("\tprogram [-t <timeout (ms)>] "
+		return (gettext("\tprogram [-t <instruction limit>] "
 		    "[-m <memory limit (b)>] <pool> <program file> "
 		    "[lua args...]\n"));
 	}
@@ -7007,12 +7007,13 @@ zfs_do_channel_program(int argc, char **argv)
 	char *progbuf, *filename, *poolname;
 	size_t progsize, progread;
 	nvlist_t *outnvl;
-	uint64_t timeout = ZCP_DEFAULT_TIMEOUT;
+	uint64_t instrlimit = ZCP_DEFAULT_INSTRLIMIT;
 	uint64_t memlimit = ZCP_DEFAULT_MEMLIMIT;
 	zpool_handle_t *zhp;
 
 	/* check options */
-	while ((c = getopt(argc, argv, "t:(timeout)m:(memory-limit)")) != -1) {
+	while (-1 !=
+	    (c = getopt(argc, argv, "t:(instr-limit)m:(memory-limit)"))) {
 		switch (c) {
 		case 't':
 		case 'm': {
@@ -7029,19 +7030,19 @@ zfs_do_channel_program(int argc, char **argv)
 			}
 
 			if (c == 't') {
-				if (arg > ZCP_MAX_TIMEOUT || arg == 0) {
+				if (arg > ZCP_MAX_INSTRLIMIT || arg == 0) {
 					(void) fprintf(stderr, gettext(
-					    "Invalid time or memory limit: "
+					    "Invalid instruction limit: "
 					    "%s\n"), optarg);
 					return (1);
 				} else {
-					timeout = arg;
+					instrlimit = arg;
 				}
 			} else {
 				ASSERT3U(c, ==, 'm');
 				if (arg > ZCP_MAX_MEMLIMIT || arg == 0) {
 					(void) fprintf(stderr, gettext(
-					    "Invalid time or memory limit: "
+					    "Invalid memory limit: "
 					    "%s\n"), optarg);
 					return (1);
 				} else {
@@ -7121,8 +7122,8 @@ zfs_do_channel_program(int argc, char **argv)
 	nvlist_t *argnvl = fnvlist_alloc();
 	fnvlist_add_string_array(argnvl, ZCP_ARG_CLIARGV, argv + 2, argc - 2);
 
-	ret = lzc_channel_program(poolname, progbuf, timeout, memlimit, argnvl,
-	    &outnvl);
+	ret = lzc_channel_program(poolname, progbuf, instrlimit, memlimit,
+	    argnvl, &outnvl);
 
 	if (ret != 0) {
 		/*
@@ -7139,7 +7140,8 @@ zfs_do_channel_program(int argc, char **argv)
 		} else {
 			switch (ret) {
 			case EINVAL:
-				errstring = "Invalid time or memory limit.";
+				errstring =
+				    "Invalid instruction or memory limit.";
 				break;
 			case ENOMEM:
 				errstring = "Return value too large.";

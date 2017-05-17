@@ -881,21 +881,20 @@ lzc_destroy_bookmarks(nvlist_t *bmarks, nvlist_t **errlist)
  *          limit. Some portion of the channel program may have executed and
  *          committed changes to disk. No output is returned through 'outnvl'.
  *
- * ETIME    The program was terminated because it exceeded its time limit.
- *          Some portion of the channel program may have executed and committed
- *          changes to disk. No output is returned through 'outnvl'.
+ * ETIME    The program was terminated because it exceeded its Lua instruction
+ *          limit. Some portion of the channel program may have executed and
+ *          committed changes to disk. No output is returned through 'outnvl'.
  */
 int
-lzc_channel_program(const char *pool, const char *program, uint64_t timeout,
+lzc_channel_program(const char *pool, const char *program, uint64_t instrlimit,
     uint64_t memlimit, nvlist_t *argnvl, nvlist_t **outnvl)
-{
-	int error;
+{	int error;
 	nvlist_t *args;
 
 	args = fnvlist_alloc();
 	fnvlist_add_string(args, ZCP_ARG_PROGRAM, program);
 	fnvlist_add_nvlist(args, ZCP_ARG_ARGLIST, argnvl);
-	fnvlist_add_uint64(args, ZCP_ARG_TIMEOUT, timeout);
+	fnvlist_add_uint64(args, ZCP_ARG_INSTRLIMIT, instrlimit);
 	fnvlist_add_uint64(args, ZCP_ARG_MEMLIMIT, memlimit);
 	error = lzc_ioctl(ZFS_IOC_CHANNEL_PROGRAM, pool, args, outnvl);
 	fnvlist_free(args);

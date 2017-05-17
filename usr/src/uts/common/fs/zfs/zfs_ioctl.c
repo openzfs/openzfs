@@ -3622,14 +3622,14 @@ zfs_ioc_channel_program(const char *poolname, nvlist_t *innvl,
     nvlist_t *outnvl)
 {
 	char *program;
-	uint64_t timeout, memlimit;
+	uint64_t instrlimit, memlimit;
 	nvpair_t *nvarg = NULL;
 
 	if (0 != nvlist_lookup_string(innvl, ZCP_ARG_PROGRAM, &program)) {
 		return (EINVAL);
 	}
-	if (0 != nvlist_lookup_uint64(innvl, ZCP_ARG_TIMEOUT, &timeout)) {
-		timeout = ZCP_DEFAULT_TIMEOUT;
+	if (0 != nvlist_lookup_uint64(innvl, ZCP_ARG_INSTRLIMIT, &instrlimit)) {
+		instrlimit = ZCP_DEFAULT_INSTRLIMIT;
 	}
 	if (0 != nvlist_lookup_uint64(innvl, ZCP_ARG_MEMLIMIT, &memlimit)) {
 		memlimit = ZCP_DEFAULT_MEMLIMIT;
@@ -3638,12 +3638,13 @@ zfs_ioc_channel_program(const char *poolname, nvlist_t *innvl,
 		return (EINVAL);
 	}
 
-	if (timeout == 0 || timeout > ZCP_MAX_TIMEOUT)
+	if (instrlimit == 0 || instrlimit > zfs_lua_max_instrlimit)
 		return (EINVAL);
 	if (memlimit == 0 || memlimit > ZCP_MAX_MEMLIMIT)
 		return (EINVAL);
 
-	return (zcp_eval(poolname, program, timeout, memlimit, nvarg, outnvl));
+	return (zcp_eval(poolname, program, instrlimit, memlimit,
+	    nvarg, outnvl));
 }
 
 /*

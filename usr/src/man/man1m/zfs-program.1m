@@ -29,7 +29,7 @@
 .Nd executes ZFS channel programs
 .Sh SYNOPSIS
 .Cm zfs program
-.Op Fl t Ar timeout
+.Op Fl t Ar instruction-limit
 .Op Fl m Ar memory-limit
 .Ar pool
 .Ar script
@@ -54,10 +54,11 @@ will be run on
 and any attempts to access or modify other pools will cause an error.
 .Sh OPTIONS
 .Bl -tag -width "-t"
-.It Fl t Ar timeout
-Execution time limit, in milliseconds. If a channel program executes for longer
-than the provided timeout, it will be stopped and an error will be returned.
-The default timeout is 1000 ms, and can be set to a maximum of 10000 ms.
+.It Fl t Ar instruction-limit
+Execution time limit, in number of Lua instructions to execute. If a channel
+program executes more than the specified number of instructions, it will be
+stopped and an error will be returned. The default limit is 10 million
+instructions, and it can be set to a maximum of 100 million instructions.
 .It Fl m Ar memory-limit
 Memory limit, in bytes. If a channel program attempts to allocate more memory
 than the given limit, it will be stopped and an error returned. The default
@@ -132,8 +133,8 @@ If a fatal error is returned, the channel program may have not executed at all,
 may have partially executed, or may have fully executed but failed to pass a
 return value back to userland.
 .Pp
-If the channel program exhausts a time or memory limit, a fatal error will be
-generated and the program will be stopped, leaving the program partially
+If the channel program exhausts an instruction or memory limit, a fatal error
+will be generated and the program will be stopped, leaving the program partially
 executed. No attempt is made to reverse or undo any operations already
 performed. If a channel program attempts to return too large a value, the
 program will fully execute but exit with a nonzero status code and no return

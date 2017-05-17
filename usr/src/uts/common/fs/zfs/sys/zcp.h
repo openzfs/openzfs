@@ -33,7 +33,7 @@ extern "C" {
 
 #define	ZCP_RUN_INFO_KEY "runinfo"
 
-extern uint64_t zfs_lua_max_timeout;
+extern uint64_t zfs_lua_max_instrlimit;
 extern uint64_t zfs_lua_max_memlimit;
 
 int zcp_argerror(lua_State *, int, const char *, ...);
@@ -71,11 +71,16 @@ typedef struct zcp_run_info {
 	dmu_tx_t	*zri_tx;
 
 	/*
-	 * The time which the channel program must finish by. If it takes
-	 * longer than this it will time out. A value of 0 indicates no time
-	 * limit.
+	 * The maximum number of Lua instructions the channel program is allowed
+	 * to execute. If it takes longer than this it will time out. A value
+	 * of 0 indicates no instruction limit.
 	 */
-	uint64_t	zri_endtime;
+	uint64_t	zri_maxinstrs;
+
+	/*
+	 * The number of Lua instructions the channel program has executed.
+	 */
+	uint64_t	zri_curinstrs;
 
 	/*
 	 * Boolean indicating whether or not the channel program exited

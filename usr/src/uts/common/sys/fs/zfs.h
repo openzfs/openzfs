@@ -950,7 +950,7 @@ typedef enum {
  */
 #define	ZCP_ARG_PROGRAM		"program"
 #define	ZCP_ARG_ARGLIST		"arg"
-#define	ZCP_ARG_TIMEOUT		"timeout"
+#define	ZCP_ARG_INSTRLIMIT	"instrlimit"
 #define	ZCP_ARG_MEMLIMIT	"memlimit"
 
 #define	ZCP_ARG_CLIARGV		"argv"
@@ -958,10 +958,10 @@ typedef enum {
 #define	ZCP_RET_ERROR		"error"
 #define	ZCP_RET_RETURN		"return"
 
-#define	ZCP_DEFAULT_TIMEOUT	1000
+#define	ZCP_DEFAULT_INSTRLIMIT	(10 * 1000 * 1000)
+#define	ZCP_MAX_INSTRLIMIT	(10 * ZCP_DEFAULT_INSTRLIMIT)
 #define	ZCP_DEFAULT_MEMLIMIT	(10 * 1024 * 1024)
-#define	ZCP_MAX_TIMEOUT		10000
-#define	ZCP_MAX_MEMLIMIT	(100 * 1024 * 1024)
+#define	ZCP_MAX_MEMLIMIT	(10 * ZCP_DEFAULT_MEMLIMIT)
 
 /*
  * Sysevent payload members.  ZFS will generate the following sysevents with the

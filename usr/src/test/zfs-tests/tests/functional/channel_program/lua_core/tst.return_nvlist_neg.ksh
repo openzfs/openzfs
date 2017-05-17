@@ -22,28 +22,30 @@ verify_runnable "global"
 # DESCRIPTION:
 #	Try returning various values that lua allows you to construct,
 #       but that cannot be represented as nvlists and therefore should
-#       cause the script to fail (but not panic).
+#       cause the script to fail (but not panic). Try sending the values
+#       back to userland from both "return" and "error()".
 #
 
 verify_runnable "both"
 
-set -A args "function() return 1 end" \
-	"{[{}]=true}" \
-	"{[function() return 1 end]=0}" \
-	"assert" \
-	"0, assert" \
-	"true, {[{}]=0}" \
-	"{[0]=true, [\"0\"]=false}" \
-	"{val=true}, {val=false}" \
-	"{1, 2, 3}, {[4]=5}" \
-	"nil, true, 1, \"test\", {}, {val=true}" \
-	"{[false]=true, [\"false\"]=false}"
+set -A args 'function() return 1 end' \
+	'{[{}]=true}' \
+	'{[function() return 1 end]=0}' \
+	'assert' \
+	'0, assert' \
+	'true, {[{}]=0}' \
+	'{val=true}, {val=false}' \
+	'{1, 2, 3}, {[4]=5}' \
+	'nil, true, 1, "test", {}, {val=true}' \
+	'{[false]=true, ["false"]=false}' \
+	'{[true]=false, ["true"]=true}' \
+	'{[0]=true, ["0"]=false}' \
+	'{0,0,0,["1"]=0}' \
+	'{0,0,0,["2"]=0}' \
+	'{0,0,0,["3"]=0}'
 
-log_assert "Returning lua constructs that cannot be converted to " \
-    "nvlists fails as expected."
-
-typeset -i i=0
-while (( i < ${#args[*]} )); do
+typeset -i last_index=$((${#args[*]} - 1))
+for i in $(seq 0 $last_index); do
 	log_note "running program: ${args[i]}"
 	log_mustnot_checkerror_program "execution failed" $TESTPOOL - <<-EOF
 		return ${args[i]}
@@ -51,8 +53,7 @@ while (( i < ${#args[*]} )); do
 	((i = i + 1))
 done
 
-typeset -i i=0
-while (( i < ${#args[*]} )); do
+for i in $(seq 0 $last_index); do
 	log_note "running program: ${args[i]}"
 	log_mustnot_checkerror_program "execution failed" $TESTPOOL - <<-EOF
 		error(${args[i]})
