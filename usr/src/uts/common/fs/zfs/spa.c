@@ -6988,7 +6988,7 @@ spa_event_create(spa_t *spa, vdev_t *vd, nvlist_t *hist_nvl, const char *name)
 	}
 
 	if (hist_nvl != NULL) {
-		nvlist_merge((nvlist_t *)attr, hist_nvl, 0);
+		fnvlist_merge((nvlist_t *)attr, hist_nvl);
 	}
 
 	if (sysevent_attach_attributes(ev, attr) != 0)
