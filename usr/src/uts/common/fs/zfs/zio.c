@@ -397,7 +397,7 @@ zio_add_child(zio_t *pio, zio_t *cio)
 	 * Vdev I/Os can only have vdev children.
 	 * The following ASSERT captures all of these constraints.
 	 */
-	ASSERT(cio->io_child_type <= pio->io_child_type);
+	ASSERT3S(cio->io_child_type, <=, pio->io_child_type);
 
 	zl->zl_parent = pio;
 	zl->zl_child = cio;
@@ -1101,9 +1101,9 @@ zio_flush(zio_t *zio, vdev_t *vd)
 void
 zio_shrink(zio_t *zio, uint64_t size)
 {
-	ASSERT(zio->io_executor == NULL);
-	ASSERT(zio->io_orig_size == zio->io_size);
-	ASSERT(size <= zio->io_size);
+	ASSERT3P(zio->io_executor, ==, NULL);
+	ASSERT3P(zio->io_orig_size, ==, zio->io_size);
+	ASSERT3U(size, <=, zio->io_size);
 
 	/*
 	 * We don't shrink for raidz because of problems with the
@@ -1614,8 +1614,8 @@ zio_wait(zio_t *zio)
 {
 	int error;
 
-	ASSERT(zio->io_stage == ZIO_STAGE_OPEN);
-	ASSERT(zio->io_executor == NULL);
+	ASSERT3P(zio->io_stage, ==, ZIO_STAGE_OPEN);
+	ASSERT3P(zio->io_executor, ==, NULL);
 
 	zio->io_waiter = curthread;
 	ASSERT0(zio->io_queued_timestamp);
@@ -1637,7 +1637,7 @@ zio_wait(zio_t *zio)
 void
 zio_nowait(zio_t *zio)
 {
-	ASSERT(zio->io_executor == NULL);
+	ASSERT3P(zio->io_executor, ==, NULL);
 
 	if (zio->io_child_type == ZIO_CHILD_LOGICAL &&
 	    zio_unique_parent(zio) == NULL) {
@@ -2913,8 +2913,8 @@ zio_dva_unallocate(zio_t *zio, zio_gang_node_t *gn, blkptr_t *bp)
 /*
  * Try to allocate an intent log block.  Return 0 on success, errno on failure.
  */
-int
-zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, blkptr_t *old_bp,
+static int
+zio_alloc_zil_impl(spa_t *spa, uint64_t txg, blkptr_t *new_bp, blkptr_t *old_bp,
     uint64_t size, boolean_t use_slog)
 {
 	int error = 1;
@@ -2951,6 +2951,21 @@ zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp, blkptr_t *old_bp,
 	}
 
 	return (error);
+}
+
+int
+zio_alloc_zil(spa_t *spa, uint64_t txg, blkptr_t *new_bp,
+    blkptr_t *old_bp, uint64_t size, boolean_t use_slog)
+{
+	int error = 1;
+
+	while (error != 0) {
+		error = zio_alloc_zil_impl(
+		    spa, txg, new_bp, old_bp, size, use_slog);
+	}
+
+	ASSERT0(error);
+	return error;
 }
 
 /*

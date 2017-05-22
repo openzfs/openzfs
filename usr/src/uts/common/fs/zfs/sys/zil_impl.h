@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  */
 
@@ -37,7 +37,22 @@ extern "C" {
 #endif
 
 /*
- * Log write buffer.
+ * TODO: Provide a description of what this structure is used for, and
+ * what the "user interface" is for it; e.g. what does "done" mean?
+ *
+ * If it makes more sense, we can refer to the high level comment
+ * describing the new zil_commit architecture when that's finished.
+ */
+typedef struct zil_commit_waiter {
+	kcondvar_t	zcw_cv;		/* signalled when "done" */
+	kmutex_t	zcw_lock;	/* protects fields of this struct */
+	list_node_t	zcw_node;	/* linkage in lwb_t:lwb_waiter list */
+	boolean_t	zcw_done;	/* B_TRUE when "done", else B_FALSE */
+	int		zcw_zio_error;	/* contains the zio io_error value */
+} zil_commit_waiter_t;
+
+/*
+ * Log write Block.
  */
 typedef struct lwb {
 	zilog_t		*lwb_zilog;	/* back pointer to log struct */
@@ -49,6 +64,9 @@ typedef struct lwb {
 	dmu_tx_t	*lwb_tx;	/* tx for log block allocation */
 	uint64_t	lwb_max_txg;	/* highest txg in this lwb */
 	list_node_t	lwb_node;	/* zilog->zl_lwb_list linkage */
+	list_t		lwb_waiters;	/* list of zil_commit_waiter's */
+	avl_tree_t	lwb_vdev_tree;	/* vdevs to flush after lwb write */
+	kmutex_t	lwb_vdev_lock;	/* protects lwb_vdev_tree */
 } lwb_t;
 
 /*
@@ -94,20 +112,19 @@ struct zilog {
 	const zil_header_t *zl_header;	/* log header buffer */
 	objset_t	*zl_os;		/* object set we're logging */
 	zil_get_data_t	*zl_get_data;	/* callback to get object content */
-	zio_t		*zl_root_zio;	/* log writer root zio */
+	lwb_t		*zl_last_lwb;	/* last outstanding lwb created */
 	uint64_t	zl_lr_seq;	/* on-disk log record sequence number */
 	uint64_t	zl_commit_lr_seq; /* last committed on-disk lr seq */
 	uint64_t	zl_destroy_txg;	/* txg of last zil_destroy() */
 	uint64_t	zl_replayed_seq[TXG_SIZE]; /* last replayed rec seq */
 	uint64_t	zl_replaying_seq; /* current replay seq number */
 	uint32_t	zl_suspend;	/* log suspend count */
-	kcondvar_t	zl_cv_writer;	/* log writer thread completion */
 	kcondvar_t	zl_cv_suspend;	/* log suspend completion */
 	uint8_t		zl_suspending;	/* log is currently suspending */
 	uint8_t		zl_keep_first;	/* keep first log block in destroy */
 	uint8_t		zl_replay;	/* replaying records while set */
 	uint8_t		zl_stop_sync;	/* for debugging */
-	uint8_t		zl_writer;	/* boolean: write setup in progress */
+	kmutex_t	zl_writer_lock;	/* single writer, per ZIL, at a time */
 	uint8_t		zl_logbias;	/* latency or throughput */
 	uint8_t		zl_sync;	/* synchronous or asynchronous */
 	int		zl_parse_error;	/* last zil_parse() error */
@@ -115,16 +132,11 @@ struct zilog {
 	uint64_t	zl_parse_lr_seq; /* highest lr seq on last parse */
 	uint64_t	zl_parse_blk_count; /* number of blocks parsed */
 	uint64_t	zl_parse_lr_count; /* number of log records parsed */
-	uint64_t	zl_next_batch;	/* next batch number */
-	uint64_t	zl_com_batch;	/* committed batch number */
-	kcondvar_t	zl_cv_batch[2];	/* batch condition variables */
 	itxg_t		zl_itxg[TXG_SIZE]; /* intent log txg chains */
 	list_t		zl_itx_commit_list; /* itx list to be committed */
 	uint64_t	zl_itx_list_sz;	/* total size of records on list */
 	uint64_t	zl_cur_used;	/* current commit log size used */
 	list_t		zl_lwb_list;	/* in-flight log write list */
-	kmutex_t	zl_vdev_lock;	/* protects zl_vdev_tree */
-	avl_tree_t	zl_vdev_tree;	/* vdevs to flush in zil_commit() */
 	taskq_t		*zl_clean_taskq; /* runs lwb and itx clean tasks */
 	avl_tree_t	zl_bp_tree;	/* track bps during log parse */
 	clock_t		zl_replay_time;	/* lbolt of when replay started */
@@ -133,6 +145,7 @@ struct zilog {
 	uint_t		zl_prev_blks[ZIL_PREV_BLKS]; /* size - sector rounded */
 	uint_t		zl_prev_rotor;	/* rotor for zl_prev[] */
 	txg_node_t	zl_dirty_link;	/* protected by dp_dirty_zilogs list */
+	uint64_t	zl_dirty_max_txg; /* highest txg used to dirty zilog */
 };
 
 typedef struct zil_bp_node {
