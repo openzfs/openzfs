@@ -48,8 +48,8 @@ dmu_object_alloc(objset_t *os, dmu_object_type_t ot, int blocksize,
 	uint64_t L1_dnode_count = DNODES_PER_BLOCK <<
 	    (DMU_META_DNODE(os)->dn_indblkshift - SPA_BLKPTRSHIFT);
 	dnode_t *dn = NULL;
-	uint64_t *cpuobj = &os->os_obj_next_array[CPU_SEQID %
-	    os->os_obj_next_array_len];
+	uint64_t *cpuobj = &os->os_obj_next_percpu[CPU_SEQID %
+	    os->os_obj_next_percpu_len];
 	int dnodes_per_chunk = 1 << dmu_object_alloc_chunk_shift;
 
 	/*
@@ -74,8 +74,6 @@ dmu_object_alloc(objset_t *os, dmu_object_type_t ot, int blocksize,
 			mutex_enter(&os->os_obj_lock);
 			ASSERT0(P2PHASE(os->os_obj_next, dnodes_per_chunk));
 			object = os->os_obj_next;
-			os->os_obj_next += dnodes_per_chunk;
-			(void) atomic_swap_64(cpuobj, object);
 
 			/*
 			 * Each time we polish off a L1 bp worth of dnodes
@@ -110,10 +108,10 @@ dmu_object_alloc(objset_t *os, dmu_object_type_t ot, int blocksize,
 				    &offset, 2, DNODES_PER_BLOCK >> 2, 0);
 				if (error == 0) {
 					object = offset >> DNODE_SHIFT;
-					os->os_obj_next =
-					    object + dnodes_per_chunk;
 				}
 			}
+                        os->os_obj_next = object + dnodes_per_chunk;
+                        (void) atomic_swap_64(cpuobj, object);
 			mutex_exit(&os->os_obj_lock);
 		}
 
