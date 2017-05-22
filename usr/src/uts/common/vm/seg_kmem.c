@@ -47,6 +47,7 @@
 #include <vm/seg_kp.h>
 #include <sys/bitmap.h>
 #include <sys/mem_cage.h>
+#include <vm/seg_kpm.h>
 
 #ifdef __sparc
 #include <sys/ivintr.h>
@@ -174,6 +175,13 @@ static  size_t	segkmem_kmemlp_min;
 static  ulong_t segkmem_lpthrottle_max = 0x400000;
 static  ulong_t segkmem_lpthrottle_start = 0x40;
 static  ulong_t segkmem_use_lpthrottle = 1;
+
+/*
+ * For single-page allocations, return an address in segkpm, rather than
+ * in the heap.  This allows freeing to avoid tearing down the TLB mapping
+ * for the heap address (because it isn't used).
+ */
+int kmem_kpm_enable = 1;
 
 /*
  * Freed pages accumulate on a garbage list until segkmem is ready,
@@ -909,9 +917,15 @@ segkmem_xalloc(vmem_t *vmp, void *inaddr, size_t size, int vmflag, uint_t attr,
 		ASSERT(page_iolock_assert(pp));
 		ASSERT(PAGE_EXCL(pp));
 		page_io_unlock(pp);
-		hat_memload(kas.a_hat, (caddr_t)(uintptr_t)pp->p_offset, pp,
-		    (PROT_ALL & ~PROT_USER) | HAT_NOSYNC | attr,
-		    HAT_LOAD_LOCK | allocflag);
+		if (kmem_kpm_enable && npages == 1 && kpm_enable &&
+		    inaddr == NULL && (vmflag & VM_KPM_OK)) {
+			ASSERT3P(page_create_func, ==, segkmem_page_create);
+			addr = hat_kpm_mapin(pp, NULL);
+		} else {
+			hat_memload(kas.a_hat, (caddr_t)(uintptr_t)pp->p_offset,
+			    pp, (PROT_ALL & ~PROT_USER) | HAT_NOSYNC | attr,
+			    HAT_LOAD_LOCK | allocflag);
+		}
 		pp->p_lckcnt = 1;
 #if defined(__x86)
 		page_downgrade(pp);
@@ -971,7 +985,7 @@ segkmem_alloc(vmem_t *vmp, size_t size, int vmflag)
 void *
 segkmem_zio_alloc(vmem_t *vmp, size_t size, int vmflag)
 {
-	return (segkmem_alloc_vn(vmp, size, vmflag, &zvp));
+	return (segkmem_alloc_vn(vmp, size, vmflag | VM_KPM_OK, &zvp));
 }
 
 /*
@@ -1001,7 +1015,14 @@ segkmem_free_vn(vmem_t *vmp, void *inaddr, size_t size, struct vnode *vp,
 		return;
 	}
 
-	hat_unload(kas.a_hat, addr, size, HAT_UNLOAD_UNLOCK);
+	if (IS_KPM_ADDR(addr)) {
+                ASSERT3U(npages, ==, 1);
+                pp = hat_kpm_vaddr2page(addr);
+                hat_kpm_mapout(pp, 0, addr);
+                addr = inaddr = (void *)(uintptr_t)pp->p_offset;
+	} else {
+                hat_unload(kas.a_hat, addr, size, HAT_UNLOAD_UNLOCK);
+	}
 
 	for (eaddr = addr + size; addr < eaddr; addr += PAGESIZE) {
 #if defined(__x86)

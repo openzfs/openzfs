@@ -23,7 +23,7 @@
  * Copyright 2012 DEY Storage Systems, Inc.  All rights reserved.
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2015 Joyent, Inc.
- * Copyright (c) 2015 by Delphix. All rights reserved.
+ * Copyright (c) 2015, 2017 by Delphix. All rights reserved.
  */
 /*
  * Copyright (c) 2010, Intel Corporation.
@@ -758,7 +758,7 @@ startup(void)
 	extern cpuset_t cpu_ready_set;
 
 	/*
-	 * Make sure that nobody tries to use sekpm until we have
+	 * Make sure that nobody tries to use segkpm until we have
 	 * initialized it properly.
 	 */
 #if defined(__amd64)

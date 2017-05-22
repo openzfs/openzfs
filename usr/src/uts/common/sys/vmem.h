@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 1999, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_VMEM_H
@@ -66,6 +66,15 @@ extern "C" {
  * Has no effect if VM_NEXTFIT is active.
  */
 #define	VM_ENDALLOC	0x00004000
+
+/*
+ * flag that can be passed to segkmem_alloc() to indicate that
+ * a segkpm address can be returned.  Note that such pages will not be
+ * included in the dump, because they do not have page table entries.
+ * Even if the pages were dumped, mdb doesn't recognize segkpm addresses,
+ * so they couldn't be dereferenced.
+ */
+#define	VM_KPM_OK	0x00008000
 
 #define	VM_FLAGS	0x0000FFFF
 
