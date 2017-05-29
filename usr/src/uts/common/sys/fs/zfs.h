@@ -674,7 +674,8 @@ typedef enum pool_state {
 	POOL_STATE_L2CACHE,		/* Level 2 ARC device		*/
 	POOL_STATE_UNINITIALIZED,	/* Internal spa_t state		*/
 	POOL_STATE_UNAVAIL,		/* Internal libzfs state	*/
-	POOL_STATE_POTENTIALLY_ACTIVE	/* Internal libzfs state	*/
+	POOL_STATE_POTENTIALLY_ACTIVE,	/* Internal libzfs state	*/
+	POOL_STATE_STATES
 } pool_state_t;
 
 /*
@@ -961,6 +962,7 @@ typedef enum {
 #define	ZFS_EV_POOL_NAME	"pool_name"
 #define	ZFS_EV_POOL_GUID	"pool_guid"
 #define	ZFS_EV_VDEV_PATH	"vdev_path"
+#define	ZFS_EV_VDEV_PHYSPATH	"vdev_physpath"
 #define	ZFS_EV_VDEV_GUID	"vdev_guid"
 
 #ifdef	__cplusplus

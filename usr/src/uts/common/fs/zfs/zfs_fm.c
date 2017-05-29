@@ -33,6 +33,7 @@
 #include <sys/vdev_impl.h>
 #include <sys/zio.h>
 #include <sys/zio_checksum.h>
+#include <sys/zfs_ioctl.h>
 
 #include <sys/fm/fs/zfs.h>
 #include <sys/fm/protocol.h>
@@ -728,6 +729,22 @@ zfs_ereport_start_checksum(spa_t *spa, vdev_t *vd,
 	mutex_exit(&spa->spa_errlist_lock);
 }
 
+ void
+zfs_ereport_spa_history(spa_t *spa, nvlist_t *nvl)
+{
+	sysevent_id_t eid;
+
+	/* Add pool name and guid for the purpose of event logging. */
+	ASSERT(!nvlist_exists(nvl, ZFS_EV_POOL_NAME));
+	ASSERT(!nvlist_exists(nvl, ZFS_EV_POOL_GUID));
+	fnvlist_add_string(nvl, ZFS_EV_POOL_NAME, spa_name(spa));
+	fnvlist_add_uint64(nvl, ZFS_EV_POOL_GUID, spa_guid(spa));
+	(void) ddi_log_sysevent(zfs_dip, SUNW_VENDOR, EC_ZFS,
+	    ESC_ZFS_POOL_HISTORY, nvl, &eid, DDI_SLEEP);
+	fnvlist_remove(nvl, ZFS_EV_POOL_GUID);
+	fnvlist_remove(nvl, ZFS_EV_POOL_NAME);
+}
+
 void
 zfs_ereport_finish_checksum(zio_cksum_report_t *report,
     const void *good_data, const void *bad_data, boolean_t drop_if_identical)
@@ -828,6 +845,10 @@ zfs_post_common(spa_t *spa, vdev_t *vd, const char *name)
 	if (vd)
 		VERIFY(nvlist_add_uint64(resource,
 		    FM_EREPORT_PAYLOAD_ZFS_VDEV_GUID, vd->vdev_guid) == 0);
+	if (vd && vd->vdev_physpath)
+		VERIFY(nvlist_add_string(resource,
+		    FM_EREPORT_PAYLOAD_ZFS_VDEV_PHYSPATH,
+		    vd->vdev_physpath) == 0);
 
 	fm_ereport_post(resource, EVCH_SLEEP);
 

@@ -853,6 +853,7 @@ extern void zfs_ereport_post(const char *class, spa_t *spa, vdev_t *vd,
 extern void zfs_post_remove(spa_t *spa, vdev_t *vd);
 extern void zfs_post_state_change(spa_t *spa, vdev_t *vd);
 extern void zfs_post_autoreplace(spa_t *spa, vdev_t *vd);
+extern void zfs_ereport_spa_history(spa_t *spa, nvlist_t *nvl);
 extern uint64_t spa_get_errlog_size(spa_t *spa);
 extern int spa_get_errlog(spa_t *spa, void *uaddr, size_t *count);
 extern void spa_errlog_rotate(spa_t *spa);

@@ -231,9 +231,9 @@ zpool_pool_state_to_name(pool_state_t state)
 		return (gettext("UNAVAIL"));
 	case POOL_STATE_POTENTIALLY_ACTIVE:
 		return (gettext("POTENTIALLY_ACTIVE"));
+	default:
+		return (gettext("UNKNOWN"));
 	}
-
-	return (gettext("UNKNOWN"));
 }
 
 /*
