@@ -3331,8 +3331,8 @@ zdb_dump_block(char *label, void *buf, uint64_t size, int flags)
 	for (i = 0; i < nwords; i += 2) {
 		(void) printf("%06llx:  %016llx  %016llx  ",
 		    (u_longlong_t)(i * sizeof (uint64_t)),
-		    (u_longlong_t)(do_bswap ? BSWAP_64(d[i]) : d[i]),
-		    (u_longlong_t)(do_bswap ? BSWAP_64(d[i + 1]) : d[i + 1]));
+		    (u_longlong_t)BE_64(d[i]),
+		    (u_longlong_t)BE_64(d[i + 1]));
 
 		c = (char *)&d[i];
 		for (j = 0; j < 2 * sizeof (uint64_t); j++)
