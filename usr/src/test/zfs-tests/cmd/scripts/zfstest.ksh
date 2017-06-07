@@ -176,6 +176,8 @@ export KEEP="^$(echo $KEEP | sed 's/ /$|^/g')\$"
 num_disks=$(echo $DISKS | awk '{print NF}')
 [[ $num_disks -lt 3 ]] && fail "Not enough disks to run ZFS Test Suite"
 
+sudo -k coreadm -e process
+
 # Ensure user has only basic privileges.
 ppriv -s EIP=basic -e $runner $quiet -c $runfile
 ret=$?
