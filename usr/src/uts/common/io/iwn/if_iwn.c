@@ -2049,7 +2049,7 @@ iwn_reset_tx_ring(struct iwn_softc *sc, struct iwn_tx_ring *ring)
 		}
 
 	/* Clear TX descriptors. */
-	memset(ring->desc, 0, ring->desc_dma.size);
+	(void) memset(ring->desc, 0, ring->desc_dma.size);
 	(void) ddi_dma_sync(ring->desc_dma.dma_hdl, 0, 0, DDI_DMA_SYNC_FORDEV);
 	sc->qfullmsk &= ~(1 << ring->qid);
 	ring->queued = 0;
@@ -2635,7 +2635,7 @@ iwn_rx_phy(struct iwn_softc *sc, struct iwn_rx_desc *desc,
 	DTRACE_PROBE1(rx__phy, struct iwn_rx_stat *, stat);
 
 	/* Save RX statistics, they will be used on MPDU_RX_DONE. */
-	memcpy(&sc->last_rx_stat, stat, sizeof (*stat));
+	(void) memcpy(&sc->last_rx_stat, stat, sizeof (*stat));
 	sc->last_rx_valid = 1;
 }
 
