@@ -22,6 +22,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2017 Nexenta Systems, Inc.
  */
 
 #include <dlfcn.h>
@@ -291,10 +292,13 @@ libzfs_fru_refresh(libzfs_handle_t *hdl)
 	 */
 	twp = _topo_walk_init(thp, FM_FMRI_SCHEME_HC,
 	    libzfs_fru_gather, hdl, &err);
-	if (twp != NULL) {
-		(void) _topo_walk_step(twp, TOPO_WALK_CHILD);
-		_topo_walk_fini(twp);
-	}
+	if (twp == NULL)
+		return;
+
+	while (_topo_walk_step(twp, TOPO_WALK_CHILD) == TOPO_WALK_NEXT)
+		;
+
+	_topo_walk_fini(twp);
 }
 
 /*
