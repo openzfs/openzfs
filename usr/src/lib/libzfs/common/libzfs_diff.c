@@ -113,7 +113,7 @@ get_stats_for_obj(differ_info_t *di, const char *dsname, uint64_t obj,
 		(void) snprintf(di->errbuf, sizeof (di->errbuf),
 		    dgettext(TEXT_DOMAIN,
 		    "Unable to determine path or stats for "
-		    "object %lld in %s"), obj, dsname);
+		    "object %"PRIu64" in %s"), obj, dsname);
 		return (-1);
 	}
 }
@@ -401,7 +401,7 @@ write_free_diffs(FILE *fp, differ_info_t *di, dmu_diff_record_t *dr)
 		} else {
 			(void) snprintf(di->errbuf, sizeof (di->errbuf),
 			    dgettext(TEXT_DOMAIN,
-			    "next allocated object (> %lld) find failure"),
+			    "next allocated object (> %"PRIu64") find failure"),
 			    zc.zc_obj);
 			di->zerr = errno;
 			break;

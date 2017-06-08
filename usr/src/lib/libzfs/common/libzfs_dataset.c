@@ -2366,7 +2366,7 @@ zfs_prop_get(zfs_handle_t *zhp, zfs_prop_t prop, char *propbuf, size_t proplen,
 			    localtime_r(&time, &t) == NULL ||
 			    strftime(propbuf, proplen, "%a %b %e %k:%M %Y",
 			    &t) == 0)
-				(void) snprintf(propbuf, proplen, "%llu", val);
+				(void) snprintf(propbuf, proplen, "%"PRIu64, val);
 		}
 		break;
 
@@ -2919,7 +2919,7 @@ zfs_prop_get_userquota(zfs_handle_t *zhp, const char *propname,
 		return (err);
 
 	if (literal) {
-		(void) snprintf(propbuf, proplen, "%llu", propvalue);
+		(void) snprintf(propbuf, proplen, "%"PRIu64, propvalue);
 	} else if (propvalue == 0 &&
 	    (type == ZFS_PROP_USERQUOTA || type == ZFS_PROP_GROUPQUOTA)) {
 		(void) strlcpy(propbuf, "none", proplen);
@@ -2976,7 +2976,7 @@ zfs_prop_get_written(zfs_handle_t *zhp, const char *propname,
 		return (err);
 
 	if (literal) {
-		(void) snprintf(propbuf, proplen, "%llu", propvalue);
+		(void) snprintf(propbuf, proplen, "%"PRIu64, propvalue);
 	} else {
 		zfs_nicenum(propvalue, propbuf, proplen);
 	}
