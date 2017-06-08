@@ -147,7 +147,7 @@ or_die /bin/rm -f ztest.history
 or_die /bin/rm -f ztest.cores
 
 # Allow core files to be written to cwd if that's currently disabled.
-sudo coreadm -e process
+/bin/sudo /bin/coreadm -e process
 
 ztrc=0		# ztest return value
 foundcrashes=0	# number of crashes found so far
