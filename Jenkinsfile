@@ -104,15 +104,15 @@ node('master') {
         }
 
         stage('create image') {
-            shscript('aws-stop-instances', false, [
-                ['REGION', env.REGION],
-                ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
-            ])
-
             env.BUILD_IMAGE_ID = shscript('aws-create-image', true, [
                 ['REGION', env.REGION],
                 ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
             ]).trim()
+
+            shscript('aws-stop-instances', false, [
+                ['REGION', env.REGION],
+                ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
+            ])
         }
 
         stage('run tests') {
