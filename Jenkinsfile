@@ -129,7 +129,7 @@ node('master') {
                     ['RUNFILE', '/opt/util-tests/runfiles/default.run']
                 ])
             }, 'run zfs-tests': {
-                run_test('run-zfs-tests', 'm4.large', 8, 'run-zfs-tests', [
+                run_test('run-zfs-tests', 'm4.large', 10, 'run-zfs-tests', [
                     ['RUNFILE', '/opt/zfs-tests/runfiles/delphix.run']
                 ])
             }, 'run zloop': {
