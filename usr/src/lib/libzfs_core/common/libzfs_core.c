@@ -23,6 +23,7 @@
  * Copyright (c) 2012, 2014 by Delphix. All rights reserved.
  * Copyright (c) 2013 Steven Hartland. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
+ * Copyright 2017 RackTop Systems.
  */
 
 /*
@@ -203,6 +204,23 @@ lzc_clone(const char *fsname, const char *origin,
 	return (error);
 }
 
+int
+lzc_promote(const char *fsname, const char *origin)
+{
+	/*
+	 * The promote ioctl is still legacy, so we need to construct our
+	 * own zfs_cmd_t rather than using zfs_ioctl().
+	 */
+	zfs_cmd_t zc = { 0 };
+
+	ASSERT3S(g_refcount, >, 0);
+	VERIFY3S(g_fd, !=, -1);
+
+	(void) strlcpy(zc.zc_name, fsname, sizeof (zc.zc_name));
+	(void) strlcpy(zc.zc_value, origin, sizeof (zc.zc_value));
+	return (ioctl(g_fd, ZFS_IOC_PROMOTE, &zc) != 0 ? errno : 0);
+}
+
 /*
  * Creates snapshots.
  *
@@ -330,7 +348,7 @@ lzc_exists(const char *dataset)
 {
 	/*
 	 * The objset_stats ioctl is still legacy, so we need to construct our
-	 * own zfs_cmd_t rather than using zfsc_ioctl().
+	 * own zfs_cmd_t rather than using zfs_ioctl().
 	 */
 	zfs_cmd_t zc = { 0 };
 
