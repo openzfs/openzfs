@@ -1,5 +1,6 @@
 '\" te
 .\" Copyright (c) 2014, Joyent, Inc.  All rights Reserved.
+.\" Copyright (c) 2014 by Delphix. All rights reserved.
 .\" Copyright (c) 1992, X/Open Company Limited  All Rights Reserved
 .\" Copyright 1989 AT&T
 .\" Portions Copyright (c) 1995, Sun Microsystems, Inc.  All Rights Reserved
@@ -10,7 +11,7 @@
 .\" The contents of this file are subject to the terms of the Common Development and Distribution License (the "License").  You may not use this file except in compliance with the License.
 .\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE or http://www.opensolaris.org/os/licensing.  See the License for the specific language governing permissions and limitations under the License.
 .\" When distributing Covered Code, include this CDDL HEADER in each file and include the License file at usr/src/OPENSOLARIS.LICENSE.  If applicable, add the following below this CDDL HEADER, with the fields enclosed by brackets "[]" replaced with your own identifying information: Portions Copyright [yyyy] [name of copyright owner]
-.TH DD 1M "Jan 04, 2014"
+.TH DD 1M "Dec 12, 2014"
 .SH NAME
 dd \- convert and copy a file
 .SH SYNOPSIS
@@ -195,6 +196,41 @@ output file before copying. On non-seekable files, existing blocks are read and
 space from the current end-of-file to the specified offset, if any, is filled
 with null bytes. On seekable files, the implementation seeks to the specified
 offset or reads the blocks as described for non-seekable files.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBostride=\fR\fIn\fR\fR
+.ad
+.sp .6
+.RS 4n
+Writes every \fIn\fRth block (using the specified output block size) when
+writing output.  Skips \fIn\fR - 1 blocks after writing each record.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBistride=\fR\fIn\fR\fR
+.ad
+.sp .6
+.RS 4n
+Reads every \fIn\fRth block (using the specified input block size) when
+reading input.  Skips \fIn\fR - 1 blocks after reading each record.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fBstride=\fR\fIn\fR\fR
+.ad
+.sp .6
+.RS 4n
+Reads every \fIn\fRth block (using the specified input block size) when
+reading input.  Skips \fIn\fR - 1 blocks after reading each record.  Also
+writes every \fIn\fRth block (using the specified output block size) when
+writing output.  Skips \fIn\fR - 1 blocks after writing each record.
 .RE
 
 .sp
