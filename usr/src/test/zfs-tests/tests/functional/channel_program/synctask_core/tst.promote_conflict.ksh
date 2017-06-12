@@ -32,16 +32,16 @@ snap=promote_conflict_snap
 function cleanup
 {
     for to_destroy in $fs $clone; do
-        datasetexists $to_destroy && log_must $ZFS destroy -R $to_destroy
+        datasetexists $to_destroy && log_must zfs destroy -R $to_destroy
     done
 }
 
 log_onexit cleanup
 
-log_must $ZFS create $fs
-log_must $ZFS snapshot $fs@$snap
-log_must $ZFS clone $fs@$snap $clone
-log_must $ZFS snapshot $clone@$snap
+log_must zfs create $fs
+log_must zfs snapshot $fs@$snap
+log_must zfs clone $fs@$snap $clone
+log_must zfs snapshot $clone@$snap
 
 #
 # This channel program is expected to return successfully, but fail to execute

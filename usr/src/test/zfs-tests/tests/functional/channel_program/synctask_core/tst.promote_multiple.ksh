@@ -32,7 +32,7 @@ snap2=$clone1@testchild_snap2
 function cleanup
 {
     for to_destroy in $fs $clone1 $clone2; do
-        datasetexists $to_destroy && log_must $ZFS destroy -R $to_destroy
+        datasetexists $to_destroy && log_must zfs destroy -R $to_destroy
     done
 }
 
@@ -54,13 +54,13 @@ log_onexit cleanup
 # We then attempt to destroy clone1, which should succeed since it no
 # longer has any dependents.
 #
-log_must $ZFS create $fs
-log_must $ZFS snapshot $snap1
-log_must $ZFS clone $snap1 $clone1
-log_must $ZFS snapshot $snap2
-log_must $ZFS clone $snap2 $clone2
+log_must zfs create $fs
+log_must zfs snapshot $snap1
+log_must zfs clone $snap1 $clone1
+log_must zfs snapshot $snap2
+log_must zfs clone $snap2 $clone2
 
-log_must $ZFS unmount -f $clone1
+log_must zfs unmount -f $clone1
 
 log_must_program $TESTPOOL - <<-EOF
     assert(zfs.sync.promote("$clone2") == 0)

@@ -30,7 +30,7 @@
 #
 # DESCRIPTION:
 #
-# zfs channel returns an error when run as a user
+# zfs program returns an error when run as a user
 #
 # STRATEGY:
 # 1. Attempt to start a channel program on a pool
@@ -39,8 +39,7 @@
 
 verify_runnable "global"
 
-log_assert "zfs program returns an error when run as a user"
 
-log_mustnot eval "echo return 0 | $ZFS program $TESTPOOL -"
+log_mustnot eval "echo return 0 | zfs program $TESTPOOL -"
 
 log_pass "zfs program returns an error when run as a user"

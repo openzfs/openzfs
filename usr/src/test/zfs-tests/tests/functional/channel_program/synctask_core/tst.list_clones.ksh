@@ -28,7 +28,7 @@ log_assert "Listing zfs clones should work correctly."
 function cleanup
 {
 	datasetexists $TESTPOOL/$TESTFS@$TESTSNAP && \
-	    log_must $ZFS destroy -R $TESTPOOL/$TESTFS@$TESTSNAP
+	    log_must zfs destroy -R $TESTPOOL/$TESTFS@$TESTSNAP
 }
 
 log_onexit cleanup

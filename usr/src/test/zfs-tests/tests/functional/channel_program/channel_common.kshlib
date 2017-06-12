@@ -26,7 +26,7 @@ function log_program
 	shift
 	typeset expecterror=$1
 	shift
-	typeset cmdargs=$@ tmpout=$($MKTEMP) tmperr=$($MKTEMP) tmpin=$($MKTEMP)
+	typeset cmdargs=$@ tmpout=$(mktemp) tmperr=$(mktemp) tmpin=$(mktemp)
 
 	# Expected output/error filename is the same as the .zcp name
 	typeset basename
@@ -36,7 +36,7 @@ function log_program
 
 	log_note "running: zfs program $cmdargs:"
 
-	tee $tmpin | $ZFS program $cmdargs >$tmpout 2>$tmperr
+	tee $tmpin | zfs program $cmdargs >$tmpout 2>$tmperr
 	typeset ret=$?
 
 	log_note "input:\n$(cat $tmpin)"

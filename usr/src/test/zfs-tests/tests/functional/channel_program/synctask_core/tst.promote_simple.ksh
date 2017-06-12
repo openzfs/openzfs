@@ -30,15 +30,15 @@ snap=$fs@$TESTSNAP
 function cleanup
 {
     for to_destroy in $fs $clone; do
-        datasetexists $to_destroy && log_must $ZFS destroy -R $to_destroy
+        datasetexists $to_destroy && log_must zfs destroy -R $to_destroy
     done
 }
 
 log_onexit cleanup
 
-log_must $ZFS create $fs
-log_must $ZFS snapshot $snap
-log_must $ZFS clone $snap $clone
+log_must zfs create $fs
+log_must zfs snapshot $snap
+log_must zfs clone $snap $clone
 
 log_must_program $TESTPOOL - <<-EOF
     assert(zfs.sync.promote("$clone") == 0)

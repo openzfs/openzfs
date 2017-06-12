@@ -32,10 +32,10 @@ TESTCHILD3=$TESTCHILD-3
 
 function cleanup
 {
-	datasetexists $TESTCHILD && log_must $ZFS destroy $TESTCHILD
-	datasetexists $TESTCHILD1 && log_must $ZFS destroy $TESTCHILD1
-	datasetexists $TESTCHILD2 && log_must $ZFS destroy $TESTCHILD2
-	datasetexists $TESTCHILD3 && log_must $ZFS destroy $TESTCHILD3
+	datasetexists $TESTCHILD && log_must zfs destroy $TESTCHILD
+	datasetexists $TESTCHILD1 && log_must zfs destroy $TESTCHILD1
+	datasetexists $TESTCHILD2 && log_must zfs destroy $TESTCHILD2
+	datasetexists $TESTCHILD3 && log_must zfs destroy $TESTCHILD3
 }
 
 log_onexit cleanup
@@ -61,7 +61,7 @@ log_must_program $TESTPOOL - <<-EOF
 EOF
 
 # Create a child fs
-log_must $ZFS create $TESTCHILD
+log_must zfs create $TESTCHILD
 
 log_must_program $TESTPOOL - <<-EOF
 	n = 0
@@ -73,9 +73,9 @@ log_must_program $TESTPOOL - <<-EOF
 	return 0
 EOF
 
-log_must $ZFS create $TESTCHILD1
-log_must $ZFS create $TESTCHILD2
-log_must $ZFS create $TESTCHILD3
+log_must zfs create $TESTCHILD1
+log_must zfs create $TESTCHILD2
+log_must zfs create $TESTCHILD3
 
 # All children appear exactly once
 log_must_program $TESTPOOL - <<-EOF

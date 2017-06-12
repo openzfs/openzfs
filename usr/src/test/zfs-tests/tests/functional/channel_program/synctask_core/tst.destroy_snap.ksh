@@ -22,7 +22,7 @@ snap=$TESTPOOL/$TESTFS@$TESTSNAP
 
 function cleanup
 {
-	datasetexists $snap && log_must $ZFS destroy $snap
+	datasetexists $snap && log_must zfs destroy $snap
 }
 
 log_onexit cleanup
