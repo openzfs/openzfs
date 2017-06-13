@@ -7116,7 +7116,7 @@ zfs_do_channel_program(int argc, char **argv)
 	 * Any remaining arguments are passed as arguments to the lua script as
 	 * a string array:
 	 * {
-	 *     "argv" -> [ "arg 1", ... "arg n" ],
+	 *	"argv" -> [ "arg 1", ... "arg n" ],
 	 * }
 	 */
 	nvlist_t *argnvl = fnvlist_alloc();

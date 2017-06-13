@@ -888,7 +888,8 @@ lzc_destroy_bookmarks(nvlist_t *bmarks, nvlist_t **errlist)
 int
 lzc_channel_program(const char *pool, const char *program, uint64_t instrlimit,
     uint64_t memlimit, nvlist_t *argnvl, nvlist_t **outnvl)
-{	int error;
+{
+	int error;
 	nvlist_t *args;
 
 	args = fnvlist_alloc();
