@@ -157,7 +157,8 @@ boolean_t zvol_unmap_sync_enabled = B_FALSE;
 extern int zfs_set_prop_nvlist(const char *, zprop_source_t,
     nvlist_t *, nvlist_t *);
 static int zvol_remove_zv(zvol_state_t *);
-static int zvol_get_data(void *arg, lr_write_t *lr, char *buf, zio_t *zio);
+static int zvol_get_data(void *arg, struct zil_writer *zilw, lr_write_t *lr,
+    char *buf, zio_t *zio);
 static int zvol_dumpify(zvol_state_t *zv);
 static int zvol_dump_fini(zvol_state_t *zv);
 static int zvol_dump_init(zvol_state_t *zv, boolean_t resize);
@@ -975,7 +976,7 @@ zvol_get_done(zgd_t *zgd, int error)
 	zfs_range_unlock(zgd->zgd_rl);
 
 	if (error == 0 && zgd->zgd_bp)
-		zil_add_block(zgd->zgd_zilog, zgd->zgd_bp);
+		zil_add_block(zgd->zgd_zilw, zgd->zgd_bp);
 
 	kmem_free(zgd, sizeof (zgd_t));
 }
@@ -984,7 +985,8 @@ zvol_get_done(zgd_t *zgd, int error)
  * Get data to generate a TX_WRITE intent log record.
  */
 static int
-zvol_get_data(void *arg, lr_write_t *lr, char *buf, zio_t *zio)
+zvol_get_data(void *arg, struct zil_writer *zilw, lr_write_t *lr, char *buf,
+    zio_t *zio)
 {
 	zvol_state_t *zv = arg;
 	objset_t *os = zv->zv_objset;
@@ -1001,6 +1003,7 @@ zvol_get_data(void *arg, lr_write_t *lr, char *buf, zio_t *zio)
 
 	zgd = kmem_zalloc(sizeof (zgd_t), KM_SLEEP);
 	zgd->zgd_zilog = zv->zv_zilog;
+	zgd->zgd_zilw = zilw;
 	zgd->zgd_rl = zfs_range_lock(&zv->zv_znode, offset, size, RL_READER);
 
 	/*
