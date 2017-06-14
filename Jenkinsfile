@@ -74,7 +74,10 @@ node('master') {
                 ])
             }
 
+            def build_workspace = null
             node(env.BUILD_INSTANCE_ID) {
+                build_workspace = pwd()
+
                 stage('unstash repository') {
                     unstash('openzfs')
                 }
@@ -100,6 +103,35 @@ node('master') {
                         ['INSTALL_DEBUG', 'yes']
                     ])
                 }
+            }
+
+            if (build_workspace == null)
+                error('could not determine the workspace used to perform the build')
+
+            stage('archive build artifacts') {
+                shscript('download-remote-file', false, [
+                    ['REGION', env.REGION],
+                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+                    ['REMOTE_FILE', "${build_workspace}/log/*/nightly.log"],
+                    ['LOCAL_FILE', 'nightly.log']
+                ])
+                archive(includes: 'nightly.log')
+
+                shscript('download-remote-file', false, [
+                    ['REGION', env.REGION],
+                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+                    ['REMOTE_FILE', "${build_workspace}/log/*/mail_msg"],
+                    ['LOCAL_FILE', 'nightly-mail.log']
+                ])
+                archive(includes: 'nightly-mail.log')
+
+                shscript('download-remote-directory', false, [
+                    ['REGION', env.REGION],
+                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+                    ['REMOTE_DIRECTORY', "${build_workspace}/packages"],
+                    ['LOCAL_FILE', 'nightly-packages.tar.xz']
+                ])
+                archive(includes: 'nightly-packages.tar.xz')
             }
         }
 
