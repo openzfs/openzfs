@@ -533,6 +533,11 @@ zcp_nvpair_value_to_lua(lua_State *state, nvpair_t *pair,
 {
 	int err = 0;
 
+	if (nvarg == NULL) {
+		lua_pushnil(state);
+		return (0);
+	}
+
 	switch (nvpair_type(pair)) {
 	case DATA_TYPE_BOOLEAN_VALUE:
 		(void) lua_pushboolean(state,
@@ -1051,17 +1056,13 @@ zcp_eval(const char *poolname, const char *program, uint64_t instrlimit,
 	 * Convert the input nvlist to a Lua object and put it on top of the
 	 * stack.
 	 */
-	if (nvarg == NULL) {
-		lua_pushnil(state);
-	} else {
-		char errmsg[128];
-		err = zcp_nvpair_value_to_lua(state, nvarg,
-		    errmsg, sizeof (errmsg));
-		if (err != 0) {
-			fnvlist_add_string(outnvl, ZCP_RET_ERROR, errmsg);
-			lua_close(state);
-			return (SET_ERROR(EINVAL));
-		}
+	char errmsg[128];
+	err = zcp_nvpair_value_to_lua(state, nvarg,
+	    errmsg, sizeof (errmsg));
+	if (err != 0) {
+		fnvlist_add_string(outnvl, ZCP_RET_ERROR, errmsg);
+		lua_close(state);
+		return (SET_ERROR(EINVAL));
 	}
 	VERIFY3U(3, ==, lua_gettop(state));
 
