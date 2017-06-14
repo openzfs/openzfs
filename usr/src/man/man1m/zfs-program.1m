@@ -1,22 +1,11 @@
+.\" This file and its contents are supplied under the terms of the
+.\" Common Development and Distribution License ("CDDL"), version 1.0.
+.\" You may only use this file in accordance with the terms of version
+.\" 1.0 of the CDDL.
 .\"
-.\" CDDL HEADER START
-.\"
-.\" The contents of this file are subject to the terms of the
-.\" Common Development and Distribution License (the "License").
-.\" You may not use this file except in compliance with the License.
-.\"
-.\" You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-.\" or http://www.opensolaris.org/os/licensing.
-.\" See the License for the specific language governing permissions
-.\" and limitations under the License.
-.\"
-.\" When distributing Covered Code, include this CDDL HEADER in each
-.\" file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-.\" If applicable, add the following below this CDDL HEADER, with the
-.\" fields enclosed by brackets "[]" replaced with your own identifying
-.\" information: Portions Copyright [yyyy] [name of copyright owner]
-.\"
-.\" CDDL HEADER END
+.\" A full copy of the text of the CDDL should have accompanied this
+.\" source.  A copy of the CDDL is also available via the Internet at
+.\" http://www.illumos.org/license/CDDL.
 .\"
 .\"
 .\" Copyright (c) 2016 by Delphix. All Rights Reserved.
@@ -72,7 +61,7 @@ section below.
 .Sh LUA INTERFACE
 A channel program can be invoked either from the command line, or via a library
 call to
-.Em lzc_channel_program() .
+.Fn lzc_channel_program() .
 .Ss Arguments
 Arguments passed to the channel program are converted to a Lua table. If
 invoked from the command line, extra arguments to the Lua script will be
@@ -94,9 +83,9 @@ args = ...
 Note that because Lua arrays are 1-indexed, arrays passed to Lua from the
 libZFS interface will have their indices incremented by 1. That is, the element
 in
-.Em arr[0]
+.Va arr[0]
 in a C array passed to a channel program will be stored in
-.Em arr[1]
+.Va arr[1]
 when accessed from Lua.
 .Ss Return Values
 Lua return statements take the form:
