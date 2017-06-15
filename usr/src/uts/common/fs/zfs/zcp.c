@@ -533,7 +533,7 @@ zcp_nvpair_value_to_lua(lua_State *state, nvpair_t *pair,
 {
 	int err = 0;
 
-	if (nvarg == NULL) {
+	if (pair == NULL) {
 		lua_pushnil(state);
 		return (0);
 	}
