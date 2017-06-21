@@ -125,9 +125,13 @@ return value back to userland.
 If the channel program exhausts an instruction or memory limit, a fatal error
 will be generated and the program will be stopped, leaving the program partially
 executed. No attempt is made to reverse or undo any operations already
-performed. If a channel program attempts to return too large a value, the
-program will fully execute but exit with a nonzero status code and no return
-value.
+performed. Note that because both the instruction count and amount of memory
+used by a channel program are deterministic when run against the same inputs and
+filesystem state, as long as a channel program has run successfully once, you
+can guarantee that it will finish successfully against a similar size system.
+.Pp
+If a channel program attempts to return too large a value, the program will
+fully execute but exit with a nonzero status code and no return value.
 .Pp
 .Em Note:
 ZFS API functions do not generate Fatal Errors when correctly invoked, they
