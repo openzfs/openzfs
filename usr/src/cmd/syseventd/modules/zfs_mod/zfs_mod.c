@@ -161,7 +161,7 @@ zfs_process_add(zpool_handle_t *zhp, nvlist_t *vdev, const char *newrawpath)
 		return;
 
 	(void) strlcpy(fullpath, devpath, sizeof (fullpath));
-	/* Chop off 's0' for whole disks */
+	/* Chop off slice for whole disks */
 	if (wholedisk)
 		fullpath[strlen(fullpath) - 2] = '\0';
 
@@ -220,8 +220,9 @@ zfs_process_add(zpool_handle_t *zhp, nvlist_t *vdev, const char *newrawpath)
 	/* Define "path" and "physpath" to be used for attach */
 	if (newrawpath != NULL) {
 		/* Construct newdevpath from newrawpath */
-		(void) snprintf(newdevpath, sizeof (newdevpath), "%s%ss0",
-		    ZFS_DISK_ROOTD, newrawpath + strlen(ZFS_RDISK_ROOTD));
+		(void) snprintf(newdevpath, sizeof (newdevpath), "%s%s%s",
+		    ZFS_DISK_ROOTD, newrawpath + strlen(ZFS_RDISK_ROOTD),
+		    (boot_size > 0) ? "s1" : "s0");
 		/* Use replacing vdev's "path" and "physpath" */
 		adevpath = newdevpath;
 		/* Resolve /dev path to /devices node */
