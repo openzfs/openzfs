@@ -198,6 +198,7 @@ SYMBOL_VERSION SUNW_1.1 {
 	nvlist_alloc;
 	nvlist_dup;
 	nvlist_free;
+	nvlist_invalidate;
 	nvlist_lookup_boolean;
 	nvlist_lookup_byte;
 	nvlist_lookup_byte_array;

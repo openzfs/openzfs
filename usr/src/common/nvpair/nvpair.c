@@ -2355,6 +2355,18 @@ nvlist_common(nvlist_t *nvl, char *buf, size_t *buflen, int encoding,
 }
 
 int
+nvlist_invalidate(char *buf)
+{
+	if (buf == NULL)
+		return (EINVAL);
+
+	nvs_header_t *nvh = (void *)buf;
+	nvh->nvh_encoding = NV_ENCODE_INVALID;
+
+	return (0);
+}
+
+int
 nvlist_size(nvlist_t *nvl, size_t *size, int encoding)
 {
 	return (nvlist_common(nvl, NULL, size, encoding, NVS_OP_GETSIZE));

@@ -180,6 +180,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	zfs_zpl_version_map;
 	zpool_add;
 	zpool_clear;
+	zpool_clear_n_labels;
 	zpool_clear_label;
 	zpool_close;
 	zpool_create;

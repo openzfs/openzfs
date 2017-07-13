@@ -36,6 +36,7 @@
 #include <libgen.h>
 #include <libintl.h>
 #include <libuutil.h>
+#include <limits.h>
 #include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,6 +48,7 @@
 #include <zone.h>
 #include <zfs_prop.h>
 #include <sys/fs/zfs.h>
+#include <sys/vdev_impl.h>
 #include <sys/stat.h>
 
 #include <libzfs.h>
@@ -234,7 +236,8 @@ get_usage(zpool_help_t idx)
 		return (gettext("\tiostat [-v] [-T d|u] [pool] ... [interval "
 		    "[count]]\n"));
 	case HELP_LABELCLEAR:
-		return (gettext("\tlabelclear [-f] <vdev>\n"));
+		return (gettext("\tlabelclear [-b | -e | -i index] [-c] [-m] "
+		    "[-f] <vdev>\n"));
 	case HELP_LIST:
 		return (gettext("\tlist [-Hp] [-o property[,...]] "
 		    "[-T d|u] [pool] ... [interval [count]]\n"));
@@ -652,10 +655,40 @@ zpool_do_labelclear(int argc, char **argv)
 	pool_state_t state;
 	boolean_t inuse = B_FALSE;
 	boolean_t force = B_FALSE;
+	boolean_t check = B_FALSE;
+	boolean_t cherry = B_FALSE;
+	unsigned int start = 0, n = VDEV_LABELS;
+	char *end = NULL;
+	long long index = 0;
 
 	/* check options */
-	while ((c = getopt(argc, argv, "f")) != -1) {
+	while ((c = getopt(argc, argv, "bei:cmf")) != -1) {
 		switch (c) {
+		case 'b':
+			start = 0;
+			n = VDEV_LABELS / 2;
+			break;
+		case 'e':
+			start = VDEV_LABELS / 2;
+			n = VDEV_LABELS / 2;
+			break;
+		case 'i':
+			index = strtoll(optarg, &end, 10);
+			if((end == optarg) || (*end != '\0') ||
+			    (index < 0) || (index >= VDEV_LABELS)) {
+				(void) fprintf(stderr,
+				    gettext("Invalid index value provided\n"));
+				return (1);
+			}
+			start = (unsigned int)index;
+			n = 1;
+			break;
+		case 'c':
+			check = B_TRUE;
+			break;
+		case 'm':
+			cherry = B_TRUE;
+			break;
 		case 'f':
 			force = B_TRUE;
 			break;
@@ -708,8 +741,12 @@ zpool_do_labelclear(int argc, char **argv)
 	}
 
 	if (zpool_read_label(fd, &config) != 0 || config == NULL) {
-		(void) fprintf(stderr,
-		    gettext("failed to read label from %s\n"), vdev);
+		if (force)
+			goto wipe_label;
+		(void) fprintf(stderr, gettext(
+		    "use '-f' to override the following error:\n"
+		    "failed to read label from \"%s\"\n"),
+		     vdev);
 		return (1);
 	}
 	nvlist_free(config);
@@ -762,7 +799,7 @@ zpool_do_labelclear(int argc, char **argv)
 	}
 
 wipe_label:
-	ret = zpool_clear_label(fd);
+	ret = zpool_clear_n_labels(fd, start, n, check, cherry);
 	if (ret != 0) {
 		(void) fprintf(stderr,
 		    gettext("failed to clear label for %s\n"), vdev);

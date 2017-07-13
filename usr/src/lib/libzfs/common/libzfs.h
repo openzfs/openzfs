@@ -763,6 +763,8 @@ extern int zpool_in_use(libzfs_handle_t *, int, pool_state_t *, char **,
  * Label manipulation.
  */
 extern int zpool_read_label(int, nvlist_t **);
+extern int zpool_clear_n_labels(int, unsigned int, unsigned int, boolean_t,
+    boolean_t);
 extern int zpool_clear_label(int);
 
 /* is this zvol valid for use as a dump device? */

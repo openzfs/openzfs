@@ -1063,33 +1063,65 @@ zpool_open_func(void *arg)
 }
 
 /*
- * Given a file descriptor, clear (zero) the label information.
+ * Given a file descriptor, a starting label and a number of labels to clear,
+ * clear (zero) the label information.
  */
 int
-zpool_clear_label(int fd)
+zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
+    boolean_t check, boolean_t cherry)
 {
 	struct stat64 statbuf;
-	int l;
-	vdev_label_t *label;
+	unsigned int l, end;
+	vdev_label_t label;
 	uint64_t size;
+
+	char *buf = label.vl_vdev_phys.vp_nvlist;
+	size_t buflen = sizeof (label.vl_vdev_phys.vp_nvlist);
 
 	if (fstat64(fd, &statbuf) == -1)
 		return (0);
 	size = P2ALIGN_TYPED(statbuf.st_size, sizeof (vdev_label_t), uint64_t);
 
-	if ((label = calloc(sizeof (vdev_label_t), 1)) == NULL)
+	end = start + n;
+	if (end > VDEV_LABELS)
 		return (-1);
 
-	for (l = 0; l < VDEV_LABELS; l++) {
-		if (pwrite64(fd, label, sizeof (vdev_label_t),
-		    label_offset(size, l)) != sizeof (vdev_label_t)) {
-			free(label);
-			return (-1);
+	for (l = start; l < end; l++) {
+		if ((check == B_TRUE) || (cherry == B_TRUE)) {
+			if (pread64(fd, &label, sizeof (vdev_label_t),
+			    label_offset(size, l)) != sizeof (vdev_label_t))
+				return (-1);
+
+			if (check == B_TRUE) {
+				nvlist_t *config = NULL;
+				if (nvlist_unpack(buf, buflen, &config, 0) != 0)
+					return (-1);
+				nvlist_free(config);
+			}
 		}
+
+		if (cherry == B_TRUE) {
+			if (nvlist_invalidate(buf) != 0)
+				return (-1);
+		} else {
+			memset(&label, 0, sizeof (vdev_label_t));
+		}
+
+		if (pwrite64(fd, &label, sizeof (vdev_label_t),
+		    label_offset(size, l)) != sizeof (vdev_label_t))
+			return (-1);
 	}
 
-	free(label);
 	return (0);
+}
+
+/*
+ * Given a file descriptor, clear (zero) the label information.
+ */
+int
+zpool_clear_label(int fd)
+{
+	return (zpool_clear_n_labels(fd, 0, VDEV_LABELS, B_FALSE, B_FALSE));
 }
 
 /*
