@@ -658,8 +658,8 @@ zpool_do_labelclear(int argc, char **argv)
 	boolean_t check = B_FALSE;
 	boolean_t cherry = B_FALSE;
 	unsigned int start = 0, n = VDEV_LABELS;
-	char *end = NULL;
 	long long index = 0;
+	const char *errstr;
 
 	/* check options */
 	while ((c = getopt(argc, argv, "bei:cmf")) != -1) {
@@ -673,9 +673,8 @@ zpool_do_labelclear(int argc, char **argv)
 			n = VDEV_LABELS / 2;
 			break;
 		case 'i':
-			index = strtoll(optarg, &end, 10);
-			if((end == optarg) || (*end != '\0') ||
-			    (index < 0) || (index >= VDEV_LABELS)) {
+			index = strtonum(optarg, 0, VDEV_LABELS - 1, &errstr);
+			if(errstr) {
 				(void) fprintf(stderr,
 				    gettext("Invalid index value provided\n"));
 				return (1);
