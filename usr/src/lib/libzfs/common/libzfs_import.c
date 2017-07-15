@@ -1101,7 +1101,7 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 		}
 
 		if (cherry == B_TRUE) {
-			if (nvlist_invalidate(buf) != 0)
+			if (nvlist_invalidate(buf, buflen) != 0)
 				return (-1);
 		} else {
 			memset(&label, 0, sizeof (vdev_label_t));

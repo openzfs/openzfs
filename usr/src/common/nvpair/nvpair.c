@@ -2355,9 +2355,9 @@ nvlist_common(nvlist_t *nvl, char *buf, size_t *buflen, int encoding,
 }
 
 int
-nvlist_invalidate(char *buf)
+nvlist_invalidate(char *buf, size_t buflen)
 {
-	if (buf == NULL)
+	if (buf == NULL || buflen < sizeof (nvs_header_t))
 		return (EINVAL);
 
 	nvs_header_t *nvh = (void *)buf;
