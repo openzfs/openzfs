@@ -105,10 +105,8 @@
 .Op Ar interval Op Ar count
 .Nm
 .Cm labelclear
-.Op Fl b | Fl e | Fl i Ar index
-.Op Fl c
-.Op Fl m
-.Op Fl f
+.Op Fl cfm
+.Op Fl Sy b Ns | Ns Sy e Ns | Ns Sy i Ar index
 .Ar device
 .Nm
 .Cm list
@@ -1278,10 +1276,8 @@ pool, in addition to the pool-wide statistics.
 .It Xo
 .Nm
 .Cm labelclear
-.Op Fl b | Fl e | Fl i Ar index
-.Op Fl c
-.Op Fl m
-.Op Fl f
+.Op Fl cfm
+.Op Fl Sy b Ns | Ns Sy e Ns | Ns Sy i Ar index
 .Ar device
 .Xc
 Removes ZFS label information from the specified
@@ -1297,6 +1293,15 @@ and
 can be used for clearing specific labels.
 They are mutually exclusive and the last one will supersede others, if any.
 .Bl -tag -width Ds
+.It Fl c
+Check label integrity before doing anything.
+.It Fl f
+Treat exported or foreign devices as inactive.
+.It Fl m
+Perform minimal operation needed to invalidate a label instead of blindly
+erasing every single byte.
+This reduces (but does not annihilate) the risks of overriding important
+on-disk data.
 .It Fl b
 Only remove ZFS labels located at the beginning of
 .Ar device .
@@ -1306,15 +1311,6 @@ Only remove ZFS labels located at the end of
 .It Fl i Ar index
 Remove a single label entry located at position
 .Ar index .
-.It Fl c
-Check label integrity before doing anything.
-.It Fl m
-Perform minimal operation needed to invalidate a label instead of blindly
-erasing every single byte.
-This reduces (but does not annihilate) the risks of overriding important
-on-disk data.
-.It Fl f
-Treat exported or foreign devices as inactive.
 .El
 .It Xo
 .Nm
