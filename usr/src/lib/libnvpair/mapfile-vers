@@ -198,7 +198,6 @@ SYMBOL_VERSION SUNW_1.1 {
 	nvlist_alloc;
 	nvlist_dup;
 	nvlist_free;
-	nvlist_invalidate;
 	nvlist_lookup_boolean;
 	nvlist_lookup_byte;
 	nvlist_lookup_byte_array;
@@ -244,6 +243,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
     global:
 	dump_nvlist;
 	nvlist_add_hrtime;
+	nvlist_invalidate;
 	nvlist_lookup_hrtime;
 	nvlist_print;
 	nvlist_print_json;
