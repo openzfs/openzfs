@@ -1970,6 +1970,10 @@ dnode_next_offset(dnode_t *dn, int flags, uint64_t *offset,
 	}
 
 	maxlvl = dn->dn_phys->dn_nlevels;
+	if (minlvl > maxlvl) {
+		error = SET_ERROR(ESRCH);
+		goto out;
+	}
 
 	for (lvl = minlvl; lvl <= maxlvl; lvl++) {
 		error = dnode_next_offset_level(dn,

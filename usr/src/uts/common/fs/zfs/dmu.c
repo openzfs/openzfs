@@ -1091,7 +1091,9 @@ dmu_object_remap_indirects(objset_t *os, uint64_t object,
 		return (err);
 	}
 
-	if (dn->dn_nlevels <= 1) {
+	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
+	if (dn->dn_phys->dn_nlevels <= 1) {
+		rw_exit(&dn->dn_struct_rwlock);
 		if (issig(JUSTLOOKING) && issig(FORREAL)) {
 			err = SET_ERROR(EINTR);
 		}
