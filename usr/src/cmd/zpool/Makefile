@@ -44,8 +44,7 @@ LDLIBS += -lzfs -lnvpair -ldevid -lefi -ldiskmgt -luutil -lumem
 INCS += -I../../uts/common/fs/zfs
 INCS += -I../../common/zfs -I$(STATCOMMONDIR)
 
-C99MODE=	-xc99=%all
-C99LMODE=	-Xc99=%all
+C99MODE=	$(C99_ENABLE)
 
 CPPFLAGS += -D_LARGEFILE64_SOURCE=1 -D_REENTRANT $(INCS)
 $(NOT_RELEASE_BUILD)CPPFLAGS += -DDEBUG
