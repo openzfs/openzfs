@@ -404,16 +404,15 @@ zpool_iter(libzfs_handle_t *hdl, zpool_iter_f func, void *data)
 	zpool_handle_t *zhp;
 	int ret;
 
-	/*
-	 * If someone makes a recursive call to zpool_iter(), we want to avoid
-	 * refreshing the namespace because that will invalidate the parent
-	 * context.  We allow recursive calls, but simply re-use the same
-	 * namespace AVL tree.
-	 */
-	if (!hdl->libzfs_pool_iter && namespace_reload(hdl) != 0)
-		return (-1);
+	if (rw_trywrlock(&hdl->libzfs_ns_lock) == 0) {
+		if (namespace_reload(hdl) != 0) {
+			(void) rw_unlock(&hdl->libzfs_ns_lock);
+			return (-1);
+		}
+		(void) rw_unlock(&hdl->libzfs_ns_lock);
+	}
 
-	hdl->libzfs_pool_iter++;
+	(void) rw_rdlock(&hdl->libzfs_ns_lock);
 	for (cn = uu_avl_first(hdl->libzfs_ns_avl); cn != NULL;
 	    cn = uu_avl_next(hdl->libzfs_ns_avl, cn)) {
 
@@ -421,7 +420,7 @@ zpool_iter(libzfs_handle_t *hdl, zpool_iter_f func, void *data)
 			continue;
 
 		if (zpool_open_silent(hdl, cn->cn_name, &zhp) != 0) {
-			hdl->libzfs_pool_iter--;
+			(void) rw_unlock(&hdl->libzfs_ns_lock);
 			return (-1);
 		}
 
@@ -429,11 +428,11 @@ zpool_iter(libzfs_handle_t *hdl, zpool_iter_f func, void *data)
 			continue;
 
 		if ((ret = func(zhp, data)) != 0) {
-			hdl->libzfs_pool_iter--;
+			(void) rw_unlock(&hdl->libzfs_ns_lock);
 			return (ret);
 		}
 	}
-	hdl->libzfs_pool_iter--;
+	(void) rw_unlock(&hdl->libzfs_ns_lock);
 
 	return (0);
 }
@@ -449,9 +448,15 @@ zfs_iter_root(libzfs_handle_t *hdl, zfs_iter_f func, void *data)
 	zfs_handle_t *zhp;
 	int ret;
 
-	if (namespace_reload(hdl) != 0)
-		return (-1);
+	if (rw_trywrlock(&hdl->libzfs_ns_lock) == 0) {
+		if (namespace_reload(hdl) != 0) {
+			(void) rw_unlock(&hdl->libzfs_ns_lock);
+			return (-1);
+		}
+		(void) rw_unlock(&hdl->libzfs_ns_lock);
+	}
 
+	(void) rw_rdlock(&hdl->libzfs_ns_lock);
 	for (cn = uu_avl_first(hdl->libzfs_ns_avl); cn != NULL;
 	    cn = uu_avl_next(hdl->libzfs_ns_avl, cn)) {
 
@@ -461,9 +466,12 @@ zfs_iter_root(libzfs_handle_t *hdl, zfs_iter_f func, void *data)
 		if ((zhp = make_dataset_handle(hdl, cn->cn_name)) == NULL)
 			continue;
 
-		if ((ret = func(zhp, data)) != 0)
+		if ((ret = func(zhp, data)) != 0) {
+			(void) rw_unlock(&hdl->libzfs_ns_lock);
 			return (ret);
+		}
 	}
+	(void) rw_unlock(&hdl->libzfs_ns_lock);
 
 	return (0);
 }

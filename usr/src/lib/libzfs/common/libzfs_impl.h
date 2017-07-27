@@ -41,6 +41,8 @@
 
 #include <fm/libtopo.h>
 
+#include <synch.h>
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -65,6 +67,7 @@ struct libzfs_handle {
 	zpool_handle_t *libzfs_pool_handles;
 	uu_avl_pool_t *libzfs_ns_avlpool;
 	uu_avl_t *libzfs_ns_avl;
+	rwlock_t libzfs_ns_lock;
 	uint64_t libzfs_ns_gen;
 	int libzfs_desc_active;
 	char libzfs_action[1024];
@@ -74,7 +77,6 @@ struct libzfs_handle {
 	void *libzfs_sharehdl; /* libshare handle */
 	boolean_t libzfs_mnttab_enable;
 	avl_tree_t libzfs_mnttab_cache;
-	int libzfs_pool_iter;
 	topo_hdl_t *libzfs_topo_hdl;
 	libzfs_fru_t **libzfs_fru_hash;
 	libzfs_fru_t *libzfs_fru_list;

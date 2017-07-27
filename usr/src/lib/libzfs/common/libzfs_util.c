@@ -642,6 +642,8 @@ libzfs_init(void)
 		return (NULL);
 	}
 
+	(void) rwlock_init(&hdl->libzfs_ns_lock, USYNC_THREAD, NULL);
+
 	zfs_prop_init();
 	zpool_prop_init();
 	zpool_feature_init();
@@ -668,6 +670,7 @@ libzfs_fini(libzfs_handle_t *hdl)
 	namespace_clear(hdl);
 	libzfs_mnttab_fini(hdl);
 	libzfs_core_fini();
+	(void) rwlock_destroy(&hdl->libzfs_ns_lock);
 	free(hdl);
 }
 
