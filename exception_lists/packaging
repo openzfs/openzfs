@@ -26,6 +26,7 @@
 # Copyright 2016 Toomas Soome <tsoome@me.com>
 # Copyright 2016 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
 # Copyright 2016 Nexenta Systems, Inc.
+# Copyright (c) 2012, 2017 by Delphix. All rights reserved.
 #
 
 #
@@ -453,6 +454,7 @@ lib/llib-lcmdutils.ln
 lib/amd64/llib-lcmdutils.ln		i386
 lib/sparcv9/llib-lcmdutils.ln		sparc
 usr/include/libcmdutils.h
+usr/include/utaskq.h
 usr/lib/libcmdutils.so
 usr/lib/amd64/libcmdutils.so		i386
 usr/lib/sparcv9/libcmdutils.so		sparc
