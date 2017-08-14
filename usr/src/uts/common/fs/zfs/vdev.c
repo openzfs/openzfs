@@ -1175,10 +1175,11 @@ vdev_open(vdev_t *vd)
 	vd->vdev_min_asize = vdev_get_min_asize(vd);
 
 	/*
-	 * If this vdev is not removed, check its fault status.  If it's
-	 * faulted, bail out of the open.
+	 * If vdev isn't removed and is faulted for reasons other than failed
+	 * open, or if it's offline - bail out.
 	 */
-	if (!vd->vdev_removed && vd->vdev_faulted) {
+	if (!vd->vdev_removed && vd->vdev_faulted &&
+	    vd->vdev_label_aux != VDEV_AUX_OPEN_FAILED) {
 		ASSERT(vd->vdev_children == 0);
 		ASSERT(vd->vdev_label_aux == VDEV_AUX_ERR_EXCEEDED ||
 		    vd->vdev_label_aux == VDEV_AUX_EXTERNAL);

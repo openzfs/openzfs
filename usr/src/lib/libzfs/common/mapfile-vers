@@ -22,7 +22,7 @@
 #
 # Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2011, 2014 by Delphix. All rights reserved.
-# Copyright 2016 Nexenta Systems, Inc.
+# Copyright 2017 Nexenta Systems, Inc.
 #
 
 #
@@ -55,6 +55,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	libzfs_error_action;
 	libzfs_error_description;
 	libzfs_fini;
+	libzfs_fru_cmp_slot;
 	libzfs_fru_compare;
 	libzfs_fru_devpath;
 	libzfs_fru_lookup;

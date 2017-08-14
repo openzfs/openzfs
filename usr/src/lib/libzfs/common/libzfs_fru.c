@@ -22,6 +22,7 @@
 /*
  * Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright 2017 Nexenta Systems, Inc.
  */
 
 #include <dlfcn.h>
@@ -35,6 +36,7 @@
 #include <libzfs.h>
 
 #include <fm/libtopo.h>
+#include <fm/topo_hc.h>
 #include <sys/fm/protocol.h>
 #include <sys/systeminfo.h>
 
@@ -77,6 +79,8 @@ static int (*_topo_prop_get_string)(tnode_t *, const char *, const char *,
     char **, int *);
 static int (*_topo_node_fru)(tnode_t *, nvlist_t **, nvlist_t *, int *);
 static int (*_topo_fmri_nvl2str)(topo_hdl_t *, nvlist_t *, char **, int *);
+static int (*_topo_fmri_str2nvl)(topo_hdl_t *, const char *, nvlist_t **,
+    int *);
 static int (*_topo_fmri_strcmp_noauth)(topo_hdl_t *, const char *,
     const char *);
 
@@ -186,6 +190,75 @@ libzfs_fru_gather(topo_hdl_t *thp, tnode_t *tn, void *arg)
 }
 
 /*
+ * Given a disk FRU, check that FRU contains a slot number and remove FRU
+ * details that aren't needed when comparing FRUs by slot number.
+ */
+static char *
+diskfru_to_slot(libzfs_handle_t *hdl, const char *diskfru)
+{
+	nvlist_t *nvl, **hc;
+	char *hc_name, *tmp = NULL;
+	int ret, i;
+	uint_t hc_cnt;
+
+	/* string -> nvlist */
+	if (_topo_fmri_str2nvl(hdl->libzfs_topo_hdl, diskfru, &nvl, &ret) != 0)
+		return (NULL);
+
+	/* Need slot (bay) number in the FRU */
+	if (nvlist_lookup_nvlist_array(nvl, FM_FMRI_HC_LIST, &hc,
+	    &hc_cnt) != 0)
+		goto out;
+
+	for (i = 0; i < hc_cnt; i++) {
+		if (nvlist_lookup_string(hc[i], FM_FMRI_HC_NAME,
+		    &hc_name) == 0 && strcmp(hc_name, BAY) == 0)
+			break;
+	}
+	if (i == hc_cnt)
+		goto out;
+
+	/* Drop the unwanted components */
+	(void) nvlist_remove_all(nvl, FM_FMRI_HC_SERIAL_ID);
+	(void) nvlist_remove_all(nvl, FM_FMRI_HC_PART);
+	(void) nvlist_remove_all(nvl, FM_FMRI_HC_REVISION);
+
+	/* nvlist -> string */
+	if (_topo_fmri_nvl2str(hdl->libzfs_topo_hdl, nvl, &tmp, &ret) != 0)
+		tmp = NULL;
+out:
+	nvlist_free(nvl);
+	return (tmp);
+}
+
+/*
+ * Check if given FRUs match by slot number to skip comparing disk specific
+ * fields of the FRU.
+ */
+/* ARGSUSED */
+int
+libzfs_fru_cmp_slot(libzfs_handle_t *hdl, const char *a, const char *b,
+    size_t len)
+{
+	char *slota, *slotb;
+	int ret = -1;
+
+	if (a == NULL || b == NULL)
+		return (-1);
+
+	slota = diskfru_to_slot(hdl, a);
+	slotb = diskfru_to_slot(hdl, b);
+
+	if (slota != NULL && slotb != NULL)
+		ret = strcmp(slota, slotb);
+
+	_topo_hdl_strfree(hdl->libzfs_topo_hdl, slota);
+	_topo_hdl_strfree(hdl->libzfs_topo_hdl, slotb);
+
+	return (ret);
+}
+
+/*
  * Called during initialization to setup the dynamic libtopo connection.
  */
 #pragma init(libzfs_init_fru)
@@ -231,6 +304,8 @@ libzfs_init_fru(void)
 	    dlsym(_topo_dlhandle, "topo_node_fru");
 	_topo_fmri_nvl2str = (int (*)())
 	    dlsym(_topo_dlhandle, "topo_fmri_nvl2str");
+	_topo_fmri_str2nvl = (int (*)())
+	    dlsym(_topo_dlhandle, "topo_fmri_str2nvl");
 	_topo_fmri_strcmp_noauth = (int (*)())
 	    dlsym(_topo_dlhandle, "topo_fmri_strcmp_noauth");
 
@@ -240,7 +315,7 @@ libzfs_init_fru(void)
 	    _topo_walk_fini == NULL || _topo_hdl_strfree == NULL ||
 	    _topo_node_name == NULL || _topo_prop_get_string == NULL ||
 	    _topo_node_fru == NULL || _topo_fmri_nvl2str == NULL ||
-	    _topo_fmri_strcmp_noauth == NULL) {
+	    _topo_fmri_str2nvl == NULL || _topo_fmri_strcmp_noauth == NULL) {
 		(void) dlclose(_topo_dlhandle);
 		_topo_dlhandle = NULL;
 	}
@@ -292,7 +367,10 @@ libzfs_fru_refresh(libzfs_handle_t *hdl)
 	twp = _topo_walk_init(thp, FM_FMRI_SCHEME_HC,
 	    libzfs_fru_gather, hdl, &err);
 	if (twp != NULL) {
-		(void) _topo_walk_step(twp, TOPO_WALK_CHILD);
+		int status;
+
+		status = _topo_walk_step(twp, TOPO_WALK_CHILD);
+		assert(status != TOPO_WALK_NEXT);
 		_topo_walk_fini(twp);
 	}
 }
