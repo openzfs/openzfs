@@ -1043,6 +1043,8 @@ uint64_t l2arc_feed_min_ms = L2ARC_FEED_MIN_MS;	/* min interval milliseconds */
 boolean_t l2arc_noprefetch = B_TRUE;		/* don't cache prefetch bufs */
 boolean_t l2arc_feed_again = B_TRUE;		/* turbo warmup */
 boolean_t l2arc_norw = B_TRUE;			/* no reads during writes */
+boolean_t arc_evict_l2_first = B_TRUE;		/* first evict buffers from ARC which are in L2ARC */
+boolean_t arc_evict_l2_only = B_FALSE;		/* only evict buffers from ARC which are in L2ARC */
 
 /*
  * L2ARC Internals
@@ -1061,10 +1063,20 @@ struct l2arc_dev {
 	refcount_t		l2ad_alloc;	/* allocated bytes */
 };
 
+typedef struct l2arc_spa {
+	uint64_t	l2as_spa;	/* spa having an alive (!dead) L2 device */
+	list_node_t	l2as_node;	/* spa list node */
+} l2arc_spa_t;
+
 static list_t L2ARC_dev_list;			/* device list */
 static list_t *l2arc_dev_list;			/* device list pointer */
 static kmutex_t l2arc_dev_mtx;			/* device list mutex */
 static l2arc_dev_t *l2arc_dev_last;		/* last device used */
+static list_t L2ARC_spa_list;			/* spa list (current) */
+static list_t *l2arc_spa_list;			/* spa list (current) pointer */
+static kmutex_t l2arc_spa_mtx;			/* spa list (current) mutex */
+static list_t L2ARC_spa_new_list;		/* spa list (new) */
+static list_t *l2arc_spa_new_list;		/* spa list (new) pointer */
 static list_t L2ARC_free_on_write;		/* free after write buf list */
 static list_t *l2arc_free_on_write;		/* free after write list ptr */
 static kmutex_t l2arc_free_on_write_mtx;	/* mutex for list */
@@ -3278,9 +3290,44 @@ arc_evict_hdr(arc_buf_hdr_t *hdr, kmutex_t *hash_lock)
 	return (bytes_evicted);
 }
 
+/*
+ * Based on l2arc_spa_list, returns true if the
+ * given spa has an alive (!dead) L2 device,
+ * false otherwise.
+ * This function then simply looks for the given spa
+ * in the list of spa having an alive L2 device.
+ * This list is maintained by l2arc_dev_get_next()
+ * as it makes all the needed tests, on a regular basis.
+ */
+static boolean_t
+l2arc_alive(uint64_t spa)
+{
+	l2arc_spa_t *l2arc_spa = NULL;
+	mutex_enter(&l2arc_spa_mtx);
+	l2arc_spa = list_head(l2arc_spa_list);
+	while (l2arc_spa != NULL) {
+		if (l2arc_spa->l2as_spa == spa)
+			break;
+		l2arc_spa = list_next(l2arc_spa_list, l2arc_spa);
+	}
+	mutex_exit(&l2arc_spa_mtx);
+	return (l2arc_spa != NULL);
+}
+
+/*
+ * Used to choose specific buffers to evict :
+ * - ONLY_WITH_L2HDR indicates that we only
+ *   evict buffers with L2 header (L2-backed) ;
+ * - ALL catches all buffers.
+ */
+typedef enum evict_specific_buf_t {
+	ONLY_WITH_L2HDR,
+	ALL,
+} evict_specific_buf_t;
+
 static uint64_t
 arc_evict_state_impl(multilist_t *ml, int idx, arc_buf_hdr_t *marker,
-    uint64_t spa, int64_t bytes)
+    uint64_t spa, int64_t bytes, evict_specific_buf_t evict_specific_buf)
 {
 	multilist_sublist_t *mls;
 	uint64_t bytes_evicted = 0;
@@ -3328,6 +3375,29 @@ arc_evict_state_impl(multilist_t *ml, int idx, arc_buf_hdr_t *marker,
 		if (spa != 0 && hdr->b_spa != spa) {
 			ARCSTAT_BUMP(arcstat_evict_skip);
 			continue;
+		}
+
+		/*
+		 * This buffer will be evicted if :
+		 * - all buffers have to be evicted or
+		 * - we did not ask to prefer buffers with L2 header or
+		 * - it has a L2 header
+		 * Otherwise, it will be evicted :
+		 * - if it is not L2ARC eligible or does not have an alive L2,
+		 *   during the 1st phase of eviction (ONLY_WITH_L2HDR)
+		 * - in the other cases,
+		 *   during the 2nd phase of eviction (ALL)
+		 */
+		if (bytes != ARC_EVICT_ALL &&
+		    (arc_evict_l2_first || arc_evict_l2_only) &&
+		    !HDR_HAS_L2HDR(hdr)) {
+			if (!HDR_L2CACHE(hdr) || !l2arc_alive(hdr->b_spa)) {
+				if (evict_specific_buf == ALL)
+					continue;
+			} else {
+				if (evict_specific_buf == ONLY_WITH_L2HDR)
+					continue;
+			}
 		}
 
 		hash_lock = HDR_LOCK(hdr);
@@ -3416,6 +3486,33 @@ arc_evict_state(arc_state_t *state, uint64_t spa, int64_t bytes,
 	num_sublists = multilist_get_num_sublists(ml);
 
 	/*
+	 * Let's see if we are authorized to evict ONLY_WITH_L2HDR buffers.
+	 */
+	evict_specific_buf_t evict_specific_buf = ONLY_WITH_L2HDR;
+top:
+	/*
+	 * Skip the 1st phase of eviction (only buffers with L2 header)
+	 * if all buffers have to be evicted or
+	 * if we did not ask to prefer buffers with L2 header.
+	 */ 
+	if (evict_specific_buf == ONLY_WITH_L2HDR)
+		if (bytes == ARC_EVICT_ALL ||
+		    (!arc_evict_l2_first && !arc_evict_l2_only))
+			evict_specific_buf = ALL;
+	/*
+	 * Skip the 2nd phase of eviction (all type of buffers)
+	 * if all buffers do not have to be evicted and
+	 * if enough buffers have been evicted
+	 * (i.e. if at least some buffers have been evicted
+	 * when we asked to evict buffers with L2 header only).
+	 */
+	if (evict_specific_buf == ALL)
+		if ((bytes != ARC_EVICT_ALL) &&
+		    (total_evicted >= bytes ||
+		     (arc_evict_l2_only && total_evicted > 0)))
+			return (total_evicted);
+
+	/*
 	 * If we've tried to evict from each sublist, made some
 	 * progress, but still have not hit the target number of bytes
 	 * to evict, we want to keep trying. The markers allow us to
@@ -3465,7 +3562,7 @@ arc_evict_state(arc_state_t *state, uint64_t spa, int64_t bytes,
 				break;
 
 			bytes_evicted = arc_evict_state_impl(ml, sublist_idx,
-			    markers[sublist_idx], spa, bytes_remaining);
+			    markers[sublist_idx], spa, bytes_remaining, evict_specific_buf);
 
 			scan_evicted += bytes_evicted;
 			total_evicted += bytes_evicted;
@@ -3507,6 +3604,14 @@ arc_evict_state(arc_state_t *state, uint64_t spa, int64_t bytes,
 		kmem_cache_free(hdr_full_cache, markers[i]);
 	}
 	kmem_free(markers, sizeof (*markers) * num_sublists);
+
+	/*
+	 * Let's see if we can continue eviction with ALL buffers.
+	 */
+	if (evict_specific_buf == ONLY_WITH_L2HDR) {
+		evict_specific_buf = ALL;
+		goto top;
+	}
 
 	return (total_evicted);
 }
@@ -6381,8 +6486,25 @@ l2arc_dev_get_next(void)
 			next = list_head(l2arc_dev_list);
 		} else {
 			next = list_next(l2arc_dev_list, next);
-			if (next == NULL)
+			if (next == NULL) {
 				next = list_head(l2arc_dev_list);
+				/*
+				 * We are at the end of the l2arc_dev_list,
+				 * so activate the new list of spa with alive L2
+				 */
+				list_t *l2arc_tmp_list = l2arc_spa_list;
+				mutex_enter(&l2arc_spa_mtx);
+				l2arc_spa_list = l2arc_spa_new_list;
+				mutex_exit(&l2arc_spa_mtx);
+				l2arc_spa_new_list = l2arc_tmp_list;
+				/* and let's re-init the new list */
+				l2arc_spa_t *l2arc_spa = list_head(l2arc_spa_new_list);
+				while (l2arc_spa != NULL) {
+					list_remove(l2arc_spa_new_list, l2arc_spa);
+					kmem_free(l2arc_spa, sizeof (l2arc_spa_t));
+					l2arc_spa = list_head(l2arc_spa_new_list);
+				}
+			}
 		}
 
 		/* if we have come back to the start, bail out */
@@ -6396,6 +6518,21 @@ l2arc_dev_get_next(void)
 	/* if we were unable to find any usable vdevs, return NULL */
 	if (vdev_is_dead(next->l2ad_vdev))
 		next = NULL;
+	/* else, store the vdev's spa in the new list of spa with alive L2 */
+	else {
+		uint64_t spa = spa_load_guid(next->l2ad_spa);
+		l2arc_spa_t *l2arc_spa = list_head(l2arc_spa_new_list);
+		while (l2arc_spa != NULL) {
+			if (l2arc_spa->l2as_spa == spa)
+				break;
+			l2arc_spa = list_next(l2arc_spa_new_list, l2arc_spa);
+		}
+		if (l2arc_spa == NULL) {
+			l2arc_spa = kmem_zalloc(sizeof (l2arc_spa_t), KM_SLEEP);
+			l2arc_spa->l2as_spa = spa;
+			list_insert_head(l2arc_spa_new_list, l2arc_spa);
+		}
+	}
 
 	l2arc_dev_last = next;
 
@@ -6870,7 +7007,8 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz)
 				continue;
 			}
 
-			passed_sz += HDR_GET_LSIZE(hdr);
+			uint64_t psize = arc_hdr_size(hdr);
+			passed_sz += psize;
 			if (passed_sz > headroom) {
 				/*
 				 * Searched too far.
@@ -6894,8 +7032,7 @@ l2arc_write_buffers(spa_t *spa, l2arc_dev_t *dev, uint64_t target_sz)
 
 			ASSERT3U(HDR_GET_PSIZE(hdr), >, 0);
 			ASSERT3P(hdr->b_l1hdr.b_pabd, !=, NULL);
-			ASSERT3U(arc_hdr_size(hdr), >, 0);
-			uint64_t psize = arc_hdr_size(hdr);
+			ASSERT3U(psize, >, 0);
 			uint64_t asize = vdev_psize_to_asize(dev->l2ad_vdev,
 			    psize);
 
@@ -7224,12 +7361,19 @@ l2arc_init(void)
 	mutex_init(&l2arc_feed_thr_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&l2arc_feed_thr_cv, NULL, CV_DEFAULT, NULL);
 	mutex_init(&l2arc_dev_mtx, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&l2arc_spa_mtx, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&l2arc_free_on_write_mtx, NULL, MUTEX_DEFAULT, NULL);
 
 	l2arc_dev_list = &L2ARC_dev_list;
+	l2arc_spa_list = &L2ARC_spa_list;
+	l2arc_spa_new_list = &L2ARC_spa_new_list;
 	l2arc_free_on_write = &L2ARC_free_on_write;
 	list_create(l2arc_dev_list, sizeof (l2arc_dev_t),
 	    offsetof(l2arc_dev_t, l2ad_node));
+	list_create(l2arc_spa_list, sizeof (l2arc_spa_t),
+	    offsetof(l2arc_spa_t, l2as_node));
+	list_create(l2arc_spa_new_list, sizeof (l2arc_spa_t),
+	    offsetof(l2arc_spa_t, l2as_node));
 	list_create(l2arc_free_on_write, sizeof (l2arc_data_free_t),
 	    offsetof(l2arc_data_free_t, l2df_list_node));
 }
@@ -7248,9 +7392,30 @@ l2arc_fini(void)
 	mutex_destroy(&l2arc_feed_thr_lock);
 	cv_destroy(&l2arc_feed_thr_cv);
 	mutex_destroy(&l2arc_dev_mtx);
+	mutex_destroy(&l2arc_spa_mtx);
 	mutex_destroy(&l2arc_free_on_write_mtx);
 
+	/*
+	 * l2arc_spa lists could however still have some members,
+	 * let's free them before destroying the lists.
+	 */
+	l2arc_spa_t *l2arc_spa;
+	l2arc_spa = list_head(l2arc_spa_list);
+	while (l2arc_spa != NULL) {
+		list_remove(l2arc_spa_list, l2arc_spa);
+		kmem_free(l2arc_spa, sizeof (l2arc_spa_t));
+		l2arc_spa = list_head(l2arc_spa_list);
+	}
+	l2arc_spa = list_head(l2arc_spa_new_list);
+	while (l2arc_spa != NULL) {
+		list_remove(l2arc_spa_new_list, l2arc_spa);
+		kmem_free(l2arc_spa, sizeof (l2arc_spa_t));
+		l2arc_spa = list_head(l2arc_spa_new_list);
+	}
+
 	list_destroy(l2arc_dev_list);
+	list_destroy(l2arc_spa_list);
+	list_destroy(l2arc_spa_new_list);
 	list_destroy(l2arc_free_on_write);
 }
 
