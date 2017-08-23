@@ -450,8 +450,8 @@ zfs_replay_create(zfsvfs_t *zfsvfs, lr_create_t *lr, boolean_t byteswap)
 	 * eventually end up in zfs_mknode(), which assigns the object's
 	 * creation time, generation number, and dnode slot count. The
 	 * generic VOP_CREATE() has no concept of these attributes, so
-	 * we smuggle the values inside * the vattr's otherwise unused
-	 * va_ctime, va_nblocks, and va_nlink fields.
+	 * we smuggle the values inside the vattr's otherwise unused
+	 * va_ctime, va_nblocks, and va_fsid fields.
 	 */
 	ZFS_TIME_DECODE(&xva.xva_vattr.va_ctime, lr->lr_crtime);
 	xva.xva_vattr.va_nblocks = lr->lr_gen;
