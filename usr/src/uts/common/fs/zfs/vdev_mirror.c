@@ -128,8 +128,8 @@ vdev_mirror_map_alloc(zio_t *zio)
 		 *    "spare-1" or something like that), and
 		 * 2) The pool is currently being resilvered.
 		 *
-		 * We cannot simply check vd->vdev_resilvering, because that
-		 * variable has never been correctly calculated.
+		 * We cannot simply check vd->vdev_resilver_txg, because it's
+		 * not set in this path.
 		 *
 		 * Nor can we just check our vdev_ops; there are cases (such as
 		 * when a user types "zpool replace pool odev spare_dev" and
