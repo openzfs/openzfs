@@ -1068,7 +1068,7 @@ zpool_open_func(void *arg)
  */
 int
 zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
-    boolean_t check, boolean_t cherry)
+    boolean_t force, boolean_t cherry)
 {
 	struct stat64 statbuf;
 	unsigned int l, end;
@@ -1087,12 +1087,12 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 		return (-1);
 
 	for (l = start; l < end; l++) {
-		if (check || cherry) {
+		if (!force || cherry) {
 			if (pread64(fd, &label, sizeof (vdev_label_t),
 			    label_offset(size, l)) != sizeof (vdev_label_t))
 				return (-1);
 
-			if (check == B_TRUE) {
+			if (!force) {
 				nvlist_t *config = NULL;
 				if (nvlist_unpack(buf, buflen, &config, 0) != 0)
 					return (-1);
@@ -1100,7 +1100,7 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 			}
 		}
 
-		if (cherry == B_TRUE) {
+		if (cherry) {
 			if (nvlist_invalidate(buf, buflen) != 0)
 				return (-1);
 		} else {
@@ -1121,7 +1121,7 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 int
 zpool_clear_label(int fd)
 {
-	return (zpool_clear_n_labels(fd, 0, VDEV_LABELS, B_FALSE, B_FALSE));
+	return (zpool_clear_n_labels(fd, 0, VDEV_LABELS, B_TRUE, B_FALSE));
 }
 
 /*

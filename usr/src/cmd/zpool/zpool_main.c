@@ -236,7 +236,7 @@ get_usage(zpool_help_t idx)
 		return (gettext("\tiostat [-v] [-T d|u] [pool] ... [interval "
 		    "[count]]\n"));
 	case HELP_LABELCLEAR:
-		return (gettext("\tlabelclear [-b | -e | -i index] [-c] [-m] "
+		return (gettext("\tlabelclear [-b | -e | -i index] [-m] "
 		    "[-f] <vdev>\n"));
 	case HELP_LIST:
 		return (gettext("\tlist [-Hp] [-o property[,...]] "
@@ -655,14 +655,13 @@ zpool_do_labelclear(int argc, char **argv)
 	pool_state_t state;
 	boolean_t inuse = B_FALSE;
 	boolean_t force = B_FALSE;
-	boolean_t check = B_FALSE;
 	boolean_t cherry = B_FALSE;
 	unsigned int start = 0, n = VDEV_LABELS;
 	long long index = 0;
 	const char *errstr;
 
 	/* check options */
-	while ((c = getopt(argc, argv, "bei:cmf")) != -1) {
+	while ((c = getopt(argc, argv, "bei:mf")) != -1) {
 		switch (c) {
 		case 'b':
 			start = 0;
@@ -681,9 +680,6 @@ zpool_do_labelclear(int argc, char **argv)
 			}
 			start = (unsigned int)index;
 			n = 1;
-			break;
-		case 'c':
-			check = B_TRUE;
 			break;
 		case 'm':
 			cherry = B_TRUE;
@@ -798,7 +794,7 @@ zpool_do_labelclear(int argc, char **argv)
 	}
 
 wipe_label:
-	ret = zpool_clear_n_labels(fd, start, n, check, cherry);
+	ret = zpool_clear_n_labels(fd, start, n, force, cherry);
 	if (ret != 0) {
 		(void) fprintf(stderr,
 		    gettext("failed to clear label for %s\n"), vdev);
