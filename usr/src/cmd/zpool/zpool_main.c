@@ -236,7 +236,7 @@ get_usage(zpool_help_t idx)
 		return (gettext("\tiostat [-v] [-T d|u] [pool] ... [interval "
 		    "[count]]\n"));
 	case HELP_LABELCLEAR:
-		return (gettext("\tlabelclear [-b | -e | -i index] [-m] "
+		return (gettext("\tlabelclear [-b | -e | -i index] [-w] "
 		    "[-f] <vdev>\n"));
 	case HELP_LIST:
 		return (gettext("\tlist [-Hp] [-o property[,...]] "
@@ -636,12 +636,22 @@ zpool_do_remove(int argc, char **argv)
 }
 
 /*
- * zpool labelclear [-f] <vdev>
+ * zpool labelclear [-b | -e | -i index] [-w] [-f] <vdev>
  *
- *	-f	Force clearing the label for the vdevs which are members of
- *		the exported or foreign pools.
+ *	-b		Only work on labels located at the beginning of the
+ *			device.
  *
- * Verifies that the vdev is not active and zeros out the label information
+ *	-e		Only work on labels located at the end of the device.
+ *
+ *	-i index	Only work on labels located at specified index.
+ *
+ *	-w		Wipe label area entirely and replace it with zeroes.
+ *
+ *	-f		Force clearing the label for the vdevs which are
+ *			members of the exported or foreign pools. Also consider
+ *			seemingly invalid labels as valid ones.
+ *
+ * Verifies that the vdev is not active and invalidates the label information
  * on the device.
  */
 int
@@ -655,13 +665,13 @@ zpool_do_labelclear(int argc, char **argv)
 	pool_state_t state;
 	boolean_t inuse = B_FALSE;
 	boolean_t force = B_FALSE;
-	boolean_t cherry = B_FALSE;
+	boolean_t wipe = B_FALSE;
 	unsigned int start = 0, n = VDEV_LABELS;
 	long long index = 0;
 	const char *errstr;
 
 	/* check options */
-	while ((c = getopt(argc, argv, "bei:mf")) != -1) {
+	while ((c = getopt(argc, argv, "bei:wf")) != -1) {
 		switch (c) {
 		case 'b':
 			start = 0;
@@ -681,8 +691,8 @@ zpool_do_labelclear(int argc, char **argv)
 			start = (unsigned int)index;
 			n = 1;
 			break;
-		case 'm':
-			cherry = B_TRUE;
+		case 'w':
+			wipe = B_TRUE;
 			break;
 		case 'f':
 			force = B_TRUE;
@@ -794,7 +804,7 @@ zpool_do_labelclear(int argc, char **argv)
 	}
 
 wipe_label:
-	ret = zpool_clear_n_labels(fd, start, n, force, cherry);
+	ret = zpool_clear_n_labels(fd, start, n, force, wipe);
 	if (ret != 0) {
 		(void) fprintf(stderr,
 		    gettext("failed to clear label for %s\n"), vdev);

@@ -1064,11 +1064,11 @@ zpool_open_func(void *arg)
 
 /*
  * Given a file descriptor, a starting label and a number of labels to clear,
- * clear (zero) the label information.
+ * invalidate or clear (zero) the label information.
  */
 int
 zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
-    boolean_t force, boolean_t cherry)
+    boolean_t force, boolean_t wipe)
 {
 	struct stat64 statbuf;
 	unsigned int l, end;
@@ -1087,7 +1087,7 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 		return (-1);
 
 	for (l = start; l < end; l++) {
-		if (!force || cherry) {
+		if (!force || !wipe) {
 			if (pread64(fd, &label, sizeof (vdev_label_t),
 			    label_offset(size, l)) != sizeof (vdev_label_t))
 				return (-1);
@@ -1100,11 +1100,11 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 			}
 		}
 
-		if (cherry) {
+		if (wipe) {
+			(void) memset(&label, 0, sizeof (vdev_label_t));
+		} else {
 			if (nvlist_invalidate(buf, buflen) != 0)
 				return (-1);
-		} else {
-			(void) memset(&label, 0, sizeof (vdev_label_t));
 		}
 
 		if (pwrite64(fd, &label, sizeof (vdev_label_t),
@@ -1121,7 +1121,7 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 int
 zpool_clear_label(int fd)
 {
-	return (zpool_clear_n_labels(fd, 0, VDEV_LABELS, B_TRUE, B_FALSE));
+	return (zpool_clear_n_labels(fd, 0, VDEV_LABELS, B_TRUE, B_TRUE));
 }
 
 /*
