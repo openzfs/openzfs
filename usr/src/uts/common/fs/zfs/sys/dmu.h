@@ -60,6 +60,7 @@ struct xuio;
 struct page;
 struct vnode;
 struct spa;
+struct zil_writer;
 struct zilog;
 struct zio;
 struct blkptr;
@@ -912,6 +913,7 @@ uint64_t dmu_tx_get_txg(dmu_tx_t *tx);
  */
 typedef struct zgd {
 	struct zilog	*zgd_zilog;
+	struct zil_writer	*zgd_zilw;
 	struct blkptr	*zgd_bp;
 	dmu_buf_t	*zgd_db;
 	struct rl	*zgd_rl;
