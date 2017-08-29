@@ -1087,7 +1087,7 @@ zpool_clear_n_labels(int fd, unsigned int start, unsigned int n,
 		return (-1);
 
 	for (l = start; l < end; l++) {
-		if (!force || !wipe) {
+		if (!(force && wipe)) {
 			if (pread64(fd, &label, sizeof (vdev_label_t),
 			    label_offset(size, l)) != sizeof (vdev_label_t))
 				return (-1);
