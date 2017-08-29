@@ -665,6 +665,7 @@ zpool_do_labelclear(int argc, char **argv)
 	pool_state_t state;
 	boolean_t inuse = B_FALSE;
 	boolean_t force = B_FALSE;
+	boolean_t force_invalid = B_FALSE;
 	boolean_t wipe = B_FALSE;
 	unsigned int start = 0, n = VDEV_LABELS;
 	long long index = 0;
@@ -695,6 +696,9 @@ zpool_do_labelclear(int argc, char **argv)
 			wipe = B_TRUE;
 			break;
 		case 'f':
+			if(force)
+				/* -f specified twice */
+				force_invalid = B_TRUE;
 			force = B_TRUE;
 			break;
 		default:
@@ -804,7 +808,7 @@ zpool_do_labelclear(int argc, char **argv)
 	}
 
 wipe_label:
-	ret = zpool_clear_n_labels(fd, start, n, force, wipe);
+	ret = zpool_clear_n_labels(fd, start, n, force_invalid, wipe);
 	if (ret != 0) {
 		(void) fprintf(stderr,
 		    gettext("failed to clear label for %s\n"), vdev);
