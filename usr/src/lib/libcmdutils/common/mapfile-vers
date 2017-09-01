@@ -21,6 +21,7 @@
 #
 # Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright (c) 2013 RackTop Systems.
+# Copyright (c) 2014, 2017 by Delphix. All rights reserved.
 #
 
 #
@@ -55,6 +56,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	destroy_tree;
 	findnextgid;
 	findnextuid;
+	get_attrdirs;
 	list_create;
 	list_destroy;
 	list_head;
@@ -72,13 +74,21 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	list_remove_head;
 	list_remove_tail;
 	list_tail;
-	tnode_compare;
-	sysattr_type;
-	sysattr_support;
-	writefile;
-	get_attrdirs;
 	mv_xattrs;
 	sysattr_list;
+	sysattr_type;
+	sysattr_support;
+	system_utaskq;
+	system_utaskq_init;
+	system_utaskq_fini;
+	tnode_compare;
+	utaskq_create;
+	utaskq_destroy;
+	utaskq_dispatch;
+	utaskq_dispatch_ent;
+	utaskq_member;
+	utaskq_wait;
+	writefile;
     local:
 	*;
 };

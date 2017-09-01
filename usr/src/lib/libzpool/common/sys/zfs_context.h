@@ -21,7 +21,7 @@
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2011 Nexenta Systems, Inc.  All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  */
 
@@ -41,6 +41,8 @@ extern "C" {
 #define	_SYS_VFS_H
 #define	_SYS_SUNDDI_H
 #define	_SYS_CALLB_H
+#define	_SYS_TASKQ_H
+#define	_SYS_TASKQ_IMPL_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,6 +65,7 @@ extern "C" {
 #include <procfs.h>
 #include <pthread.h>
 #include <setjmp.h>
+#include <utaskq.h>
 #include <sys/debug.h>
 #include <libsysevent.h>
 #include <sys/note.h>
@@ -350,51 +353,6 @@ typedef enum kmem_cbrc {
 	KMEM_CBRC_DONT_KNOW
 } kmem_cbrc_t;
 
-/*
- * Task queues
- */
-typedef struct taskq taskq_t;
-typedef uintptr_t taskqid_t;
-typedef void (task_func_t)(void *);
-
-typedef struct taskq_ent {
-	struct taskq_ent	*tqent_next;
-	struct taskq_ent	*tqent_prev;
-	task_func_t		*tqent_func;
-	void			*tqent_arg;
-	uintptr_t		tqent_flags;
-} taskq_ent_t;
-
-#define	TQENT_FLAG_PREALLOC	0x1	/* taskq_dispatch_ent used */
-
-#define	TASKQ_PREPOPULATE	0x0001
-#define	TASKQ_CPR_SAFE		0x0002	/* Use CPR safe protocol */
-#define	TASKQ_DYNAMIC		0x0004	/* Use dynamic thread scheduling */
-#define	TASKQ_THREADS_CPU_PCT	0x0008	/* Scale # threads by # cpus */
-#define	TASKQ_DC_BATCH		0x0010	/* Mark threads as batch */
-
-#define	TQ_SLEEP	KM_SLEEP	/* Can block for memory */
-#define	TQ_NOSLEEP	KM_NOSLEEP	/* cannot block for memory; may fail */
-#define	TQ_NOQUEUE	0x02		/* Do not enqueue if can't dispatch */
-#define	TQ_FRONT	0x08		/* Queue in front */
-
-
-extern taskq_t *system_taskq;
-
-extern taskq_t	*taskq_create(const char *, int, pri_t, int, int, uint_t);
-#define	taskq_create_proc(a, b, c, d, e, p, f) \
-	    (taskq_create(a, b, c, d, e, f))
-#define	taskq_create_sysdc(a, b, d, e, p, dc, f) \
-	    (taskq_create(a, b, maxclsyspri, d, e, f))
-extern taskqid_t taskq_dispatch(taskq_t *, task_func_t, void *, uint_t);
-extern void	taskq_dispatch_ent(taskq_t *, task_func_t, void *, uint_t,
-    taskq_ent_t *);
-extern void	taskq_destroy(taskq_t *);
-extern void	taskq_wait(taskq_t *);
-extern int	taskq_member(taskq_t *, void *);
-extern void	system_taskq_init(void);
-extern void	system_taskq_fini(void);
-
 #define	XVA_MAPSIZE	3
 #define	XVA_MAGIC	0x78766174
 
@@ -573,6 +531,40 @@ typedef struct callb_cpr {
 
 extern char *kmem_asprintf(const char *fmt, ...);
 #define	strfree(str) kmem_free((str), strlen(str) + 1)
+
+/*
+ * Task queues. Kernel taskq symbols are mapped to libcmdutil utaskq symbols.
+ */
+#define	TQ_SLEEP	UTQ_SLEEP
+#define	TQ_NOSLEEP	UTQ_NOSLEEP
+#define	TQ_NOQUEUE	UTQ_NOQUEUE
+#define	TQ_FRONT	UTQ_FRONT
+
+#define	TASKQ_PREPOPULATE	UTASKQ_PREPOPULATE
+#define	TASKQ_CPR_SAFE		UTASKQ_CPR_SAFE
+#define	TASKQ_DYNAMIC		UTASKQ_DYNAMIC
+#define	TASKQ_THREADS_CPU_PCT	UTASKQ_THREADS_CPU_PCT
+#define	TASKQ_DC_BATCH		UTASKQ_DC_BATCH
+
+#define	system_taskq	system_utaskq
+
+typedef	utaskq_ent_t	taskq_ent_t;
+#define	tqent_next	utqent_next
+typedef	utaskq_t	taskq_t;
+typedef	utask_func_t	task_func_t;
+
+#define	system_taskq_init()		system_utaskq_init()
+#define	system_taskq_fini()		system_utaskq_fini()
+#define	taskq_create(a, b, c, d, e, f)	utaskq_create(a, b, c, d, e, f)
+#define	taskq_dispatch(a, b, c, d)	utaskq_dispatch(a, b, c, d)
+#define	taskq_dispatch_ent(a, b, c, d, e) utaskq_dispatch_ent(a, b, c, d, e)
+#define	taskq_destroy(a)		utaskq_destroy(a)
+#define	taskq_wait(a)			utaskq_wait(a)
+#define	taskq_member(a, b)		utaskq_member(a, b)
+#define	taskq_create_proc(a, b, c, d, e, p, f) \
+	    (utaskq_create(a, b, c, d, e, f))
+#define	taskq_create_sysdc(a, b, d, e, p, dc, f) \
+	    (utaskq_create(a, b, maxclsyspri, d, e, f))
 
 /*
  * Hostname information
