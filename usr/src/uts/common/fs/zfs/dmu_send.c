@@ -2185,10 +2185,9 @@ receive_freeobjects(struct receive_writer_arg *rwa,
 	for (obj = drrfo->drr_firstobj == 0 ? 1 : drrfo->drr_firstobj;
 	    obj < drrfo->drr_firstobj + drrfo->drr_numobjs && next_err == 0;
 	    next_err = dmu_object_next(rwa->os, &obj, FALSE, 0)) {
-		dmu_object_info_t doi;
 		int err;
 
-		err = dmu_object_info(rwa->os, obj, &doi);
+		err = dmu_object_info(rwa->os, obj, NULL);
 		if (err == ENOENT) {
 			obj++;
 			continue;
