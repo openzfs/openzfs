@@ -648,8 +648,8 @@ zpool_do_remove(int argc, char **argv)
  *	-w		Wipe label area entirely and replace it with zeroes.
  *
  *	-f		Force clearing the label for the vdevs which are
- *			members of the exported or foreign pools. Also consider
- *			seemingly invalid labels as valid ones.
+ *			members of the exported or foreign pools. If specified
+ *			twice, clear even seemingly-invalid labels.
  *
  * Verifies that the vdev is not active and invalidates the label information
  * on the device.
@@ -684,7 +684,7 @@ zpool_do_labelclear(int argc, char **argv)
 			break;
 		case 'i':
 			index = strtonum(optarg, 0, VDEV_LABELS - 1, &errstr);
-			if(errstr) {
+			if (errstr != NULL) {
 				(void) fprintf(stderr,
 				    gettext("Invalid index value provided\n"));
 				return (1);
@@ -696,9 +696,10 @@ zpool_do_labelclear(int argc, char **argv)
 			wipe = B_TRUE;
 			break;
 		case 'f':
-			if(force)
+			if (force) {
 				/* -f specified twice */
 				force_invalid = B_TRUE;
+			}
 			force = B_TRUE;
 			break;
 		default:
