@@ -1322,7 +1322,7 @@ zfs_do_destroy(int argc, char **argv)
 			char buf[16];
 			zfs_nicenum(cb.cb_snapused, buf, sizeof (buf));
 			if (cb.cb_parsable) {
-				(void) printf("reclaim\t%llu\n",
+				(void) printf("reclaim\t%"PRIu64"\n",
 				    cb.cb_snapused);
 			} else if (cb.cb_dryrun) {
 				(void) printf(gettext("would reclaim %s\n"),
@@ -2065,7 +2065,7 @@ upgrade_set_callback(zfs_handle_t *zhp, void *data)
 	if (version < cb->cb_version) {
 		char verstr[16];
 		(void) snprintf(verstr, sizeof (verstr),
-		    "%llu", cb->cb_version);
+		    "%"PRIu64, cb->cb_version);
 		if (cb->cb_lastfs[0] && !same_pool(zhp, cb->cb_lastfs)) {
 			/*
 			 * If they did "zfs upgrade -a", then we could
@@ -2173,10 +2173,10 @@ zfs_do_upgrade(int argc, char **argv)
 			cb.cb_version = ZPL_VERSION;
 		ret = zfs_for_each(argc, argv, flags, ZFS_TYPE_FILESYSTEM,
 		    NULL, NULL, 0, upgrade_set_callback, &cb);
-		(void) printf(gettext("%llu filesystems upgraded\n"),
+		(void) printf(gettext("%"PRIu64" filesystems upgraded\n"),
 		    cb.cb_numupgraded);
 		if (cb.cb_numsamegraded) {
-			(void) printf(gettext("%llu filesystems already at "
+			(void) printf(gettext("%"PRIu64" filesystems already at "
 			    "this version\n"),
 			    cb.cb_numsamegraded);
 		}
@@ -2533,7 +2533,7 @@ userspace_cb(void *arg, const char *domain, uid_t rid, uint64_t space)
 	if (cb->cb_nicenum)
 		zfs_nicenum(space, sizebuf, sizeof (sizebuf));
 	else
-		(void) snprintf(sizebuf, sizeof (sizebuf), "%llu", space);
+		(void) snprintf(sizebuf, sizeof (sizebuf), "%"PRIu64, space);
 	sizelen = strlen(sizebuf);
 	if (prop == ZFS_PROP_USERUSED || prop == ZFS_PROP_GROUPUSED) {
 		propname = "used";
@@ -2604,7 +2604,7 @@ print_us_node(boolean_t scripted, boolean_t parsable, int *fields, int types,
 			break;
 		case USFIELD_NAME:
 			if (type == DATA_TYPE_UINT64) {
-				(void) sprintf(valstr, "%llu", val64);
+				(void) sprintf(valstr, "%"PRIu64, val64);
 				strval = valstr;
 			}
 			break;
@@ -2612,7 +2612,7 @@ print_us_node(boolean_t scripted, boolean_t parsable, int *fields, int types,
 		case USFIELD_QUOTA:
 			if (type == DATA_TYPE_UINT64) {
 				if (parsable) {
-					(void) sprintf(valstr, "%llu", val64);
+					(void) sprintf(valstr, "%"PRIu64, val64);
 				} else {
 					zfs_nicenum(val64, valstr,
 					    sizeof (valstr));
@@ -2635,9 +2635,9 @@ print_us_node(boolean_t scripted, boolean_t parsable, int *fields, int types,
 		if (scripted)
 			(void) printf("%s", strval);
 		else if (field == USFIELD_TYPE || field == USFIELD_NAME)
-			(void) printf("%-*s", width[field], strval);
+			(void) printf("%-*s", (int)width[field], strval);
 		else
-			(void) printf("%*s", width[field], strval);
+			(void) printf("%*s", (int)width[field], strval);
 
 		first = B_FALSE;
 		cfield++;
@@ -2662,10 +2662,10 @@ print_us(boolean_t scripted, boolean_t parsable, int *fields, int types,
 			col = gettext(us_field_hdr[field]);
 			if (field == USFIELD_TYPE || field == USFIELD_NAME) {
 				(void) printf(first ? "%-*s" : "  %-*s",
-				    width[field], col);
+				    (int)width[field], col);
 			} else {
 				(void) printf(first ? "%*s" : "  %*s",
-				    width[field], col);
+				    (int)width[field], col);
 			}
 			first = B_FALSE;
 			cfield++;
@@ -2958,9 +2958,9 @@ print_header(list_cbdata_t *cb)
 		if (pl->pl_next == NULL && !right_justify)
 			(void) printf("%s", header);
 		else if (right_justify)
-			(void) printf("%*s", pl->pl_width, header);
+			(void) printf("%*s", (int)pl->pl_width, header);
 		else
-			(void) printf("%-*s", pl->pl_width, header);
+			(void) printf("%-*s", (int)pl->pl_width, header);
 	}
 
 	(void) printf("\n");
@@ -3036,9 +3036,9 @@ print_dataset(zfs_handle_t *zhp, list_cbdata_t *cb)
 		if (cb->cb_scripted || (pl->pl_next == NULL && !right_justify))
 			(void) printf("%s", propstr);
 		else if (right_justify)
-			(void) printf("%*s", pl->pl_width, propstr);
+			(void) printf("%*s", (int)pl->pl_width, propstr);
 		else
-			(void) printf("%-*s", pl->pl_width, propstr);
+			(void) printf("%-*s", (int)pl->pl_width, propstr);
 	}
 
 	(void) printf("\n");
@@ -3570,7 +3570,7 @@ zfs_do_set(int argc, char **argv)
 			if (ds_start > 0) {
 				/* out-of-order prop=val argument */
 				(void) fprintf(stderr, gettext("invalid "
-				    "argument order\n"), i);
+				    "argument order\n"));
 				usage(B_FALSE);
 			}
 		} else if (ds_start < 0) {
@@ -5184,7 +5184,7 @@ print_set_creat_perms(uu_avl_t *who_avl)
 		deleg_perm_node_t *deleg_node;
 
 		if (prev_weight != weight) {
-			(void) printf(*title_ptr++);
+			(void) printf("%s", *title_ptr++);
 			prev_weight = weight;
 		}
 
@@ -5239,7 +5239,7 @@ print_uge_deleg_perms(uu_avl_t *who_avl, boolean_t local, boolean_t descend,
 				const char *who = NULL;
 				if (prt_title) {
 					prt_title = B_FALSE;
-					(void) printf(title);
+					(void) printf("%s", title);
 				}
 
 				switch (who_type) {
@@ -5300,7 +5300,7 @@ print_fs_perms(fs_perm_set_t *fspset)
 		(void) snprintf(buf, sizeof (buf),
 		    gettext("---- Permissions on %s "),
 		    node->fspn_fsperm.fsp_name);
-		(void) printf(dsname);
+		(void) printf("%s", dsname);
 		left = 70 - strlen(buf);
 		while (left-- > 0)
 			(void) printf("-");
@@ -5578,7 +5578,7 @@ print_holds(boolean_t scripted, size_t nwidth, size_t tagwidth, nvlist_t *nvl)
 		for (i = 0; i < 3; i++) {
 			col = gettext(hdr_cols[i]);
 			if (i < 2)
-				(void) printf("%-*s  ", i ? tagwidth : nwidth,
+				(void) printf("%-*s  ", i ? (int)tagwidth : (int)nwidth,
 				    col);
 			else
 				(void) printf("%s\n", col);
@@ -5605,8 +5605,8 @@ print_holds(boolean_t scripted, size_t nwidth, size_t tagwidth, nvlist_t *nvl)
 			(void) strftime(tsbuf, DATETIME_BUF_LEN,
 			    gettext(STRFTIME_FMT_STR), &t);
 
-			(void) printf("%-*s%*c%-*s%*c%s\n", nwidth, zname,
-			    sepnum, sep, tagwidth, tagname, sepnum, sep, tsbuf);
+			(void) printf("%-*s%*c%-*s%*c%s\n", (int)nwidth, zname,
+			    (int)sepnum, (int)sep, (int)tagwidth, tagname, (int)sepnum, (int)sep, tsbuf);
 		}
 	}
 }
@@ -6067,7 +6067,7 @@ append_options(char *mntopts, char *newopts)
 	/* original length plus new string to append plus 1 for the comma */
 	if (len + 1 + strlen(newopts) >= MNT_LINE_MAX) {
 		(void) fprintf(stderr, gettext("the opts argument for "
-		    "'%c' option is too long (more than %d chars)\n"),
+		    "'%s' option is too long (more than %d chars)\n"),
 		    "-o", MNT_LINE_MAX);
 		usage(B_FALSE);
 	}

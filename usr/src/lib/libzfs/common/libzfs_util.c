@@ -584,13 +584,13 @@ zfs_nicenum(uint64_t num, char *buf, size_t buflen)
 	u = " KMGTPE"[index];
 
 	if (index == 0) {
-		(void) snprintf(buf, buflen, "%llu", n);
+		(void) snprintf(buf, buflen, "%"PRIu64, n);
 	} else if ((num & ((1ULL << 10 * index) - 1)) == 0) {
 		/*
 		 * If this is an even multiple of the base, always display
 		 * without any decimal precision.
 		 */
-		(void) snprintf(buf, buflen, "%llu%c", n, u);
+		(void) snprintf(buf, buflen, "%"PRIu64"%c", n, u);
 	} else {
 		/*
 		 * We want to choose a precision that reflects the best choice
@@ -782,9 +782,9 @@ zcmd_free_nvlists(zfs_cmd_t *zc)
 	free((void *)(uintptr_t)zc->zc_nvlist_conf);
 	free((void *)(uintptr_t)zc->zc_nvlist_src);
 	free((void *)(uintptr_t)zc->zc_nvlist_dst);
-	zc->zc_nvlist_conf = NULL;
-	zc->zc_nvlist_src = NULL;
-	zc->zc_nvlist_dst = NULL;
+	zc->zc_nvlist_conf = (uint64_t)NULL;
+	zc->zc_nvlist_src = (uint64_t)NULL;
+	zc->zc_nvlist_dst = (uint64_t)NULL;
 }
 
 static int
