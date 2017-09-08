@@ -48,7 +48,6 @@
 #include <zone.h>
 #include <zfs_prop.h>
 #include <sys/fs/zfs.h>
-#include <sys/vdev_impl.h>
 #include <sys/stat.h>
 
 #include <libzfs.h>
