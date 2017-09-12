@@ -1315,13 +1315,17 @@ zfs_zinactive(znode_t *zp)
 
 	/*
 	 * If this was the last reference to a file with no links,
-	 * remove the file from the file system.
+	 * remove the file from the file system unless the filesystem
+	 * is mounted readonly.
 	 */
 	if (zp->z_unlinked) {
-		mutex_exit(&zp->z_lock);
-		ZFS_OBJ_HOLD_EXIT(zfsvfs, z_id);
-		zfs_rmnode(zp);
-		return;
+		ASSERT(!zfsvfs->z_issnap);
+		if ((zfsvfs->z_vfs->vfs_flag & VFS_RDONLY) == 0) {
+			mutex_exit(&zp->z_lock);
+			ZFS_OBJ_HOLD_EXIT(zfsvfs, z_id);
+			zfs_rmnode(zp);
+			return;
+		}
 	}
 
 	mutex_exit(&zp->z_lock);
