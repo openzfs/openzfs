@@ -271,7 +271,7 @@ zil_prt_rec_acl(zilog_t *zilog, int txtype, void *arg)
 	    (u_longlong_t)lr->lr_foid, (u_longlong_t)lr->lr_aclcnt);
 }
 
-typedef void (*zil_prt_rec_func_t)(zilog_t*, int, void*);
+typedef void (*zil_prt_rec_func_t)(zilog_t *, int, void *);
 typedef struct zil_rec_info {
 	zil_prt_rec_func_t	zri_print;
 	const char		*zri_name;
@@ -279,27 +279,27 @@ typedef struct zil_rec_info {
 } zil_rec_info_t;
 
 static zil_rec_info_t zil_rec_info[TX_MAX_TYPE] = {
-	{.zri_print=NULL,		.zri_name="Total              "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_CREATE          "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_MKDIR           "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_MKXATTR         "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_SYMLINK         "},
-	{.zri_print=zil_prt_rec_remove,	.zri_name="TX_REMOVE          "},
-	{.zri_print=zil_prt_rec_remove,	.zri_name="TX_RMDIR           "},
-	{.zri_print=zil_prt_rec_link,	.zri_name="TX_LINK            "},
-	{.zri_print=zil_prt_rec_rename,	.zri_name="TX_RENAME          "},
-	{.zri_print=zil_prt_rec_write,	.zri_name="TX_WRITE           "},
-	{.zri_print=zil_prt_rec_truncate, .zri_name="TX_TRUNCATE        "},
-	{.zri_print=zil_prt_rec_setattr,  .zri_name="TX_SETATTR         "},
-	{.zri_print=zil_prt_rec_acl,	.zri_name="TX_ACL_V0          "},
-	{.zri_print=zil_prt_rec_acl,	.zri_name="TX_ACL_ACL         "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_CREATE_ACL      "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_CREATE_ATTR     "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_CREATE_ACL_ATTR "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_MKDIR_ACL       "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_MKDIR_ATTR      "},
-	{.zri_print=zil_prt_rec_create,	.zri_name="TX_MKDIR_ACL_ATTR  "},
-	{.zri_print=zil_prt_rec_write,	.zri_name="TX_WRITE2          "},
+	{.zri_print = NULL,		    .zri_name = "Total              "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_CREATE          "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_MKDIR           "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_MKXATTR         "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_SYMLINK         "},
+	{.zri_print = zil_prt_rec_remove,   .zri_name = "TX_REMOVE          "},
+	{.zri_print = zil_prt_rec_remove,   .zri_name = "TX_RMDIR           "},
+	{.zri_print = zil_prt_rec_link,	    .zri_name = "TX_LINK            "},
+	{.zri_print = zil_prt_rec_rename,   .zri_name = "TX_RENAME          "},
+	{.zri_print = zil_prt_rec_write,    .zri_name = "TX_WRITE           "},
+	{.zri_print = zil_prt_rec_truncate, .zri_name = "TX_TRUNCATE        "},
+	{.zri_print = zil_prt_rec_setattr,  .zri_name = "TX_SETATTR         "},
+	{.zri_print = zil_prt_rec_acl,	    .zri_name = "TX_ACL_V0          "},
+	{.zri_print = zil_prt_rec_acl,	    .zri_name = "TX_ACL_ACL         "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_CREATE_ACL      "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_CREATE_ATTR     "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_CREATE_ACL_ATTR "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_MKDIR_ACL       "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_MKDIR_ATTR      "},
+	{.zri_print = zil_prt_rec_create,   .zri_name = "TX_MKDIR_ACL_ATTR  "},
+	{.zri_print = zil_prt_rec_write,    .zri_name = "TX_WRITE2          "},
 };
 
 /* ARGSUSED */

@@ -1018,8 +1018,8 @@ dump_all_ddts(spa_t *spa)
 	ddt_histogram_t ddh_total;
 	ddt_stat_t dds_total;
 
-	bzero(&ddh_total, sizeof(ddh_total));
-	bzero(&dds_total, sizeof(dds_total));
+	bzero(&ddh_total, sizeof (ddh_total));
+	bzero(&dds_total, sizeof (dds_total));
 
 	for (enum zio_checksum c = 0; c < ZIO_CHECKSUM_FUNCTIONS; c++) {
 		ddt_t *ddt = spa->spa_ddt[c];
@@ -2738,7 +2738,7 @@ zdb_ddt_leak_init(spa_t *spa, zdb_cb_t *zcb)
 	ddt_entry_t dde;
 	int error;
 
-	bzero(&ddb, sizeof(ddb));
+	bzero(&ddb, sizeof (ddb));
 	while ((error = ddt_walk(spa, &ddb, &dde)) == 0) {
 		blkptr_t blk;
 		ddt_phys_t *ddp = dde.dde_phys;
@@ -2901,7 +2901,7 @@ dump_block_stats(spa_t *spa)
 	int flags = TRAVERSE_PRE | TRAVERSE_PREFETCH_METADATA | TRAVERSE_HARD;
 	boolean_t leaks = B_FALSE;
 
-	bzero(&zcb, sizeof(zcb));
+	bzero(&zcb, sizeof (zcb));
 	(void) printf("\nTraversing all blocks %s%s%s%s%s...\n\n",
 	    (dump_opt['c'] || !dump_opt['L']) ? "to verify " : "",
 	    (dump_opt['c'] == 1) ? "metadata " : "",
@@ -3206,8 +3206,8 @@ dump_simulated_ddt(spa_t *spa)
 	ddt_histogram_t ddh_total;
 	ddt_stat_t dds_total;
 
-	bzero(&ddh_total, sizeof(ddh_total));
-	bzero(&dds_total, sizeof(dds_total));
+	bzero(&ddh_total, sizeof (ddh_total));
+	bzero(&dds_total, sizeof (dds_total));
 	avl_create(&t, ddt_entry_compare,
 	    sizeof (zdb_ddt_entry_t), offsetof(zdb_ddt_entry_t, zdde_node));
 
@@ -3718,7 +3718,7 @@ zdb_embedded_block(char *thing)
 	char buf[SPA_MAXBLOCKSIZE];
 	int err;
 
-	bzero(&bp, sizeof(bp));
+	bzero(&bp, sizeof (bp));
 	err = sscanf(thing, "%llx:%llx:%llx:%llx:%llx:%llx:%llx:%llx:"
 	    "%llx:%llx:%llx:%llx:%llx:%llx:%llx:%llx",
 	    words + 0, words + 1, words + 2, words + 3,
@@ -3765,7 +3765,7 @@ find_zpool(char **target, nvlist_t **configp, int dirc, char **dirv)
 	int count = 0;
 	importargs_t args;
 
-	bzero(&args, sizeof(args));
+	bzero(&args, sizeof (args));
 	args.paths = dirc;
 	args.path = dirv;
 	args.can_be_active = B_TRUE;
