@@ -103,6 +103,7 @@ dir path=opt/zfs-tests/tests/functional/features/async_destroy
 dir path=opt/zfs-tests/tests/functional/grow_pool
 dir path=opt/zfs-tests/tests/functional/grow_replicas
 dir path=opt/zfs-tests/tests/functional/history
+dir path=opt/zfs-tests/tests/functional/hole_birth
 dir path=opt/zfs-tests/tests/functional/holes
 dir path=opt/zfs-tests/tests/functional/inheritance
 dir path=opt/zfs-tests/tests/functional/inuse
@@ -2018,6 +2019,15 @@ file path=opt/zfs-tests/tests/functional/history/sparc.migratedpool.DAT.Z \
 file path=opt/zfs-tests/tests/functional/history/sparc.orig_history.txt \
     mode=0444
 file path=opt/zfs-tests/tests/functional/history/zfs-pool-v4.dat.Z mode=0444
+file path=opt/zfs-tests/tests/functional/hole_birth/cleanup mode=0555
+file path=opt/zfs-tests/tests/functional/hole_birth/hole_birth.cfg mode=0444
+file path=opt/zfs-tests/tests/functional/hole_birth/hole_birth.kshlib \
+    mode=0444
+file path=opt/zfs-tests/tests/functional/hole_birth/hole_birth_4809 mode=0555
+file path=opt/zfs-tests/tests/functional/hole_birth/hole_birth_4996 mode=0555
+file path=opt/zfs-tests/tests/functional/hole_birth/hole_birth_5030 mode=0555
+file path=opt/zfs-tests/tests/functional/hole_birth/hole_birth_7176 mode=0555
+file path=opt/zfs-tests/tests/functional/hole_birth/setup mode=0555
 file path=opt/zfs-tests/tests/functional/holes/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/holes/holes.shlib mode=0444
 file path=opt/zfs-tests/tests/functional/holes/holes_sanity mode=0555

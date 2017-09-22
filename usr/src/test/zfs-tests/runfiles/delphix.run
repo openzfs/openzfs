@@ -268,6 +268,9 @@ tests = ['zpool_get_001_pos', 'zpool_get_002_pos', 'zpool_get_003_pos',
 [/opt/zfs-tests/tests/functional/cli_root/zpool_history]
 tests = ['zpool_history_001_neg', 'zpool_history_002_pos']
 
+[/opt/zfs-tests/tests/functional/hole_birth]
+tests = ['hole_birth_7176', 'hole_birth_4809', 'hole_birth_4996']
+
 [/opt/zfs-tests/tests/functional/cli_root/zpool_import]
 tests = ['zpool_import_001_pos', 'zpool_import_002_pos',
     'zpool_import_003_pos', 'zpool_import_004_pos', 'zpool_import_005_pos',
