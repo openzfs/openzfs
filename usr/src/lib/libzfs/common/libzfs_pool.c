@@ -264,7 +264,7 @@ zpool_get_prop(zpool_handle_t *zhp, zpool_prop_t prop, char *buf, size_t len,
 
 		case ZPOOL_PROP_GUID:
 			intval = zpool_get_prop_int(zhp, prop, &src);
-			(void) snprintf(buf, len, "%llu", intval);
+			(void) snprintf(buf, len, "%"PRIu64, intval);
 			break;
 
 		case ZPOOL_PROP_ALTROOT:
@@ -364,7 +364,7 @@ zpool_get_prop(zpool_handle_t *zhp, zpool_prop_t prop, char *buf, size_t len,
 			}
 			/* FALLTHROUGH */
 		default:
-			(void) snprintf(buf, len, "%llu", intval);
+			(void) snprintf(buf, len, "%"PRIu64, intval);
 		}
 		break;
 
@@ -1470,14 +1470,14 @@ zpool_rewind_exclaim(libzfs_handle_t *hdl, const char *name, boolean_t dryrun,
 		}
 		if (loss > 120) {
 			(void) printf(dgettext(TEXT_DOMAIN,
-			    "%s approximately %lld "),
+			    "%s approximately %ld "),
 			    dryrun ? "Would discard" : "Discarded",
 			    (loss + 30) / 60);
 			(void) printf(dgettext(TEXT_DOMAIN,
 			    "minutes of transactions.\n"));
 		} else if (loss > 0) {
 			(void) printf(dgettext(TEXT_DOMAIN,
-			    "%s approximately %lld "),
+			    "%s approximately %"PRId64" "),
 			    dryrun ? "Would discard" : "Discarded", loss);
 			(void) printf(dgettext(TEXT_DOMAIN,
 			    "seconds of transactions.\n"));
@@ -1531,11 +1531,11 @@ zpool_explain_recover(libzfs_handle_t *hdl, const char *name, int reason,
 
 	if (loss > 120) {
 		(void) printf(dgettext(TEXT_DOMAIN,
-		    "Approximately %lld minutes of data\n"
+		    "Approximately %ld minutes of data\n"
 		    "\tmust be discarded, irreversibly.  "), (loss + 30) / 60);
 	} else if (loss > 0) {
 		(void) printf(dgettext(TEXT_DOMAIN,
-		    "Approximately %lld seconds of data\n"
+		    "Approximately %"PRId64" seconds of data\n"
 		    "\tmust be discarded, irreversibly.  "), loss);
 	}
 	if (edata != 0 && edata != UINT64_MAX) {
@@ -2550,7 +2550,7 @@ zpool_vdev_fault(zpool_handle_t *zhp, uint64_t guid, vdev_aux_t aux)
 	libzfs_handle_t *hdl = zhp->zpool_hdl;
 
 	(void) snprintf(msg, sizeof (msg),
-	    dgettext(TEXT_DOMAIN, "cannot fault %llu"), guid);
+	    dgettext(TEXT_DOMAIN, "cannot fault %"PRIu64""), guid);
 
 	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
 	zc.zc_guid = guid;
@@ -2585,7 +2585,7 @@ zpool_vdev_degrade(zpool_handle_t *zhp, uint64_t guid, vdev_aux_t aux)
 	libzfs_handle_t *hdl = zhp->zpool_hdl;
 
 	(void) snprintf(msg, sizeof (msg),
-	    dgettext(TEXT_DOMAIN, "cannot degrade %llu"), guid);
+	    dgettext(TEXT_DOMAIN, "cannot degrade %"PRIu64""), guid);
 
 	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
 	zc.zc_guid = guid;
@@ -3230,7 +3230,7 @@ zpool_vdev_clear(zpool_handle_t *zhp, uint64_t guid)
 	libzfs_handle_t *hdl = zhp->zpool_hdl;
 
 	(void) snprintf(msg, sizeof (msg),
-	    dgettext(TEXT_DOMAIN, "cannot clear errors for %llx"),
+	    dgettext(TEXT_DOMAIN, "cannot clear errors for %"PRIu64""),
 	    guid);
 
 	(void) strlcpy(zc.zc_name, zhp->zpool_name, sizeof (zc.zc_name));
@@ -3804,7 +3804,7 @@ zpool_obj_to_path(zpool_handle_t *zhp, uint64_t dsobj, uint64_t obj,
 
 	if (dsobj == 0) {
 		/* special case for the MOS */
-		(void) snprintf(pathname, len, "<metadata>:<0x%llx>", obj);
+		(void) snprintf(pathname, len, "<metadata>:<0x%"PRIu64">", obj);
 		return;
 	}
 
@@ -3814,7 +3814,7 @@ zpool_obj_to_path(zpool_handle_t *zhp, uint64_t dsobj, uint64_t obj,
 	if (ioctl(zhp->zpool_hdl->libzfs_fd,
 	    ZFS_IOC_DSOBJ_TO_DSNAME, &zc) != 0) {
 		/* just write out a path of two object numbers */
-		(void) snprintf(pathname, len, "<0x%llx>:<0x%llx>",
+		(void) snprintf(pathname, len, "<0x%"PRIu64">:<0x%"PRIu64">",
 		    dsobj, obj);
 		return;
 	}
@@ -3836,7 +3836,7 @@ zpool_obj_to_path(zpool_handle_t *zhp, uint64_t dsobj, uint64_t obj,
 			    dsname, zc.zc_value);
 		}
 	} else {
-		(void) snprintf(pathname, len, "%s:<0x%llx>", dsname, obj);
+		(void) snprintf(pathname, len, "%s:<0x%"PRIu64">", dsname, obj);
 	}
 	free(mntpnt);
 }
