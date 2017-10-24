@@ -353,8 +353,7 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	mutex_init(&vd->vdev_probe_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_queue_lock, NULL, MUTEX_DEFAULT, NULL);
 	for (int t = 0; t < DTL_TYPES; t++) {
-		vd->vdev_dtl[t] = range_tree_create(NULL, NULL,
-		    &vd->vdev_dtl_lock);
+		vd->vdev_dtl[t] = range_tree_create(NULL, NULL);
 	}
 	txg_list_create(&vd->vdev_ms_list, spa,
 	    offsetof(struct metaslab, ms_txg_node));
@@ -1705,10 +1704,10 @@ vdev_dtl_dirty(vdev_t *vd, vdev_dtl_type_t t, uint64_t txg, uint64_t size)
 	ASSERT(vd != vd->vdev_spa->spa_root_vdev);
 	ASSERT(spa_writeable(vd->vdev_spa));
 
-	mutex_enter(rt->rt_lock);
+	mutex_enter(&vd->vdev_dtl_lock);
 	if (!range_tree_contains(rt, txg, size))
 		range_tree_add(rt, txg, size);
-	mutex_exit(rt->rt_lock);
+	mutex_exit(&vd->vdev_dtl_lock);
 }
 
 boolean_t
@@ -1720,10 +1719,21 @@ vdev_dtl_contains(vdev_t *vd, vdev_dtl_type_t t, uint64_t txg, uint64_t size)
 	ASSERT(t < DTL_TYPES);
 	ASSERT(vd != vd->vdev_spa->spa_root_vdev);
 
-	mutex_enter(rt->rt_lock);
+	/*
+	 * While we are loading the pool, the DTLs have not been loaded yet.
+	 * Ignore the DTLs and try all devices.  This avoids a recursive
+	 * mutex enter on the vdev_dtl_lock, and also makes us try hard
+	 * when loading the pool (relying on the checksum to ensure that
+	 * we get the right data -- note that we while loading, we are
+	 * only reading the MOS, which is always checksummed).
+	 */
+	if (vd->vdev_spa->spa_load_state != SPA_LOAD_NONE)
+		return (B_FALSE);
+
+	mutex_enter(&vd->vdev_dtl_lock);
 	if (range_tree_space(rt) != 0)
 		dirty = range_tree_contains(rt, txg, size);
-	mutex_exit(rt->rt_lock);
+	mutex_exit(&vd->vdev_dtl_lock);
 
 	return (dirty);
 }
@@ -1734,9 +1744,9 @@ vdev_dtl_empty(vdev_t *vd, vdev_dtl_type_t t)
 	range_tree_t *rt = vd->vdev_dtl[t];
 	boolean_t empty;
 
-	mutex_enter(rt->rt_lock);
+	mutex_enter(&vd->vdev_dtl_lock);
 	empty = (range_tree_space(rt) == 0);
-	mutex_exit(rt->rt_lock);
+	mutex_exit(&vd->vdev_dtl_lock);
 
 	return (empty);
 }
@@ -1938,7 +1948,7 @@ vdev_dtl_load(vdev_t *vd)
 		ASSERT(!vd->vdev_ishole);
 
 		error = space_map_open(&vd->vdev_dtl_sm, mos,
-		    vd->vdev_dtl_object, 0, -1ULL, 0, &vd->vdev_dtl_lock);
+		    vd->vdev_dtl_object, 0, -1ULL, 0);
 		if (error)
 			return (error);
 		ASSERT(vd->vdev_dtl_sm != NULL);
@@ -2017,7 +2027,6 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	range_tree_t *rt = vd->vdev_dtl[DTL_MISSING];
 	objset_t *mos = spa->spa_meta_objset;
 	range_tree_t *rtsync;
-	kmutex_t rtlock;
 	dmu_tx_t *tx;
 	uint64_t object = space_map_object(vd->vdev_dtl_sm);
 
@@ -2055,15 +2064,11 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 		VERIFY3U(new_object, !=, 0);
 
 		VERIFY0(space_map_open(&vd->vdev_dtl_sm, mos, new_object,
-		    0, -1ULL, 0, &vd->vdev_dtl_lock));
+		    0, -1ULL, 0));
 		ASSERT(vd->vdev_dtl_sm != NULL);
 	}
 
-	mutex_init(&rtlock, NULL, MUTEX_DEFAULT, NULL);
-
-	rtsync = range_tree_create(NULL, NULL, &rtlock);
-
-	mutex_enter(&rtlock);
+	rtsync = range_tree_create(NULL, NULL);
 
 	mutex_enter(&vd->vdev_dtl_lock);
 	range_tree_walk(rt, range_tree_add, rtsync);
@@ -2074,9 +2079,6 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	range_tree_vacate(rtsync, NULL, NULL);
 
 	range_tree_destroy(rtsync);
-
-	mutex_exit(&rtlock);
-	mutex_destroy(&rtlock);
 
 	/*
 	 * If the object for the space map has changed then dirty

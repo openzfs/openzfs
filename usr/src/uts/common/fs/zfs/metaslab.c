@@ -1341,6 +1341,12 @@ metaslab_load(metaslab_t *msp)
 	ASSERT(!msp->ms_loading);
 
 	msp->ms_loading = B_TRUE;
+	/*
+	 * Nobody else can manipulate a loading metaslab, so it's now safe
+	 * to drop the lock.  This way we don't have to hold the lock while
+	 * reading the spacemap from disk.
+	 */
+	mutex_exit(&msp->ms_lock);
 
 	/*
 	 * If the space map has not been allocated yet, then treat
@@ -1353,6 +1359,8 @@ metaslab_load(metaslab_t *msp)
 		range_tree_add(msp->ms_tree, msp->ms_start, msp->ms_size);
 
 	success = (error == 0);
+
+	mutex_enter(&msp->ms_lock);
 	msp->ms_loading = B_FALSE;
 
 	if (success) {
@@ -1401,7 +1409,7 @@ metaslab_init(metaslab_group_t *mg, uint64_t id, uint64_t object, uint64_t txg,
 	 */
 	if (object != 0) {
 		error = space_map_open(&ms->ms_sm, mos, object, ms->ms_start,
-		    ms->ms_size, vd->vdev_ashift, &ms->ms_lock);
+		    ms->ms_size, vd->vdev_ashift);
 
 		if (error != 0) {
 			kmem_free(ms, sizeof (metaslab_t));
@@ -1418,7 +1426,7 @@ metaslab_init(metaslab_group_t *mg, uint64_t id, uint64_t object, uint64_t txg,
 	 * addition of new space; and for debugging, it ensures that we'd
 	 * data fault on any attempt to use this metaslab before it's ready.
 	 */
-	ms->ms_tree = range_tree_create(&metaslab_rt_ops, ms, &ms->ms_lock);
+	ms->ms_tree = range_tree_create(&metaslab_rt_ops, ms);
 	metaslab_group_add(mg, ms);
 
 	metaslab_set_fragmentation(ms);
@@ -1991,10 +1999,13 @@ metaslab_group_preload(metaslab_group_t *mg)
 	}
 
 	mutex_enter(&mg->mg_lock);
+
 	/*
 	 * Load the next potential metaslabs
 	 */
 	for (msp = avl_first(t); msp != NULL; msp = AVL_NEXT(t, msp)) {
+		ASSERT3P(msp->ms_group, ==, mg);
+
 		/*
 		 * We preload only the maximum number of metaslabs specified
 		 * by metaslab_preload_limit. If a metaslab is being forced
@@ -2021,7 +2032,7 @@ metaslab_group_preload(metaslab_group_t *mg)
  *
  * 2. The minimal on-disk space map representation is zfs_condense_pct/100
  * times the size than the free space range tree representation
- * (i.e. zfs_condense_pct = 110 and in-core = 1MB, minimal = 1.1.MB).
+ * (i.e. zfs_condense_pct = 110 and in-core = 1MB, minimal = 1.1MB).
  *
  * 3. The on-disk size of the space map should actually decrease.
  *
@@ -2118,7 +2129,7 @@ metaslab_condense(metaslab_t *msp, uint64_t txg, dmu_tx_t *tx)
 	 * a relatively inexpensive operation since we expect these trees to
 	 * have a small number of nodes.
 	 */
-	condense_tree = range_tree_create(NULL, NULL, &msp->ms_lock);
+	condense_tree = range_tree_create(NULL, NULL);
 	range_tree_add(condense_tree, msp->ms_start, msp->ms_size);
 
 	/*
@@ -2151,7 +2162,6 @@ metaslab_condense(metaslab_t *msp, uint64_t txg, dmu_tx_t *tx)
 
 	mutex_exit(&msp->ms_lock);
 	space_map_truncate(sm, tx);
-	mutex_enter(&msp->ms_lock);
 
 	/*
 	 * While we would ideally like to create a space map representation
@@ -2168,6 +2178,7 @@ metaslab_condense(metaslab_t *msp, uint64_t txg, dmu_tx_t *tx)
 	range_tree_destroy(condense_tree);
 
 	space_map_write(sm, msp->ms_tree, SM_FREE, tx);
+	mutex_enter(&msp->ms_lock);
 	msp->ms_condensing = B_FALSE;
 }
 
@@ -2232,8 +2243,7 @@ metaslab_sync(metaslab_t *msp, uint64_t txg)
 		VERIFY3U(new_object, !=, 0);
 
 		VERIFY0(space_map_open(&msp->ms_sm, mos, new_object,
-		    msp->ms_start, msp->ms_size, vd->vdev_ashift,
-		    &msp->ms_lock));
+		    msp->ms_start, msp->ms_size, vd->vdev_ashift));
 		ASSERT(msp->ms_sm != NULL);
 	}
 
@@ -2252,13 +2262,15 @@ metaslab_sync(metaslab_t *msp, uint64_t txg)
 	    metaslab_should_condense(msp)) {
 		metaslab_condense(msp, txg, tx);
 	} else {
+		mutex_exit(&msp->ms_lock);
 		space_map_write(msp->ms_sm, alloctree, SM_ALLOC, tx);
 		space_map_write(msp->ms_sm, msp->ms_freeingtree, SM_FREE, tx);
+		mutex_enter(&msp->ms_lock);
 	}
 
 	if (msp->ms_loaded) {
 		/*
-		 * When the space map is loaded, we have an accruate
+		 * When the space map is loaded, we have an accurate
 		 * histogram in the range tree. This gives us an opportunity
 		 * to bring the space map's histogram up-to-date so we clear
 		 * it first before updating it.
@@ -2355,23 +2367,19 @@ metaslab_sync_done(metaslab_t *msp, uint64_t txg)
 		for (int t = 0; t < TXG_SIZE; t++) {
 			ASSERT(msp->ms_alloctree[t] == NULL);
 
-			msp->ms_alloctree[t] = range_tree_create(NULL, msp,
-			    &msp->ms_lock);
+			msp->ms_alloctree[t] = range_tree_create(NULL, NULL);
 		}
 
 		ASSERT3P(msp->ms_freeingtree, ==, NULL);
-		msp->ms_freeingtree = range_tree_create(NULL, msp,
-		    &msp->ms_lock);
+		msp->ms_freeingtree = range_tree_create(NULL, NULL);
 
 		ASSERT3P(msp->ms_freedtree, ==, NULL);
-		msp->ms_freedtree = range_tree_create(NULL, msp,
-		    &msp->ms_lock);
+		msp->ms_freedtree = range_tree_create(NULL, NULL);
 
 		for (int t = 0; t < TXG_DEFER_SIZE; t++) {
 			ASSERT(msp->ms_defertree[t] == NULL);
 
-			msp->ms_defertree[t] = range_tree_create(NULL, msp,
-			    &msp->ms_lock);
+			msp->ms_defertree[t] = range_tree_create(NULL, NULL);
 		}
 
 		vdev_space_update(vd, 0, 0, msp->ms_size);
@@ -3405,6 +3413,7 @@ metaslab_check_free(spa_t *spa, const blkptr_t *bp)
 		uint64_t size = DVA_GET_ASIZE(&bp->blk_dva[i]);
 		metaslab_t *msp = vd->vdev_ms[offset >> vd->vdev_ms_shift];
 
+		mutex_enter(&msp->ms_lock);
 		if (msp->ms_loaded)
 			range_tree_verify(msp->ms_tree, offset, size);
 
@@ -3412,6 +3421,7 @@ metaslab_check_free(spa_t *spa, const blkptr_t *bp)
 		range_tree_verify(msp->ms_freedtree, offset, size);
 		for (int j = 0; j < TXG_DEFER_SIZE; j++)
 			range_tree_verify(msp->ms_defertree[j], offset, size);
+		mutex_exit(&msp->ms_lock);
 	}
 	spa_config_exit(spa, SCL_VDEV, FTAG);
 }
