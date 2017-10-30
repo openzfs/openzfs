@@ -78,6 +78,12 @@ CERRWARN +=	-_gcc=-Wno-empty-body
 CERRWARN +=	-_gcc=-Wno-unused-function
 CERRWARN +=	-_gcc=-Wno-unused-label
 
+# lint complains about unused inline functions, even though
+# they are "inline", not "static inline", with "extern inline"
+# implementations and usage in libzpool.
+LINTFLAGS += -erroff=E_STATIC_UNUSED
+LINTFLAGS64 += -erroff=E_STATIC_UNUSED
+
 .KEEP_STATE:
 
 all: $(LIBS)

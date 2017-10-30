@@ -41,6 +41,7 @@
 #include <sys/refcount.h>
 #include <sys/bplist.h>
 #include <sys/bpobj.h>
+#include <sys/dsl_crypt.h>
 #include <sys/zfeature.h>
 #include <zfeature_common.h>
 
@@ -268,6 +269,7 @@ struct spa {
 	uint64_t	spa_deadman_synctime;	/* deadman expiration timer */
 	uint64_t	spa_all_vdev_zaps;	/* ZAP of per-vd ZAP obj #s */
 	spa_avz_action_t	spa_avz_action;	/* destroy/rebuild AVZ? */
+	spa_keystore_t	spa_keystore;	/* loaded crypto keys */
 
 	/*
 	 * spa_iokstat_lock protects spa_iokstat and
