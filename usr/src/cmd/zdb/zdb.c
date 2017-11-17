@@ -69,6 +69,8 @@
 
 #include "zdb.h"
 
+int function_that_does_not_exist();
+
 #define	ZDB_COMPRESS_NAME(idx) ((idx) < ZIO_COMPRESS_FUNCTIONS ?	\
 	zio_compress_table[(idx)].ci_name : "UNKNOWN")
 #define	ZDB_CHECKSUM_NAME(idx) ((idx) < ZIO_CHECKSUM_FUNCTIONS ?	\
@@ -123,6 +125,7 @@ _umem_logging_init(void)
 static void
 usage(void)
 {
+	(void) function_that_does_not_exist();
 	(void) fprintf(stderr,
 	    "Usage:\t%s [-AbcdDFGhiLMPsvX] [-e [-V] [-p <path> ...]] "
 	    "[-I <inflight I/Os>]\n"
