@@ -535,10 +535,16 @@ file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.get_written \
     mode=0555
 file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_bookmarks \
+    mode=0555
+file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_children \
     mode=0555
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_clones \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_holds \
     mode=0555
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.list_snapshots \
