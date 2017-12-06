@@ -2425,7 +2425,7 @@ zpool_vdev_online(zpool_handle_t *zhp, const char *path, int flags,
 {
 	zfs_cmd_t zc = { 0 };
 	char msg[1024];
-	char *pathname = NULL;
+	char *pathname;
 	nvlist_t *tgt;
 	boolean_t avail_spare, l2cache, islog;
 	libzfs_handle_t *hdl = zhp->zpool_hdl;
