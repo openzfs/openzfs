@@ -278,6 +278,49 @@ lzc_destroy(const char *fsname)
 }
 
 /*
+ * Inherits the (regular, non-received) properties.
+ * This doesn't provide an interface to inherit received values.
+ */
+int
+lzc_inherit_prop(const char *fsname, const char *name)
+{
+	zfs_cmd_t zc = { 0 };
+	int error;
+
+	(void) strlcpy(zc.zc_name, fsname, sizeof (zc.zc_name));
+	(void) strlcpy(zc.zc_value, name, sizeof (zc.zc_value));
+	error = ioctl(g_fd, ZFS_IOC_INHERIT_PROP, &zc);
+	if (error != 0)
+		error = errno;
+	return (error);
+}
+
+int
+lzc_set_prop(const char *fsname, nvlist_t *props)
+{
+	nvpair_t *elem;
+	int error;
+
+	/* the list must have exactly one element */
+	if ((elem = nvlist_next_nvpair(props, NULL)) == NULL ||
+	    nvlist_next_nvpair(props, elem) != NULL)
+		return (EINVAL);
+	error = lzc_ioctl(ZFS_IOC_SET_PROP, fsname, props, NULL);
+	return (error);
+}
+
+int
+lzc_get_props(const char *fsname, nvlist_t **props)
+{
+	int error;
+	nvlist_t *args = fnvlist_alloc();
+
+	error = lzc_ioctl(ZFS_IOC_OBJSET_STATS, fsname, args, props);
+	nvlist_free(args);
+	return (error);
+}
+
+/*
  * Creates snapshots.
  *
  * The keys in the snaps nvlist are the snapshots to be created.
@@ -368,6 +411,41 @@ lzc_destroy_snaps(nvlist_t *snaps, boolean_t defer, nvlist_t **errlist)
 	nvlist_free(args);
 
 	return (error);
+}
+
+int
+lzc_list_snaps(const char *fsname, uint64_t *cursor, char *name)
+{
+	zfs_cmd_t zc = { 0 };
+	int error;
+
+	(void) strlcpy(zc.zc_name, fsname, sizeof (zc.zc_name));
+	zc.zc_simple = B_TRUE;
+	zc.zc_cookie = *cursor;
+	error = ioctl(g_fd, ZFS_IOC_SNAPSHOT_LIST_NEXT, &zc);
+	if (error != 0)
+		return (errno);
+
+	(void) strcpy(name, zc.zc_name);
+	*cursor = zc.zc_cookie;
+	return (0);
+}
+
+int
+lzc_list_children(const char *fsname, uint64_t *cursor, char *name)
+{
+	zfs_cmd_t zc = { 0 };
+	int error;
+
+	(void) strlcpy(zc.zc_name, fsname, sizeof (zc.zc_name));
+	zc.zc_cookie = *cursor;
+	error = ioctl(g_fd, ZFS_IOC_DATASET_LIST_NEXT, &zc);
+	if (error != 0)
+		return (errno);
+
+	(void) strcpy(name, zc.zc_name);
+	*cursor = zc.zc_cookie;
+	return (0);
 }
 
 int

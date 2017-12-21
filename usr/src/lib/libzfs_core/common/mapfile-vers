@@ -37,6 +37,16 @@
 
 $mapfile_version 2
 
+SYMBOL_VERSION ILLUMOS_0.5 {
+	global:
+
+	lzc_get_props;
+	lzc_inherit_prop;
+	lzc_list_children;
+	lzc_list_snaps;
+	lzc_set_prop;
+} ILLUMOS_0.4;
+
 SYMBOL_VERSION ILLUMOS_0.4 {
 	global:
 

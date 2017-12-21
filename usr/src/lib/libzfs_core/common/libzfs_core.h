@@ -94,6 +94,13 @@ int lzc_rollback_to(const char *, const char *);
 int lzc_rename(const char *, const char *);
 int lzc_destroy(const char *);
 
+int lzc_set_prop(const char *, nvlist_t *);
+int lzc_inherit_prop(const char *, const char *);
+int lzc_get_props(const char *, nvlist_t **);
+
+int lzc_list_children(const char *, uint64_t *, char *);
+int lzc_list_snaps(const char *, uint64_t *, char *);
+
 int lzc_channel_program(const char *, const char *, uint64_t,
     uint64_t, nvlist_t *, nvlist_t **);
 int lzc_channel_program_nosync(const char *, const char *, uint64_t,
