@@ -10,9 +10,9 @@
 #
 
 #
-# Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2012, 2017 by Delphix. All rights reserved.
+# Copyright 2015, 2016 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2016, OmniTI Computer Consulting, Inc. All rights reserved.
-# Copyright 2016 Nexenta Systems, Inc.
 #
 
 set name=pkg.fmri value=pkg:/system/test/zfstest@$(PKGVERS)
@@ -403,6 +403,11 @@ file \
 file \
     path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.divide_by_zero.zcp \
     mode=0444
+file path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.exists \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.exists.zcp \
+    mode=0444
 file \
     path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.integer_illegal \
     mode=0555
@@ -451,6 +456,12 @@ file \
 file \
     path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.recursive_pos \
     mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.return_large \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.return_large.zcp \
+    mode=0444
 file \
     path=opt/zfs-tests/tests/functional/channel_program/lua_core/tst.return_nvlist_neg \
     mode=0555
@@ -550,6 +561,36 @@ file \
 file \
     path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.promote_simple \
     mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.rollback_mult \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.rollback_one \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_destroy \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_destroy.zcp \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_neg \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_neg.zcp \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_recursive \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_recursive.zcp \
+    mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_simple \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/channel_program/synctask_core/tst.snapshot_simple.zcp \
+    mode=0444
 $(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/edonr_test.amd64 \
     mode=0555
 $(i386_ONLY)file path=opt/zfs-tests/tests/functional/checksum/edonr_test.i386 \
@@ -2305,6 +2346,7 @@ file path=opt/zfs-tests/tests/functional/slog/slog_011_neg mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_012_neg mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_013_pos mode=0555
 file path=opt/zfs-tests/tests/functional/slog/slog_014_pos mode=0555
+file path=opt/zfs-tests/tests/functional/slog/slog_015_neg mode=0555
 file path=opt/zfs-tests/tests/functional/snapshot/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/snapshot/clone_001_pos mode=0555
 file path=opt/zfs-tests/tests/functional/snapshot/deadlist_lock mode=0555

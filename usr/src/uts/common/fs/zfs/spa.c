@@ -28,6 +28,7 @@
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright 2016 Toomas Soome <tsoome@me.com>
  * Copyright 2017 Joyent, Inc.
+ * Copyright (c) 2017 Datto Inc.
  */
 
 /*
@@ -3024,6 +3025,8 @@ spa_load_best(spa_t *spa, spa_load_state_t state, int mosconfig,
 
 	if (config && (rewind_error || state != SPA_LOAD_RECOVER))
 		spa_config_set(spa, config);
+	else
+		nvlist_free(config);
 
 	if (state == SPA_LOAD_RECOVER) {
 		ASSERT3P(loadinfo, ==, NULL);
@@ -5746,6 +5749,16 @@ spa_vdev_setfru(spa_t *spa, uint64_t guid, const char *newfru)
  * SPA Scanning
  * ==========================================================================
  */
+int
+spa_scrub_pause_resume(spa_t *spa, pool_scrub_cmd_t cmd)
+{
+	ASSERT(spa_config_held(spa, SCL_ALL, RW_WRITER) == 0);
+
+	if (dsl_scan_resilvering(spa->spa_dsl_pool))
+		return (SET_ERROR(EBUSY));
+
+	return (dsl_scrub_set_pause_resume(spa->spa_dsl_pool, cmd));
+}
 
 int
 spa_scan_stop(spa_t *spa)
@@ -5852,8 +5865,9 @@ spa_async_autoexpand(spa_t *spa, vdev_t *vd)
 }
 
 static void
-spa_async_thread(spa_t *spa)
+spa_async_thread(void *arg)
 {
+	spa_t *spa = (spa_t *)arg;
 	int tasks;
 
 	ASSERT(spa->spa_sync_on);

@@ -108,7 +108,7 @@ struct console
     void	(*c_out)(struct console *, int);	/* emit c */
     int		(*c_in)(struct console *);	/* wait for and return input */
     int		(*c_ready)(struct console *);	/* return nonzer if input waiting */
-    void	*private;		/* private data */
+    void	*c_private;		/* private data */
 };
 extern struct console	*consoles[];
 void		cons_probe(void);
@@ -142,8 +142,6 @@ struct pnpinfo
 };
 
 STAILQ_HEAD(pnpinfo_stql, pnpinfo);
-
-extern struct pnpinfo_stql pnp_devices;
 
 extern struct pnphandler	*pnphandlers[];		/* provided by MD code */
 
@@ -247,15 +245,17 @@ extern u_int64_t __elfN(relocation_offset);
 struct elf_file;
 typedef Elf_Addr (symaddr_fn)(struct elf_file *ef, Elf_Size symidx);
 
-int	__elfN(loadfile)(char *filename, u_int64_t dest, struct preloaded_file **result);
-int	__elfN(obj_loadfile)(char *filename, u_int64_t dest,
-	    struct preloaded_file **result);
+int	elf64_loadfile(char *, uint64_t, struct preloaded_file **);
+int	elf32_loadfile(char *, uint64_t, struct preloaded_file **);
+int	elf64_obj_loadfile(char *, uint64_t, struct preloaded_file **);
+int	elf32_obj_loadfile(char *, uint64_t, struct preloaded_file **);
 int	__elfN(reloc)(struct elf_file *ef, symaddr_fn *symaddr,
 	    const void *reldata, int reltype, Elf_Addr relbase,
 	    Elf_Addr dataaddr, void *data, size_t len);
-int __elfN(loadfile_raw)(char *filename, u_int64_t dest,
-	    struct preloaded_file **result, int multiboot);
-int __elfN(load_modmetadata)(struct preloaded_file *fp, u_int64_t dest);
+int	elf64_loadfile_raw(char *, uint64_t, struct preloaded_file **, int);
+int	elf32_loadfile_raw(char *, uint64_t, struct preloaded_file **, int);
+int	elf64_load_modmetadata(struct preloaded_file *, uint64_t);
+int	elf32_load_modmetadata(struct preloaded_file *, uint64_t);
 #endif
 
 /*
@@ -304,7 +304,7 @@ struct arch_switch
      * Interface to adjust the load address according to the "object"
      * being loaded.
      */
-    uint64_t	(*arch_loadaddr)(u_int type, void *data, uint64_t addr);
+    vm_offset_t	(*arch_loadaddr)(u_int type, void *data, vm_offset_t addr);
 #define	LOAD_ELF	1	/* data points to the ELF header. */
 #define	LOAD_RAW	2	/* data points to the module file name. */
 #define	LOAD_KERN	3	/* data points to the kernel file name. */

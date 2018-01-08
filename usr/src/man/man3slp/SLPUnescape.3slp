@@ -92,14 +92,14 @@ When set, use this file for configuration.
 .SH SEE ALSO
 .sp
 .LP
-\fBslpd\fR(1M),\fBSLPFree\fR(3SLP), \fBslp_api\fR(3SLP), \fBslp.conf\fR(4),
+\fBslpd\fR(1M), \fBSLPFree\fR(3SLP), \fBslp_api\fR(3SLP), \fBslp.conf\fR(4),
 \fBslpd.reg\fR(4), \fBattributes\fR(5)
 .sp
 .LP
 \fISystem Administration Guide: Network Services\fR
 .sp
 .LP
-Guttman, E.,  Perkins, C., Veizades, J., and Day, M.\fIRFC 2608, Service
+Guttman, E., Perkins, C., Veizades, J., and Day, M. \fIRFC 2608, Service
 Location Protocol, Version 2\fR. The Internet Society. June 1999.
 .sp
 .LP

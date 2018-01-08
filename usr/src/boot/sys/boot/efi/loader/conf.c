@@ -36,7 +36,9 @@ __FBSDID("$FreeBSD$");
 #endif
 
 struct devsw *devsw[] = {
-	&efipart_dev,
+	&efipart_fddev,
+	&efipart_cddev,
+	&efipart_hddev,
 	&efinet_dev,
 #ifdef EFI_ZFS_BOOT
 	&zfs_dev,
@@ -87,4 +89,15 @@ struct console *consoles[] = {
 	&spinconsole,
 #endif
 	NULL
+};
+
+#if defined(__amd64__) || defined(__i386__)
+extern struct file_format multiboot2;
+#endif
+
+struct file_format *file_formats[] = {
+#if defined(__amd64__) || defined(__i386__)
+        &multiboot2,
+#endif
+        NULL
 };

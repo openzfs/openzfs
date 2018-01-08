@@ -1,5 +1,3 @@
-/*	$NetBSD: net.h,v 1.10 1995/10/20 00:46:30 cgd Exp $	*/
-
 /*
  * Copyright (c) 1993 Adam Glass 
  * Copyright (c) 1992 Regents of the University of California.
@@ -17,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -32,8 +30,6 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
- * $FreeBSD$
  */
 
 #ifndef _STAND_NET_H
@@ -107,19 +103,20 @@ int	rarp_getipaddress(int);
 /* Link functions: */
 ssize_t sendether(struct iodesc *d, void *pkt, size_t len,
 			u_char *dea, int etype);
-ssize_t readether(struct iodesc *d, void *pkt, size_t len,
-			time_t tleft, u_int16_t *etype);
+ssize_t readether(struct iodesc *, void **, void **, time_t, u_int16_t *);
 
+ssize_t	sendip(struct iodesc *, void *, size_t, uint8_t);
+ssize_t	readip(struct iodesc *, void **, void **, time_t, uint8_t);
 ssize_t	sendudp(struct iodesc *, void *, size_t);
-ssize_t	readudp(struct iodesc *, void *, size_t, time_t);
+ssize_t	readudp(struct iodesc *, void **, void **, time_t);
 ssize_t	sendrecv(struct iodesc *,
 		      ssize_t (*)(struct iodesc *, void *, size_t),
 			void *, size_t,
-		        ssize_t (*)(struct iodesc *, void *, size_t, time_t),
-			void *, size_t);
+		        ssize_t (*)(struct iodesc *, void **, void **, time_t),
+			void **, void **);
 
 /* bootp/DHCP */
-void	bootp(int, int);
+void	bootp(int);
 
 /* Utilities: */
 char	*ether_sprintf(u_char *);

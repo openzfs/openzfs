@@ -261,7 +261,7 @@ file path=lib/libadm.so.1
 file path=lib/libaio.so.1
 file path=lib/libavl.so.1
 file path=lib/libbsm.so.1
-file path=lib/libc.so.1 reboot-needed=true
+file path=lib/libc.so.1 mountpoint=true reboot-needed=true
 file path=lib/libc_db.so.1
 file path=lib/libcmdutils.so.1
 file path=lib/libcontract.so.1
@@ -375,6 +375,7 @@ file path=usr/lib/$(ARCH64)/libreparse.so.1
 $(i386_ONLY)file path=usr/lib/$(ARCH64)/libsaveargs.so.1
 file path=usr/lib/$(ARCH64)/libsched.so.1
 file path=usr/lib/$(ARCH64)/libsctp.so.1
+file path=usr/lib/$(ARCH64)/libsff.so.1
 file path=usr/lib/$(ARCH64)/libshell.so.1
 file path=usr/lib/$(ARCH64)/libsip.so.1
 file path=usr/lib/$(ARCH64)/libsldap.so.1
@@ -450,6 +451,7 @@ file path=usr/lib/libraidcfg.so.1
 file path=usr/lib/libreparse.so.1
 file path=usr/lib/libsched.so.1
 file path=usr/lib/libsctp.so.1
+file path=usr/lib/libsff.so.1
 file path=usr/lib/libshell.so.1
 file path=usr/lib/libsip.so.1
 file path=usr/lib/libsldap.so.1

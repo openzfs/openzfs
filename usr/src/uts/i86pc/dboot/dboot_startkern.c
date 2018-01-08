@@ -39,6 +39,7 @@
 #include <sys/sha1.h>
 #include <util/string.h>
 #include <util/strtolctype.h>
+#include <sys/efi.h>
 
 #if defined(__xpv)
 
@@ -137,6 +138,11 @@ int num_entries;			/* mmap entry count */
 boolean_t num_entries_set;		/* is mmap entry count set */
 uintptr_t load_addr;
 
+/* can not be automatic variables because of alignment */
+static efi_guid_t smbios3 = SMBIOS3_TABLE_GUID;
+static efi_guid_t smbios = SMBIOS_TABLE_GUID;
+static efi_guid_t acpi2 = EFI_ACPI_TABLE_GUID;
+static efi_guid_t acpi1 = ACPI_10_TABLE_GUID;
 #endif	/* __xpv */
 
 /*
@@ -912,13 +918,14 @@ init_mem_alloc(void)
 	DBG(xen_info->mod_len);
 	if (xen_info->mod_len > 0) {
 		DBG(xen_info->mod_start);
-		modules[0].bm_addr = xen_info->mod_start;
+		modules[0].bm_addr =
+		    (native_ptr_t)(uintptr_t)xen_info->mod_start;
 		modules[0].bm_size = xen_info->mod_len;
 		bi->bi_module_cnt = 1;
-		bi->bi_modules = (native_ptr_t)modules;
+		bi->bi_modules = (native_ptr_t)(uintptr_t)modules;
 	} else {
 		bi->bi_module_cnt = 0;
-		bi->bi_modules = NULL;
+		bi->bi_modules = (native_ptr_t)(uintptr_t)NULL;
 	}
 	DBG(bi->bi_module_cnt);
 	DBG(bi->bi_modules);
@@ -966,11 +973,16 @@ init_mem_alloc(void)
 static void
 dboot_multiboot1_xboot_consinfo(void)
 {
+	bi->bi_framebuffer = NULL;
 }
 
 static void
 dboot_multiboot2_xboot_consinfo(void)
 {
+	multiboot_tag_framebuffer_t *fb;
+	fb = dboot_multiboot2_find_tag(mb2_info,
+	    MULTIBOOT_TAG_TYPE_FRAMEBUFFER);
+	bi->bi_framebuffer = (native_ptr_t)(uintptr_t)fb;
 }
 
 static int
@@ -1074,10 +1086,10 @@ dboot_find_env(void)
 
 		mod_start = dboot_multiboot_modstart(i);
 		mod_end = dboot_multiboot_modend(i);
-		modules[0].bm_addr = mod_start;
+		modules[0].bm_addr = (native_ptr_t)(uintptr_t)mod_start;
 		modules[0].bm_size = mod_end - mod_start;
-		modules[0].bm_name = NULL;
-		modules[0].bm_hash = NULL;
+		modules[0].bm_name = (native_ptr_t)(uintptr_t)NULL;
+		modules[0].bm_hash = (native_ptr_t)(uintptr_t)NULL;
 		modules[0].bm_type = BMT_ENV;
 		bi->bi_modules = (native_ptr_t)(uintptr_t)modules;
 		bi->bi_module_cnt = 1;
@@ -1205,7 +1217,7 @@ check_images(void)
 		}
 
 		if (modules[i].bm_type == BMT_HASH ||
-		    modules[i].bm_hash == NULL) {
+		    modules[i].bm_hash == (native_ptr_t)(uintptr_t)NULL) {
 			DBG_MSG("module has no hash; skipping check\n");
 			continue;
 		}
@@ -1268,10 +1280,10 @@ process_module(int midx)
 	 * correct number of bytes in each module, achieving exactly this.
 	 */
 
-	modules[midx].bm_addr = mod_start;
+	modules[midx].bm_addr = (native_ptr_t)(uintptr_t)mod_start;
 	modules[midx].bm_size = mod_end - mod_start;
 	modules[midx].bm_name = (native_ptr_t)(uintptr_t)cmdline;
-	modules[midx].bm_hash = NULL;
+	modules[midx].bm_hash = (native_ptr_t)(uintptr_t)NULL;
 	modules[midx].bm_type = BMT_FILE;
 
 	if (cmdline == NULL) {
@@ -1343,8 +1355,9 @@ fixup_modules(void)
 		return;
 	}
 
-	if (modules[0].bm_hash != NULL ||
-	    modules_used > 1 && modules[1].bm_hash != NULL) {
+	if (modules[0].bm_hash != (native_ptr_t)(uintptr_t)NULL ||
+	    modules_used > 1 &&
+	    modules[1].bm_hash != (native_ptr_t)(uintptr_t)NULL) {
 		return;
 	}
 
@@ -1368,7 +1381,7 @@ assign_module_hashes(void)
 
 	for (i = 0; i < modules_used; i++) {
 		if (modules[i].bm_type == BMT_HASH ||
-		    modules[i].bm_hash != NULL) {
+		    modules[i].bm_hash != (native_ptr_t)(uintptr_t)NULL) {
 			continue;
 		}
 
@@ -1545,7 +1558,7 @@ dboot_process_mmap(void)
 static paddr_t
 dboot_multiboot1_highest_addr(void)
 {
-	paddr_t addr = NULL;
+	paddr_t addr = (paddr_t)(uintptr_t)NULL;
 	char *cmdl = (char *)mb_info->cmdline;
 
 	if (mb_info->flags & MB_INFO_CMDLINE)
@@ -1565,12 +1578,12 @@ dboot_multiboot_highest_addr(void)
 	switch (multiboot_version) {
 	case 1:
 		addr = dboot_multiboot1_highest_addr();
-		if (addr != NULL)
+		if (addr != (paddr_t)(uintptr_t)NULL)
 			check_higher(addr);
 		break;
 	case 2:
 		addr = dboot_multiboot2_highest_addr(mb2_info);
-		if (addr != NULL)
+		if (addr != (paddr_t)(uintptr_t)NULL)
 			check_higher(addr);
 		break;
 	default:
@@ -1592,19 +1605,134 @@ init_mem_alloc(void)
 	dboot_multiboot_highest_addr();
 }
 
+static int
+dboot_same_guids(efi_guid_t *g1, efi_guid_t *g2)
+{
+	int i;
+
+	if (g1->time_low != g2->time_low)
+		return (0);
+	if (g1->time_mid != g2->time_mid)
+		return (0);
+	if (g1->time_hi_and_version != g2->time_hi_and_version)
+		return (0);
+	if (g1->clock_seq_hi_and_reserved != g2->clock_seq_hi_and_reserved)
+		return (0);
+	if (g1->clock_seq_low != g2->clock_seq_low)
+		return (0);
+
+	for (i = 0; i < 6; i++) {
+		if (g1->node_addr[i] != g2->node_addr[i])
+			return (0);
+	}
+	return (1);
+}
+
+static void
+process_efi32(EFI_SYSTEM_TABLE32 *efi)
+{
+	uint32_t entries;
+	EFI_CONFIGURATION_TABLE32 *config;
+	int i;
+
+	entries = efi->NumberOfTableEntries;
+	config = (EFI_CONFIGURATION_TABLE32 *)(uintptr_t)
+	    efi->ConfigurationTable;
+
+	for (i = 0; i < entries; i++) {
+		if (dboot_same_guids(&config[i].VendorGuid, &smbios3)) {
+			bi->bi_smbios = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+		if (bi->bi_smbios == NULL &&
+		    dboot_same_guids(&config[i].VendorGuid, &smbios)) {
+			bi->bi_smbios = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+		if (dboot_same_guids(&config[i].VendorGuid, &acpi2)) {
+			bi->bi_acpi_rsdp = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+		if (bi->bi_acpi_rsdp == NULL &&
+		    dboot_same_guids(&config[i].VendorGuid, &acpi1)) {
+			bi->bi_acpi_rsdp = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+	}
+}
+
+static void
+process_efi64(EFI_SYSTEM_TABLE64 *efi)
+{
+	uint64_t entries;
+	EFI_CONFIGURATION_TABLE64 *config;
+	int i;
+
+	entries = efi->NumberOfTableEntries;
+	config = (EFI_CONFIGURATION_TABLE64 *)(uintptr_t)
+	    efi->ConfigurationTable;
+
+	for (i = 0; i < entries; i++) {
+		if (dboot_same_guids(&config[i].VendorGuid, &smbios3)) {
+			bi->bi_smbios = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+		if (bi->bi_smbios == NULL &&
+		    dboot_same_guids(&config[i].VendorGuid, &smbios)) {
+			bi->bi_smbios = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+		/* Prefer acpi v2+ over v1. */
+		if (dboot_same_guids(&config[i].VendorGuid, &acpi2)) {
+			bi->bi_acpi_rsdp = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+		if (bi->bi_acpi_rsdp == NULL &&
+		    dboot_same_guids(&config[i].VendorGuid, &acpi1)) {
+			bi->bi_acpi_rsdp = (native_ptr_t)(uintptr_t)
+			    config[i].VendorTable;
+		}
+	}
+}
+
 static void
 dboot_multiboot_get_fwtables(void)
 {
 	multiboot_tag_new_acpi_t *nacpitagp;
 	multiboot_tag_old_acpi_t *oacpitagp;
+	multiboot_tag_efi64_t *efi64tagp = NULL;
+	multiboot_tag_efi32_t *efi32tagp = NULL;
 
 	/* no fw tables from multiboot 1 */
 	if (multiboot_version != 2)
 		return;
 
-	/* only provide SMBIOS pointer in case of UEFI */
-	bi->bi_smbios = NULL;
+	efi64tagp = (multiboot_tag_efi64_t *)
+	    dboot_multiboot2_find_tag(mb2_info, MULTIBOOT_TAG_TYPE_EFI64);
+	if (efi64tagp != NULL) {
+		bi->bi_uefi_arch = XBI_UEFI_ARCH_64;
+		bi->bi_uefi_systab = (native_ptr_t)(uintptr_t)
+		    efi64tagp->mb_pointer;
+		process_efi64((EFI_SYSTEM_TABLE64 *)(uintptr_t)
+		    efi64tagp->mb_pointer);
+	} else {
+		efi32tagp = (multiboot_tag_efi32_t *)
+		    dboot_multiboot2_find_tag(mb2_info,
+		    MULTIBOOT_TAG_TYPE_EFI32);
+		if (efi32tagp != NULL) {
+			bi->bi_uefi_arch = XBI_UEFI_ARCH_32;
+			bi->bi_uefi_systab = (native_ptr_t)(uintptr_t)
+			    efi32tagp->mb_pointer;
+			process_efi32((EFI_SYSTEM_TABLE32 *)(uintptr_t)
+			    efi32tagp->mb_pointer);
+		}
+	}
 
+	/*
+	 * The ACPI RSDP can be found by scanning the BIOS memory areas or
+	 * from the EFI system table. The boot loader may pass in the address
+	 * it found the ACPI tables at.
+	 */
 	nacpitagp = (multiboot_tag_new_acpi_t *)
 	    dboot_multiboot2_find_tag(mb2_info,
 	    MULTIBOOT_TAG_TYPE_ACPI_NEW);
@@ -1618,8 +1746,98 @@ dboot_multiboot_get_fwtables(void)
 	} else if (oacpitagp != NULL) {
 		bi->bi_acpi_rsdp = (native_ptr_t)(uintptr_t)
 		    &oacpitagp->mb_rsdp[0];
+	}
+}
+
+/* print out EFI version string with newline */
+static void
+dboot_print_efi_version(uint32_t ver)
+{
+	int rev;
+
+	dboot_printf("%d.", EFI_REV_MAJOR(ver));
+
+	rev = EFI_REV_MINOR(ver);
+	if ((rev % 10) != 0) {
+		dboot_printf("%d.%d\n", rev / 10, rev % 10);
 	} else {
-		bi->bi_acpi_rsdp = NULL;
+		dboot_printf("%d\n", rev / 10);
+	}
+}
+
+static void
+print_efi32(EFI_SYSTEM_TABLE32 *efi)
+{
+	uint16_t *data;
+	EFI_CONFIGURATION_TABLE32 *conf;
+	int i;
+
+	dboot_printf("EFI32 signature: %llx\n",
+	    (unsigned long long)efi->Hdr.Signature);
+	dboot_printf("EFI system version: ");
+	dboot_print_efi_version(efi->Hdr.Revision);
+	dboot_printf("EFI system vendor: ");
+	data = (uint16_t *)(uintptr_t)efi->FirmwareVendor;
+	for (i = 0; data[i] != 0; i++)
+		dboot_printf("%c", (char)data[i]);
+	dboot_printf("\nEFI firmware revision: ");
+	dboot_print_efi_version(efi->FirmwareRevision);
+	dboot_printf("EFI system table number of entries: %d\n",
+	    efi->NumberOfTableEntries);
+	conf = (EFI_CONFIGURATION_TABLE32 *)(uintptr_t)
+	    efi->ConfigurationTable;
+	for (i = 0; i < (int)efi->NumberOfTableEntries; i++) {
+		dboot_printf("%d: 0x%x 0x%x 0x%x 0x%x 0x%x", i,
+		    conf[i].VendorGuid.time_low,
+		    conf[i].VendorGuid.time_mid,
+		    conf[i].VendorGuid.time_hi_and_version,
+		    conf[i].VendorGuid.clock_seq_hi_and_reserved,
+		    conf[i].VendorGuid.clock_seq_low);
+		dboot_printf(" 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+		    conf[i].VendorGuid.node_addr[0],
+		    conf[i].VendorGuid.node_addr[1],
+		    conf[i].VendorGuid.node_addr[2],
+		    conf[i].VendorGuid.node_addr[3],
+		    conf[i].VendorGuid.node_addr[4],
+		    conf[i].VendorGuid.node_addr[5]);
+	}
+}
+
+static void
+print_efi64(EFI_SYSTEM_TABLE64 *efi)
+{
+	uint16_t *data;
+	EFI_CONFIGURATION_TABLE64 *conf;
+	int i;
+
+	dboot_printf("EFI64 signature: %llx\n",
+	    (unsigned long long)efi->Hdr.Signature);
+	dboot_printf("EFI system version: ");
+	dboot_print_efi_version(efi->Hdr.Revision);
+	dboot_printf("EFI system vendor: ");
+	data = (uint16_t *)(uintptr_t)efi->FirmwareVendor;
+	for (i = 0; data[i] != 0; i++)
+		dboot_printf("%c", (char)data[i]);
+	dboot_printf("\nEFI firmware revision: ");
+	dboot_print_efi_version(efi->FirmwareRevision);
+	dboot_printf("EFI system table number of entries: %lld\n",
+	    efi->NumberOfTableEntries);
+	conf = (EFI_CONFIGURATION_TABLE64 *)(uintptr_t)
+	    efi->ConfigurationTable;
+	for (i = 0; i < (int)efi->NumberOfTableEntries; i++) {
+		dboot_printf("%d: 0x%x 0x%x 0x%x 0x%x 0x%x", i,
+		    conf[i].VendorGuid.time_low,
+		    conf[i].VendorGuid.time_mid,
+		    conf[i].VendorGuid.time_hi_and_version,
+		    conf[i].VendorGuid.clock_seq_hi_and_reserved,
+		    conf[i].VendorGuid.clock_seq_low);
+		dboot_printf(" 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+		    conf[i].VendorGuid.node_addr[0],
+		    conf[i].VendorGuid.node_addr[1],
+		    conf[i].VendorGuid.node_addr[2],
+		    conf[i].VendorGuid.node_addr[3],
+		    conf[i].VendorGuid.node_addr[4],
+		    conf[i].VendorGuid.node_addr[5]);
 	}
 }
 #endif /* !__xpv */
@@ -1744,10 +1962,10 @@ build_page_tables(void)
 	/*
 	 * The kernel will need a 1 page window to work with page tables
 	 */
-	bi->bi_pt_window = (uintptr_t)mem_alloc(MMU_PAGESIZE);
+	bi->bi_pt_window = (native_ptr_t)(uintptr_t)mem_alloc(MMU_PAGESIZE);
 	DBG(bi->bi_pt_window);
 	bi->bi_pte_to_pt_window =
-	    (uintptr_t)find_pte(bi->bi_pt_window, NULL, 0, 0);
+	    (native_ptr_t)(uintptr_t)find_pte(bi->bi_pt_window, NULL, 0, 0);
 	DBG(bi->bi_pte_to_pt_window);
 
 #if defined(__xpv)
@@ -1784,9 +2002,9 @@ build_page_tables(void)
 	}
 
 #if !defined(__xpv)
+
 	for (i = 0; i < memlists_used; ++i) {
 		start = memlists[i].addr;
-
 		end = start + memlists[i].size;
 
 		if (map_debug)
@@ -1796,6 +2014,29 @@ build_page_tables(void)
 			map_pa_at_va(start, start, 0);
 			start += MMU_PAGESIZE;
 		}
+		if (start >= next_avail_addr)
+			break;
+	}
+
+	/*
+	 * Map framebuffer memory as PT_NOCACHE as this is memory from a
+	 * device and therefore must not be cached.
+	 */
+	if (bi->bi_framebuffer != NULL) {
+		multiboot_tag_framebuffer_t *fb;
+		fb = (multiboot_tag_framebuffer_t *)(uintptr_t)
+		    bi->bi_framebuffer;
+
+		start = fb->framebuffer_common.framebuffer_addr;
+		end = start + fb->framebuffer_common.framebuffer_height *
+		    fb->framebuffer_common.framebuffer_pitch;
+
+		pte_bits |= PT_NOCACHE;
+		while (start < end) {
+			map_pa_at_va(start, start, 0);
+			start += MMU_PAGESIZE;
+		}
+		pte_bits &= ~PT_NOCACHE;
 	}
 #endif /* !__xpv */
 
@@ -1943,6 +2184,7 @@ dboot_loader_name(void)
 	return (NULL);
 #endif /* __xpv */
 }
+
 /*
  * startup_kernel has a pretty simple job. It builds pagetables which reflect
  * 1:1 mappings for all memory in use. It then also adds mappings for
@@ -2013,6 +2255,18 @@ startup_kernel(void)
 		DBG(mb2_info->mbi_total_size);
 	DBG(bi->bi_acpi_rsdp);
 	DBG(bi->bi_smbios);
+	DBG(bi->bi_uefi_arch);
+	DBG(bi->bi_uefi_systab);
+
+	if (bi->bi_uefi_systab && prom_debug) {
+		if (bi->bi_uefi_arch == XBI_UEFI_ARCH_64) {
+			print_efi64((EFI_SYSTEM_TABLE64 *)(uintptr_t)
+			    bi->bi_uefi_systab);
+		} else {
+			print_efi32((EFI_SYSTEM_TABLE32 *)(uintptr_t)
+			    bi->bi_uefi_systab);
+		}
+	}
 #endif
 
 	/*
@@ -2226,6 +2480,7 @@ startup_kernel(void)
 	 */
 	DBG_MSG("\nAllocating nucleus pages.\n");
 	ktext_phys = (uintptr_t)do_mem_alloc(ksize, FOUR_MEG);
+
 	if (ktext_phys == 0)
 		dboot_panic("failed to allocate aligned kernel memory");
 	DBG(load_addr);
@@ -2254,7 +2509,7 @@ startup_kernel(void)
 
 	bi->bi_next_paddr = next_avail_addr - mfn_base;
 	DBG(bi->bi_next_paddr);
-	bi->bi_next_vaddr = (native_ptr_t)next_avail_addr;
+	bi->bi_next_vaddr = (native_ptr_t)(uintptr_t)next_avail_addr;
 	DBG(bi->bi_next_vaddr);
 
 	/*
@@ -2266,7 +2521,7 @@ startup_kernel(void)
 		next_avail_addr += MMU_PAGESIZE;
 	}
 
-	bi->bi_xen_start_info = (uintptr_t)xen_info;
+	bi->bi_xen_start_info = (native_ptr_t)(uintptr_t)xen_info;
 	DBG((uintptr_t)HYPERVISOR_shared_info);
 	bi->bi_shared_info = (native_ptr_t)HYPERVISOR_shared_info;
 	bi->bi_top_page_table = (uintptr_t)top_page_table - mfn_base;
@@ -2275,16 +2530,16 @@ startup_kernel(void)
 
 	bi->bi_next_paddr = next_avail_addr;
 	DBG(bi->bi_next_paddr);
-	bi->bi_next_vaddr = (uintptr_t)next_avail_addr;
+	bi->bi_next_vaddr = (native_ptr_t)(uintptr_t)next_avail_addr;
 	DBG(bi->bi_next_vaddr);
 	bi->bi_mb_version = multiboot_version;
 
 	switch (multiboot_version) {
 	case 1:
-		bi->bi_mb_info = (uintptr_t)mb_info;
+		bi->bi_mb_info = (native_ptr_t)(uintptr_t)mb_info;
 		break;
 	case 2:
-		bi->bi_mb_info = (uintptr_t)mb2_info;
+		bi->bi_mb_info = (native_ptr_t)(uintptr_t)mb2_info;
 		break;
 	default:
 		dboot_panic("Unknown multiboot version: %d\n",

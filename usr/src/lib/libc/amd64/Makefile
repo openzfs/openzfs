@@ -395,6 +395,7 @@ PORTGEN=			\
 	flock.o			\
 	fls.o			\
 	fmtmsg.o		\
+	freezero.o		\
 	ftime.o			\
 	ftok.o			\
 	fts.o			\
@@ -513,6 +514,7 @@ PORTGEN=			\
 	readdir.o		\
 	readdir_r.o		\
 	reallocarray.o		\
+	recallocarray.o		\
 	realpath.o		\
 	reboot.o		\
 	regexpr.o		\
@@ -989,7 +991,7 @@ TRACEOBJS=			\
 	plockstat.o
 
 # NOTE:	libc.so.1 must be linked with the minimal crti.o and crtn.o
-# modules whose source is provided in the $(SRC)/lib/common directory.
+# modules whose source is provided in the $(SRC)/lib/crt directory.
 # This must be done because otherwise the Sun C compiler would insert
 # its own versions of these modules and those versions contain code
 # to call out to C++ initialization functions.  Such C++ initialization
@@ -998,7 +1000,7 @@ TRACEOBJS=			\
 # Since libc contains no C++ code, linking with the minimal crti.o and
 # crtn.o modules is safe and avoids the problems described above.
 OBJECTS= $(CRTI) $(MOSTOBJS) $(CRTN)
-CRTSRCS= ../../common/amd64
+CRTSRCS= ../../crt/amd64
 
 # include common library definitions
 include ../../Makefile.lib

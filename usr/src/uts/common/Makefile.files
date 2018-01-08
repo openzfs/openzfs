@@ -25,7 +25,7 @@
 # Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
 # Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
 # Copyright 2016 Garrett D'Amore <garrett@damore.org>
-# Copyright 2016 Joyent, Inc.
+# Copyright (c) 2017, Joyent, Inc.
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2016 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
 #
@@ -455,8 +455,6 @@ AUDIOEMU10K_OBJS += audioemu10k.o
 AUDIOENS_OBJS += audioens.o
 
 AUDIOVIA823X_OBJS += audiovia823x.o
-
-AUDIOVIA97_OBJS += audiovia97.o
 
 AUDIO1575_OBJS += audio1575.o
 
@@ -1967,10 +1965,10 @@ CH_COM_OBJS =	ch_mac.o ch_subr.o cspi.o espi.o ixf1010.o mc3.o mc4.o mc5.o \
 #
 #	Chelsio Terminator 4 10G NIC nexus driver module
 #
-CXGBE_FW_OBJS  =	t4_fw.o t4_cfg.o t5_cfg.o t5_fw.o
-CXGBE_COM_OBJS =	t4_hw.o common.o
+CXGBE_FW_OBJS  =	t4_fw.o t4_cfg.o t5_cfg.o t5_fw.o t6_cfg.o t6_fw.o
+CXGBE_COM_OBJS =	t4_hw.o
 CXGBE_NEX_OBJS =	t4_nexus.o t4_sge.o t4_mac.o t4_ioctl.o shared.o \
-			t4_l2t.o adapter.o osdep.o
+			t4_l2t.o osdep.o
 
 #
 #	Chelsio Terminator 4 10G NIC driver module
@@ -2031,7 +2029,8 @@ IPRB_OBJS =	iprb.o
 
 # illumos-written source files
 IXGBE_OBJS =    ixgbe_buf.o ixgbe_debug.o ixgbe_gld.o ixgbe_log.o ixgbe_main.o \
-		ixgbe_osdep.o ixgbe_rx.o ixgbe_stat.o ixgbe_tx.o
+		ixgbe_osdep.o ixgbe_rx.o ixgbe_stat.o ixgbe_transceiver.o \
+		ixgbe_tx.o
 
 # Intel-written source files
 IXGBE_INTC_OBJS	=	ixgbe_82598.o ixgbe_82599.o ixgbe_api.o ixgbe_common.o \

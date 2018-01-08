@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2016, 2017 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_ZCP_H
@@ -38,20 +38,25 @@ extern uint64_t zfs_lua_max_memlimit;
 
 int zcp_argerror(lua_State *, int, const char *, ...);
 
-int zcp_eval(const char *, const char *, uint64_t, uint64_t, nvpair_t *,
-    nvlist_t *);
+int zcp_eval(const char *, const char *, boolean_t, uint64_t, uint64_t,
+    nvpair_t *, nvlist_t *);
 
 int zcp_load_list_lib(lua_State *);
 
 int zcp_load_synctask_lib(lua_State *, boolean_t);
 
 typedef void (zcp_cleanup_t)(void *);
+typedef struct zcp_cleanup_handler {
+	zcp_cleanup_t *zch_cleanup_func;
+	void *zch_cleanup_arg;
+	list_node_t zch_node;
+} zcp_cleanup_handler_t;
 
 typedef struct zcp_run_info {
 	dsl_pool_t	*zri_pool;
 
 	/*
-	 * An estimate of the total ammount of space consumed by all
+	 * An estimate of the total amount of space consumed by all
 	 * synctasks we have successfully performed so far in this
 	 * channel program. Used to generate ENOSPC errors for syncfuncs.
 	 */
@@ -89,16 +94,21 @@ typedef struct zcp_run_info {
 	boolean_t	zri_timed_out;
 
 	/*
-	 * The currently registered cleanup function, which will be called
-	 * with the stored argument if a fatal error occurs.
+	 * Boolean indicating whether or not we are running in syncing
+	 * context.
 	 */
-	zcp_cleanup_t	*zri_cleanup;
-	void		*zri_cleanup_arg;
+	boolean_t	zri_sync;
+
+	/*
+	 * List of currently registered cleanup handlers, which will be
+	 * triggered in the event of a fatal error.
+	 */
+	list_t		zri_cleanup_handlers;
 } zcp_run_info_t;
 
 zcp_run_info_t *zcp_run_info(lua_State *);
-void zcp_register_cleanup(lua_State *, zcp_cleanup_t, void *);
-void zcp_clear_cleanup(lua_State *);
+zcp_cleanup_handler_t *zcp_register_cleanup(lua_State *, zcp_cleanup_t, void *);
+void zcp_deregister_cleanup(lua_State *, zcp_cleanup_handler_t *);
 void zcp_cleanup(lua_State *);
 
 /*
@@ -136,8 +146,6 @@ typedef struct zcp_lib_info {
 	const zcp_arg_t pargs[4];
 	const zcp_arg_t kwargs[2];
 } zcp_lib_info_t;
-
-int zcp_nvlist_to_lua(lua_State *, nvlist_t *, char *, int);
 
 #ifdef	__cplusplus
 }

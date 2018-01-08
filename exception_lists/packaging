@@ -23,9 +23,9 @@
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2014 Garrett D'Amore <garrett@damore.org>
-# Copyright 2016 Toomas Soome <tsoome@me.com>
 # Copyright 2016 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
 # Copyright 2016 Nexenta Systems, Inc.
+# Copyright 2017 Toomas Soome <tsoome@me.com>
 #
 
 #
@@ -629,6 +629,7 @@ usr/lib/fs/autofs/sparcv9/libshare_autofs.so		sparc
 usr/lib/fs/nfs/libshare_nfs.so
 usr/lib/fs/nfs/amd64/libshare_nfs.so		i386
 usr/lib/fs/nfs/sparcv9/libshare_nfs.so		sparc
+usr/lib/fs/nfs/test_svc_tp_create
 usr/lib/fs/smb/libshare_smb.so
 usr/lib/fs/smb/amd64/libshare_smb.so		i386
 usr/lib/fs/smb/sparcv9/libshare_smb.so		sparc
@@ -929,6 +930,8 @@ usr/lib/sparcv9/llib-lvrrpadm.ln	sparc
 #
 opt/onbld/bin/i386/mandoc	i386
 opt/onbld/bin/sparc/mandoc	sparc
+opt/onbld/bin/i386/vtfontcvt	i386
+opt/onbld/bin/sparc/vtfontcvt	sparc
 
 #
 # Private libdwarf
@@ -997,3 +1000,15 @@ usr/lib/sparcv9/libficl-sys.so		sparc
 usr/lib/llib-lficl-sys
 usr/lib/llib-lficl-sys.ln
 usr/lib/libficl-sys.so
+
+#
+# libsff is private
+#
+usr/include/libsff.h
+usr/lib/amd64/libsff.so			i386
+usr/lib/amd64/llib-lsff.ln		i386
+usr/lib/sparcv9/libsff.so		sparc
+usr/lib/sparcv9/llib-lsff.ln		sparc
+usr/lib/libsff.so
+usr/lib/llib-lsff
+usr/lib/llib-lsff.ln

@@ -21,6 +21,8 @@
 /*
  * Copyright (c) 2007, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2016 Nexenta Systems, Inc.
+ * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright 2017 Joyent, Inc.
  */
 /*
  * Copyright (c) 2010, Intel Corporation.
@@ -286,6 +288,8 @@ static	int acpi_nmi_scnt = 0;
 static	ACPI_MADT_LOCAL_APIC_NMI *acpi_nmi_cp = NULL;
 static	int acpi_nmi_ccnt = 0;
 
+static	boolean_t acpi_found_smp_config = B_FALSE;
+
 /*
  * The following added to identify a software poweroff method if available.
  */
@@ -327,9 +331,9 @@ apic_probe_common(char *modname)
 {
 	uint32_t mpct_addr, ebda_start = 0, base_mem_end;
 	caddr_t	biosdatap;
-	caddr_t	mpct = 0;
+	caddr_t	mpct = NULL;
 	caddr_t	fptr;
-	int	i, mpct_size, mapsize, retval = PSM_FAILURE;
+	int	i, mpct_size = 0, mapsize, retval = PSM_FAILURE;
 	ushort_t	ebda_seg, base_mem_size;
 	struct	apic_mpfps_hdr	*fpsp;
 	struct	apic_mp_cnf_hdr	*hdrp;
@@ -354,6 +358,10 @@ apic_probe_common(char *modname)
 		apic_use_acpi_madt_only = 0;
 
 	retval = acpi_probe(modname);
+
+	/* in UEFI system, there is no BIOS data */
+	if (ddi_prop_exists(DDI_DEV_T_ANY, ddi_root_node(), 0, "efi-systab"))
+		goto apic_ret;
 
 	/*
 	 * mapin the bios data area 40:0
@@ -611,8 +619,10 @@ acpi_probe(char *modname)
 		return (PSM_FAILURE);
 
 	if (AcpiGetTable(ACPI_SIG_MADT, 1,
-	    (ACPI_TABLE_HEADER **) &acpi_mapic_dtp) != AE_OK)
+	    (ACPI_TABLE_HEADER **) &acpi_mapic_dtp) != AE_OK) {
+		cmn_err(CE_WARN, "!acpi_probe: No MADT found!");
 		return (PSM_FAILURE);
+	}
 
 	apicadr = mapin_apic((uint32_t)acpi_mapic_dtp->Address,
 	    APIC_LOCAL_MEMLEN, PROT_READ | PROT_WRITE);
@@ -816,6 +826,13 @@ acpi_probe(char *modname)
 		ap = (ACPI_SUBTABLE_HEADER *)(((char *)ap) + ap->Length);
 	}
 
+	/* We found multiple enabled cpus via MADT */
+	if ((apic_nproc > 1) && (apic_io_max > 0)) {
+		acpi_found_smp_config = B_TRUE;
+		cmn_err(CE_NOTE,
+		    "!apic: Using ACPI (MADT) for SMP configuration");
+	}
+
 	/*
 	 * allocate enough space for possible hot-adding of CPUs.
 	 * max_ncpus may be less than apic_nproc if it's set by user.
@@ -922,8 +939,10 @@ acpi_probe(char *modname)
 	 * If this fails, we don't attempt to use ACPI
 	 * even if we were able to get a MADT above
 	 */
-	if (acpica_init() != AE_OK)
+	if (acpica_init() != AE_OK) {
+		cmn_err(CE_WARN, "!apic: Failed to initialize acpica!");
 		goto cleanup;
+	}
 
 	/*
 	 * Call acpica_build_processor_map() now that we have
@@ -952,6 +971,7 @@ acpi_probe(char *modname)
 
 	/* Enable ACPI APIC interrupt routing */
 	if (apic_acpi_enter_apicmode() != PSM_FAILURE) {
+		cmn_err(CE_NOTE, "!apic: Using APIC interrupt routing mode");
 		build_reserved_irqlist((uchar_t *)apic_reserved_irqlist);
 		apic_enable_acpi = 1;
 		if (apic_sci_vect > 0) {
@@ -979,6 +999,8 @@ acpi_probe(char *modname)
 	/* if setting APIC mode failed above, we fall through to cleanup */
 
 cleanup:
+	cmn_err(CE_WARN, "!apic: Failed acpi_probe, SMP config was %s",
+	    acpi_found_smp_config ? "found" : "not found");
 	apic_free_apic_cpus();
 	if (apicadr != NULL) {
 		mapout_apic((caddr_t)apicadr, APIC_LOCAL_MEMLEN);
@@ -997,6 +1019,7 @@ cleanup:
 	acpi_nmi_scnt = 0;
 	acpi_nmi_cp = NULL;
 	acpi_nmi_ccnt = 0;
+	acpi_found_smp_config = B_FALSE;
 	kmem_free(local_ids, NCPU * sizeof (uint32_t));
 	kmem_free(proc_ids, NCPU * sizeof (uint32_t));
 	return (PSM_FAILURE);
@@ -2263,10 +2286,20 @@ apic_acpi_enter_apicmode(void)
 	arg.Integer.Value = ACPI_APIC_MODE;
 
 	status = AcpiEvaluateObject(NULL, "\\_PIC", &arglist, NULL);
-	if (ACPI_FAILURE(status))
+	/*
+	 * Per ACPI spec - section 5.8.1 _PIC Method
+	 * calling the \_PIC control method is optional for the OS
+	 * and might not be found. It's ok to not fail in such cases.
+	 * This is the case on linux KVM and qemu (status AE_NOT_FOUND)
+	 */
+	if (ACPI_FAILURE(status) && (status != AE_NOT_FOUND)) {
+		cmn_err(CE_NOTE,
+		    "!apic: Reporting APIC mode failed (via _PIC), err: 0x%x",
+		    ACPI_FAILURE(status));
 		return (PSM_FAILURE);
-	else
+	} else {
 		return (PSM_SUCCESS);
+	}
 }
 
 

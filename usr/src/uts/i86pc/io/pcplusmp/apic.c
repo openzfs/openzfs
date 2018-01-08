@@ -100,13 +100,14 @@ static void	apic_picinit(void);
 static int	apic_post_cpu_start(void);
 static int	apic_intr_enter(int ipl, int *vect);
 static void	apic_setspl(int ipl);
-static void	x2apic_setspl(int ipl);
 static int	apic_addspl(int ipl, int vector, int min_ipl, int max_ipl);
 static int	apic_delspl(int ipl, int vector, int min_ipl, int max_ipl);
 static int	apic_disable_intr(processorid_t cpun);
 static void	apic_enable_intr(processorid_t cpun);
 static int		apic_get_ipivect(int ipl, int type);
 static void	apic_post_cyclic_setup(void *arg);
+
+#define	UCHAR_MAX	UINT8_MAX
 
 /*
  * The following vector assignments influence the value of ipltopri and
@@ -312,21 +313,18 @@ apic_init_intr(void)
 
 	apic_reg_ops->apic_write_task_reg(APIC_MASK_ALL);
 
-	if (apic_mode == LOCAL_APIC) {
-		/*
-		 * We are running APIC in MMIO mode.
-		 */
-		if (apic_flat_model) {
-			apic_reg_ops->apic_write(APIC_FORMAT_REG,
-			    APIC_FLAT_MODEL);
-		} else {
-			apic_reg_ops->apic_write(APIC_FORMAT_REG,
-			    APIC_CLUSTER_MODEL);
-		}
+	ASSERT(apic_mode == LOCAL_APIC);
 
-		apic_reg_ops->apic_write(APIC_DEST_REG,
-		    AV_HIGH_ORDER >> cpun);
+	/*
+	 * We are running APIC in MMIO mode.
+	 */
+	if (apic_flat_model) {
+		apic_reg_ops->apic_write(APIC_FORMAT_REG, APIC_FLAT_MODEL);
+	} else {
+		apic_reg_ops->apic_write(APIC_FORMAT_REG, APIC_CLUSTER_MODEL);
 	}
+
+	apic_reg_ops->apic_write(APIC_DEST_REG, AV_HIGH_ORDER >> cpun);
 
 	if (apic_directed_EOI_supported()) {
 		/*
@@ -633,24 +631,6 @@ apic_intr_enter(int ipl, int *vectorp)
 	return (nipl);
 }
 
-/*
- * This macro is a common code used by MMIO local apic and X2APIC
- * local apic.
- */
-#define	APIC_INTR_EXIT() \
-{ \
-	cpu_infop = &apic_cpus[psm_get_cpu_id()]; \
-	if (apic_level_intr[irq]) \
-		apic_reg_ops->apic_send_eoi(irq); \
-	cpu_infop->aci_curipl = (uchar_t)prev_ipl; \
-	/* ISR above current pri could not be in progress */ \
-	cpu_infop->aci_ISR_in_progress &= (2 << prev_ipl) - 1; \
-}
-
-/*
- * Any changes made to this function must also change X2APIC
- * version of intr_exit.
- */
 void
 apic_intr_exit(int prev_ipl, int irq)
 {
@@ -658,35 +638,22 @@ apic_intr_exit(int prev_ipl, int irq)
 
 	apic_reg_ops->apic_write_task_reg(apic_ipltopri[prev_ipl]);
 
-	APIC_INTR_EXIT();
-}
-
-/*
- * Same as apic_intr_exit() except it uses MSR rather than MMIO
- * to access local apic registers.
- */
-void
-x2apic_intr_exit(int prev_ipl, int irq)
-{
-	apic_cpus_info_t *cpu_infop;
-
-	X2APIC_WRITE(APIC_TASK_REG, apic_ipltopri[prev_ipl]);
-	APIC_INTR_EXIT();
+	cpu_infop = &apic_cpus[psm_get_cpu_id()];
+	if (apic_level_intr[irq])
+		apic_reg_ops->apic_send_eoi(irq);
+	cpu_infop->aci_curipl = (uchar_t)prev_ipl;
+	/* ISR above current pri could not be in progress */
+	cpu_infop->aci_ISR_in_progress &= (2 << prev_ipl) - 1;
 }
 
 intr_exit_fn_t
 psm_intr_exit_fn(void)
 {
-	if (apic_mode == LOCAL_X2APIC)
-		return (x2apic_intr_exit);
-
 	return (apic_intr_exit);
 }
 
 /*
  * Mask all interrupts below or equal to the given IPL.
- * Any changes made to this function must also change X2APIC
- * version of setspl.
  */
 static void
 apic_setspl(int ipl)
@@ -702,19 +669,6 @@ apic_setspl(int ipl)
 	 */
 	if (apic_setspl_delay)
 		(void) apic_reg_ops->apic_get_pri();
-}
-
-/*
- * X2APIC version of setspl.
- * Mask all interrupts below or equal to the given IPL
- */
-static void
-x2apic_setspl(int ipl)
-{
-	X2APIC_WRITE(APIC_TASK_REG, apic_ipltopri[ipl]);
-
-	/* interrupts at ipl above this cannot be in progress */
-	apic_cpus[psm_get_cpu_id()].aci_ISR_in_progress &= (2 << ipl) - 1;
 }
 
 /*ARGSUSED*/
@@ -739,26 +693,6 @@ apic_post_cpu_start(void)
 	/* We know this CPU + BSP  started successfully. */
 	cpus_started++;
 
-	/*
-	 * On BSP we would have enabled X2APIC, if supported by processor,
-	 * in acpi_probe(), but on AP we do it here.
-	 *
-	 * We enable X2APIC mode only if BSP is running in X2APIC & the
-	 * local APIC mode of the current CPU is MMIO (xAPIC).
-	 */
-	if (apic_mode == LOCAL_X2APIC && apic_detect_x2apic() &&
-	    apic_local_mode() == LOCAL_APIC) {
-		apic_enable_x2apic();
-	}
-
-	/*
-	 * Switch back to x2apic IPI sending method for performance when target
-	 * CPU has entered x2apic mode.
-	 */
-	if (apic_mode == LOCAL_X2APIC) {
-		apic_switch_ipi_callback(B_FALSE);
-	}
-
 	splx(ipltospl(LOCK_LEVEL));
 	apic_init_intr();
 
@@ -768,12 +702,7 @@ apic_post_cpu_start(void)
 	 */
 	setcr0(getcr0() & ~(CR0_CD | CR0_NW));
 
-#ifdef	DEBUG
 	APIC_AV_PENDING_SET();
-#else
-	if (apic_mode == LOCAL_APIC)
-		APIC_AV_PENDING_SET();
-#endif	/* DEBUG */
 
 	/*
 	 * We may be booting, or resuming from suspend; aci_status will
@@ -1068,7 +997,7 @@ apic_alloc_msi_vectors(dev_info_t *dip, int inum, int count, int pri,
 {
 	int	rcount, i;
 	uchar_t	start, irqno;
-	uint32_t cpu;
+	uint32_t cpu = 0;
 	major_t	major;
 	apic_irq_t	*irqptr;
 
@@ -1140,7 +1069,8 @@ apic_alloc_msi_vectors(dev_info_t *dip, int inum, int count, int pri,
 		irqptr->airq_vector = (uchar_t)(start + i);
 		irqptr->airq_ioapicindex = (uchar_t)inum;	/* start */
 		irqptr->airq_intin_no = (uchar_t)rcount;
-		irqptr->airq_ipl = pri;
+		ASSERT(pri >= 0 && pri <= UCHAR_MAX);
+		irqptr->airq_ipl = (uchar_t)pri;
 		irqptr->airq_vector = start + i;
 		irqptr->airq_origirq = (uchar_t)(inum + i);
 		irqptr->airq_share_id = 0;
@@ -1217,7 +1147,8 @@ apic_alloc_msix_vectors(dev_info_t *dip, int inum, int count, int pri,
 		apic_min_device_irq = min(irqno, apic_min_device_irq);
 		irqptr = apic_irq_table[irqno];
 		irqptr->airq_vector = (uchar_t)vector;
-		irqptr->airq_ipl = pri;
+		ASSERT(pri >= 0 && pri <= UCHAR_MAX);
+		irqptr->airq_ipl = (uchar_t)pri;
 		irqptr->airq_origirq = (uchar_t)(inum + i);
 		irqptr->airq_share_id = 0;
 		irqptr->airq_mps_intr_index = MSIX_INDEX;
@@ -1259,7 +1190,8 @@ apic_allocate_vector(int ipl, int irq, int pri)
 			continue;
 		if (apic_vector_to_irq[i] == APIC_RESV_IRQ) {
 			apic_vector_to_irq[i] = (uchar_t)irq;
-			return (i);
+			ASSERT(i >= 0 && i <= UCHAR_MAX);
+			return ((uchar_t)i);
 		}
 	}
 
@@ -1330,18 +1262,25 @@ apic_get_apic_type(void)
 }
 
 void
+apic_switch_ipi_callback(boolean_t enter)
+{
+	ASSERT(enter == B_TRUE);
+}
+
+int
+apic_detect_x2apic(void)
+{
+	return (0);
+}
+
+void
+apic_enable_x2apic(void)
+{
+	cmn_err(CE_PANIC, "apic_enable_x2apic() called in pcplusmp");
+}
+
+void
 x2apic_update_psm(void)
 {
-	struct psm_ops *pops = &apic_ops;
-
-	ASSERT(pops != NULL);
-
-	pops->psm_intr_exit = x2apic_intr_exit;
-	pops->psm_setspl = x2apic_setspl;
-
-	pops->psm_send_ipi =  x2apic_send_ipi;
-	send_dirintf = pops->psm_send_ipi;
-
-	apic_mode = LOCAL_X2APIC;
-	apic_change_ops();
+	cmn_err(CE_PANIC, "x2apic_update_psm() called in pcplusmp");
 }

@@ -21,9 +21,11 @@
 .\"
 .\" Copyright (c) 2007, Sun Microsystems, Inc. All Rights Reserved.
 .\" Copyright (c) 2013 by Delphix. All rights reserved.
-.\" Copyright 2016 Nexenta Systems, Inc.
+.\" Copyright 2017 Nexenta Systems, Inc.
+.\" Copyright (c) 2017 Datto Inc.
+.\" Copyright (c) 2017 George Melikov. All Rights Reserved.
 .\"
-.Dd Oct 2, 2016
+.Dd August 23, 2017
 .Dt ZPOOL 1M
 .Os
 .Sh NAME
@@ -138,7 +140,7 @@
 .Ar pool Ar device Op Ar new_device
 .Nm
 .Cm scrub
-.Op Fl s
+.Op Fl s | Fl p
 .Ar pool Ns ...
 .Nm
 .Cm set
@@ -661,7 +663,7 @@ to the enabled state.
 See
 .Xr zpool-features 5
 for details on feature states.
-.It Sy listsnaps Ns = Ns Sy on Ns | Ns Sy off
+.It Sy listsnapshots Ns = Ns Sy on Ns | Ns Sy off
 Controls whether information about snapshots associated with this pool is
 output when
 .Nm zfs Cm list
@@ -670,6 +672,8 @@ is run without the
 option.
 The default value is
 .Sy off .
+This property can also be referred to by its shortened name,
+.Sy listsnaps .
 .It Sy version Ns = Ns Ar version
 The current on-disk version of the pool.
 This can be increased, but never decreased.
@@ -677,7 +681,7 @@ The preferred method of updating pools is with the
 .Nm zpool Cm upgrade
 command, though this property can be used when a specific version is needed for
 backwards compatibility.
-Once feature flags is enabled on a pool this property will no longer have a
+Once feature flags are enabled on a pool this property will no longer have a
 value.
 .El
 .Ss Subcommands
@@ -986,7 +990,7 @@ Do not display headers, and separate fields by a single tab instead of arbitrary
 space.
 .It Fl o Ar field
 A comma-separated list of columns to display.
-.Sy name Ns , Ns Sy property Ns , Ns Sy value Ns , Ns Sy source
+.Sy name Ns \&, Ns Sy property Ns \&, Ns Sy value Ns \&, Ns Sy source
 is the default value.
 .It Fl p
 Display numbers in parsable (exact) values.
@@ -1467,10 +1471,10 @@ Not all devices can be overridden in this manner.
 .It Xo
 .Nm
 .Cm scrub
-.Op Fl s
+.Op Fl s | Fl p
 .Ar pool Ns ...
 .Xc
-Begins a scrub.
+Begins a scrub or resumes a paused scrub.
 The scrub examines all data in the specified pools to verify that it checksums
 correctly.
 For replicated
@@ -1493,14 +1497,26 @@ faults or disk failure.
 .Pp
 Because scrubbing and resilvering are I/O-intensive operations, ZFS only allows
 one at a time.
-If a scrub is already in progress, the
+If a scrub is paused, the
 .Nm zpool Cm scrub
-command terminates it and starts a new scrub.
+resumes it.
 If a resilver is in progress, ZFS does not allow a scrub to be started until the
 resilver completes.
 .Bl -tag -width Ds
 .It Fl s
 Stop scrubbing.
+.El
+.Bl -tag -width Ds
+.It Fl p
+Pause scrubbing.
+Scrub pause state and progress are periodically synced to disk.
+If the system is restarted or pool is exported during a paused scrub,
+even after import, scrub will remain paused until it is resumed.
+Once resumed the scrub will pick up from the place where it was last
+checkpointed to disk.
+To resume a paused scrub issue
+.Nm zpool Cm scrub
+again.
 .El
 .It Xo
 .Nm
@@ -1550,7 +1566,7 @@ for
 .Ar newpool
 to
 .Ar root
-and automaticaly import it.
+and automatically import it.
 .El
 .It Xo
 .Nm
@@ -1615,7 +1631,7 @@ to enable all features on all pools.
 .Fl v
 .Xc
 Displays legacy ZFS versions supported by the current software.
- See
+See
 .Xr zpool-features 5
 for a description of feature flags features supported by the current software.
 .It Xo
@@ -1755,7 +1771,7 @@ The failed device can be replaced using the following command:
 .Ed
 .Pp
 Once the data has been resilvered, the spare is automatically removed and is
-made available should another device fails.
+made available for use should another device fail.
 The hot spare can be permanently removed from the pool using the following
 command:
 .Bd -literal
@@ -1815,7 +1831,7 @@ is:
 # zpool remove tank mirror-2
 .Ed
 .It Sy Example 15 No Displaying expanded space on a device
-The following command dipslays the detailed information for the pool
+The following command displays the detailed information for the pool
 .Em data .
 This pool is comprised of a single raidz vdev where one of its devices
 increased its capacity by 10GB.

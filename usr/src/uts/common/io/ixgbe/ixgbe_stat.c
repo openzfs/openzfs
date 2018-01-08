@@ -27,6 +27,7 @@
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright 2012 Nexenta Systems, Inc. All rights reserved.
  * Copyright 2016 OmniTI Computer Consulting, Inc. All rights reserved.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 #include "ixgbe_sw.h"
@@ -58,7 +59,6 @@ ixgbe_update_stats(kstat_t *ks, int rw)
 	ixgbe_ks->reset_count.value.ui64 = ixgbe->reset_count;
 	ixgbe_ks->lroc.value.ui64 = ixgbe->lro_pkt_count;
 
-#ifdef IXGBE_DEBUG
 	ixgbe_ks->rx_frame_error.value.ui64 = 0;
 	ixgbe_ks->rx_cksum_error.value.ui64 = 0;
 	ixgbe_ks->rx_exceed_pkt.value.ui64 = 0;
@@ -76,6 +76,8 @@ ixgbe_update_stats(kstat_t *ks, int rw)
 	ixgbe_ks->tx_fail_no_tcb.value.ui64 = 0;
 	ixgbe_ks->tx_fail_dma_bind.value.ui64 = 0;
 	ixgbe_ks->tx_reschedule.value.ui64 = 0;
+	ixgbe_ks->tx_break_tbd_limit.value.ui64 = 0;
+	ixgbe_ks->tx_lso_header_fail.value.ui64 = 0;
 	for (i = 0; i < ixgbe->num_tx_rings; i++) {
 		ixgbe_ks->tx_overload.value.ui64 +=
 		    ixgbe->tx_rings[i].stat_overload;
@@ -87,8 +89,11 @@ ixgbe_update_stats(kstat_t *ks, int rw)
 		    ixgbe->tx_rings[i].stat_fail_dma_bind;
 		ixgbe_ks->tx_reschedule.value.ui64 +=
 		    ixgbe->tx_rings[i].stat_reschedule;
+		ixgbe_ks->tx_break_tbd_limit.value.ui64 +=
+		    ixgbe->tx_rings[i].stat_break_tbd_limit;
+		ixgbe_ks->tx_lso_header_fail.value.ui64 +=
+		    ixgbe->tx_rings[i].stat_lso_header_fail;
 	}
-#endif
 
 	/*
 	 * Hardware calculated statistics.
@@ -245,7 +250,6 @@ ixgbe_init_stats(ixgbe_t *ixgbe)
 	kstat_named_init(&ixgbe_ks->reset_count, "reset_count",
 	    KSTAT_DATA_UINT64);
 
-#ifdef IXGBE_DEBUG
 	kstat_named_init(&ixgbe_ks->rx_frame_error, "rx_frame_error",
 	    KSTAT_DATA_UINT64);
 	kstat_named_init(&ixgbe_ks->rx_cksum_error, "rx_cksum_error",
@@ -262,7 +266,10 @@ ixgbe_init_stats(ixgbe_t *ixgbe)
 	    KSTAT_DATA_UINT64);
 	kstat_named_init(&ixgbe_ks->tx_reschedule, "tx_reschedule",
 	    KSTAT_DATA_UINT64);
-#endif
+	kstat_named_init(&ixgbe_ks->tx_break_tbd_limit, "tx_break_tbd_limit",
+	    KSTAT_DATA_UINT64);
+	kstat_named_init(&ixgbe_ks->tx_lso_header_fail, "tx_lso_header_fail",
+	    KSTAT_DATA_UINT64);
 
 	kstat_named_init(&ixgbe_ks->gprc, "good_pkts_recvd",
 	    KSTAT_DATA_UINT64);
@@ -458,6 +465,9 @@ ixgbe_init_stats(ixgbe_t *ixgbe)
 	kstat_named_init(&ixgbe_ks->rnbc, "recv_no_buffer",
 	    KSTAT_DATA_UINT64);
 	kstat_named_init(&ixgbe_ks->lroc, "lro_pkt_count",
+	    KSTAT_DATA_UINT64);
+
+	kstat_named_init(&ixgbe_ks->dev_gone, "device_gone",
 	    KSTAT_DATA_UINT64);
 	/*
 	 * Function to provide kernel stat update on demand

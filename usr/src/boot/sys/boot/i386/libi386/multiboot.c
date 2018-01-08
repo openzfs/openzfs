@@ -50,10 +50,12 @@
 
 #include "bootstrap.h"
 #include "multiboot.h"
-#include "pxe.h"
 #include "../zfs/libzfs.h"
 #include "../i386/libi386/libi386.h"
 #include "../i386/btx/lib/btxv86.h"
+
+#define	SUPPORT_DHCP
+#include <bootp.h>
 
 #define MULTIBOOT_SUPPORTED_FLAGS \
 	(MULTIBOOT_AOUT_KLUDGE|MULTIBOOT_PAGE_ALIGN|MULTIBOOT_MEMORY_INFO)
@@ -66,16 +68,6 @@
 /* MB data heap pointer */
 static vm_offset_t last_addr;
 extern char bootprog_info[];
-
-extern int elf32_loadfile_raw(char *filename, u_int64_t dest,
-    struct preloaded_file **result, int multiboot);
-extern int elf64_load_modmetadata(struct preloaded_file *fp, u_int64_t dest);
-extern int elf64_obj_loadfile(char *filename, u_int64_t dest,
-    struct preloaded_file **result);
-extern int mb_kernel_cmdline(struct preloaded_file *, struct devdesc *,
-    char **);
-
-extern void multiboot_tramp();
 
 static int multiboot_loadfile(char *, u_int64_t, struct preloaded_file **);
 static int multiboot_exec(struct preloaded_file *);
@@ -261,7 +253,6 @@ multiboot_exec(struct preloaded_file *fp)
 	multiboot_memory_map_t		*mmap;
 	struct bios_smap		*smap;
 	struct devdesc			*rootdev;
-	extern BOOTPLAYER		bootplayer;	/* dhcp info */
 	char				*cmdline = NULL;
 	size_t				 len;
 	int				 error, num, i;
@@ -393,11 +384,12 @@ multiboot_exec(struct preloaded_file *fp)
 	mb_info->mmap_addr = VTOP(mmap);
 	mb_info->flags |= MULTIBOOT_INFO_MEM_MAP;
 
-	if (strstr(getenv("loaddev"), "pxe") != NULL) {
-		mb_info->drives_length = sizeof (BOOTPLAYER);
-		mb_info->drives_addr = mb_malloc(mb_info->drives_length);
-		i386_copyin(&bootplayer, mb_info->drives_addr,
-		    mb_info->drives_length);
+	if (strstr(getenv("loaddev"), "net") != NULL &&
+	    bootp_response != NULL) {
+		mb_info->drives_length = bootp_response_size;
+		mb_info->drives_addr = mb_malloc(bootp_response_size);
+		i386_copyin(bootp_response, mb_info->drives_addr,
+		    bootp_response_size);
 		mb_info->flags &= ~MULTIBOOT_INFO_DRIVE_INFO;
 	}
 	/*

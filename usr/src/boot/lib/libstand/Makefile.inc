@@ -49,7 +49,8 @@ SRCS +=	$(LIB_BASE)/libc/string/memchr.c $(LIB_BASE)/libc/string/memcmp.c
 SRCS +=	$(LIB_BASE)/libc/string/memcpy.c $(LIB_BASE)/libc/string/memmove.c
 SRCS +=	$(LIB_BASE)/libc/string/memset.c $(LIB_BASE)/libc/string/strcat.c
 SRCS +=	$(LIB_BASE)/libc/string/strchr.c $(LIB_BASE)/libc/string/strcmp.c
-SRCS +=	$(LIB_BASE)/libc/string/strcpy.c $(LIB_BASE)/libc/string/strcspn.c
+SRCS +=	$(LIB_BASE)/libc/string/strcpy.c $(LIB_BASE)/libc/string/stpcpy.c
+SRCS +=	$(LIB_BASE)/libc/string/stpncpy.c $(LIB_BASE)/libc/string/strcspn.c
 SRCS +=	$(LIB_BASE)/libc/string/strlcat.c $(LIB_BASE)/libc/string/strlcpy.c
 SRCS +=	$(LIB_BASE)/libc/string/strlen.c $(LIB_BASE)/libc/string/strncat.c
 SRCS +=	$(LIB_BASE)/libc/string/strncmp.c $(LIB_BASE)/libc/string/strncpy.c
@@ -62,7 +63,7 @@ SRCS += $(LIBSTAND_SRC)/qdivrem.c
 
 OBJS +=	bcmp.o bcopy.o bzero.o ffs.o fls.o \
 	memccpy.o memchr.o memcmp.o memcpy.o memmove.o memset.o \
-	qdivrem.o strcat.o strchr.o strcmp.o strcpy.o \
+	qdivrem.o strcat.o strchr.o strcmp.o strcpy.o stpcpy.o stpncpy.o \
 	strcspn.o strlcat.o strlcpy.o strlen.o strncat.o strncmp.o strncpy.o \
 	strpbrk.o strrchr.o strsep.o strspn.o strstr.o strtok.o swab.o
 
@@ -167,11 +168,11 @@ OBJS +=	closeall.o dev.o ioctl.o nullfs.o stat.o fstat.o close.o lseek.o \
 	open.o read.o write.o readdir.o
 
 # network routines
-SRCS +=	$(LIBSTAND_SRC)/arp.c $(LIBSTAND_SRC)/ether.c \
+SRCS +=	$(LIBSTAND_SRC)/arp.c $(LIBSTAND_SRC)/ether.c $(LIBSTAND_SRC)/ip.c \
 	$(LIBSTAND_SRC)/inet_ntoa.c $(LIBSTAND_SRC)/in_cksum.c \
 	$(LIBSTAND_SRC)/net.c $(LIBSTAND_SRC)/udp.c $(LIBSTAND_SRC)/netif.c \
 	$(LIBSTAND_SRC)/rpc.c
-OBJS +=	arp.o ether.o inet_ntoa.o in_cksum.o net.o udp.o netif.o rpc.o
+OBJS +=	arp.o ether.o ip.o inet_ntoa.o in_cksum.o net.o udp.o netif.o rpc.o
 
 # network info services:
 SRCS +=	$(LIBSTAND_SRC)/bootp.c $(LIBSTAND_SRC)/rarp.c \

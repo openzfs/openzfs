@@ -89,8 +89,8 @@ char *telcmds[] = {
 #define	TELOPT_STATUS	5	/* give status */
 #define	TELOPT_TM	6	/* timing mark */
 #define	TELOPT_RCTE	7	/* remote controlled transmission and echo */
-#define	TELOPT_NAOL 	8	/* negotiate about output line width */
-#define	TELOPT_NAOP 	9	/* negotiate about output page size */
+#define	TELOPT_NAOL	8	/* negotiate about output line width */
+#define	TELOPT_NAOP	9	/* negotiate about output page size */
 #define	TELOPT_NAOCRD	10	/* negotiate about CR disposition */
 #define	TELOPT_NAOHTS	11	/* negotiate about horizontal tabstops */
 #define	TELOPT_NAOHTD	12	/* negotiate about horizontal tab disposition */
@@ -245,8 +245,8 @@ extern char *slc_names[];
  */
 #define	AUTH_REJECT	0	/* Rejected */
 #define	AUTH_UNKNOWN	1	/* We don't know who it is, but it's okay */
-#define	AUTH_OTHER	2	/* We know it, but not it's name */
-#define	AUTH_USER	3	/* We know it's name */
+#define	AUTH_OTHER	2	/* We know it, but not its name */
+#define	AUTH_USER	3	/* We know its name */
 #define	AUTH_VALID	4	/* We know it, and it needs no password */
 
 /*

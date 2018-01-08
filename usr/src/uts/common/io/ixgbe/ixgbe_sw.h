@@ -27,6 +27,7 @@
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2013 Saso Kiselkov. All rights reserved.
  * Copyright 2016 OmniTI Computer Consulting, Inc. All rights reserved.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 #ifndef	_IXGBE_SW_H
@@ -505,10 +506,6 @@ typedef struct ixgbe_tx_ring {
 	uint32_t		recycle_fail;
 	uint32_t		stall_watchdog;
 
-#ifdef IXGBE_DEBUG
-	/*
-	 * Debug statistics
-	 */
 	uint32_t		stat_overload;
 	uint32_t		stat_fail_no_tbd;
 	uint32_t		stat_fail_no_tcb;
@@ -516,7 +513,7 @@ typedef struct ixgbe_tx_ring {
 	uint32_t		stat_reschedule;
 	uint32_t		stat_break_tbd_limit;
 	uint32_t		stat_lso_header_fail;
-#endif
+
 	uint64_t		stat_obytes;
 	uint64_t		stat_opackets;
 
@@ -580,14 +577,10 @@ typedef struct ixgbe_rx_ring {
 
 	kmutex_t		rx_lock;	/* Rx access lock */
 
-#ifdef IXGBE_DEBUG
-	/*
-	 * Debug statistics
-	 */
 	uint32_t		stat_frame_error;
 	uint32_t		stat_cksum_error;
 	uint32_t		stat_exceed_pkt;
-#endif
+
 	uint64_t		stat_rbytes;
 	uint64_t		stat_ipackets;
 
@@ -776,6 +769,8 @@ typedef struct ixgbe_stat {
 	kstat_named_t tx_fail_no_tbd;	/* Tx Fail Desc Ring Empty */
 	kstat_named_t tx_fail_dma_bind;	/* Tx Fail DMA bind */
 	kstat_named_t tx_reschedule;	/* Tx Reschedule */
+	kstat_named_t tx_break_tbd_limit; /* Reached single xmit desc limit */
+	kstat_named_t tx_lso_header_fail; /* New mblk for last LSO hdr frag */
 
 	kstat_named_t gprc;	/* Good Packets Received Count */
 	kstat_named_t gptc;	/* Good Packets Xmitted Count */
@@ -824,6 +819,7 @@ typedef struct ixgbe_stat {
 	kstat_named_t mptc;	/* Multicast Packets Xmited Count */
 	kstat_named_t bptc;	/* Broadcast Packets Xmited Count */
 	kstat_named_t lroc;	/* LRO Packets Received Count */
+	kstat_named_t dev_gone;	/* Number of device gone events encountered */
 } ixgbe_stat_t;
 
 /*
@@ -860,6 +856,10 @@ void ixgbe_fill_group(void *arg, mac_ring_type_t, const int,
     mac_group_info_t *, mac_group_handle_t);
 int ixgbe_rx_ring_intr_enable(mac_intr_handle_t);
 int ixgbe_rx_ring_intr_disable(mac_intr_handle_t);
+
+int ixgbe_transceiver_info(void *, uint_t, mac_transceiver_info_t *);
+int ixgbe_transceiver_read(void *, uint_t, uint_t, void *, size_t, off_t,
+    size_t *);
 
 /*
  * Function prototypes in ixgbe_gld.c

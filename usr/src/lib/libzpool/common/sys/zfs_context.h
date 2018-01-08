@@ -197,7 +197,8 @@ extern struct proc p0;
 
 #define	PS_NONE		-1
 
-extern kthread_t *zk_thread_create(void (*func)(), void *arg, uint64_t len);
+extern kthread_t *zk_thread_create(void (*func)(void*), void *arg,
+    uint64_t len);
 
 #define	issig(why)	(FALSE)
 #define	ISSIG(thr, why)	(FALSE)
@@ -543,7 +544,7 @@ extern void kernel_init(int);
 extern void kernel_fini(void);
 
 struct spa;
-extern void nicenum(uint64_t num, char *buf);
+extern void nicenum(uint64_t num, char *buf, size_t);
 extern void show_pool_stats(struct spa *);
 extern int set_global_var(char *arg);
 

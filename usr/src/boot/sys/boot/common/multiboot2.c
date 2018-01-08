@@ -18,6 +18,7 @@
  * kernel. This code is only built to support the illumos kernel, it does
  * not support xen.
  */
+
 #include <sys/cdefs.h>
 #include <sys/stddef.h>
 
@@ -29,6 +30,7 @@
 #include <sys/multiboot2.h>
 #include <stand.h>
 #include <stdbool.h>
+#include <machine/elf.h>
 #include "libzfs.h"
 
 #include "bootstrap.h"
@@ -36,12 +38,20 @@
 #include <machine/metadata.h>
 #include <machine/pc/bios.h>
 
+#define	SUPPORT_DHCP
+#include <bootp.h>
+
+#if !defined(EFI)
 #include "../i386/libi386/libi386.h"
 #include "../i386/btx/lib/btxv86.h"
-#include "pxe.h"
 
-extern BOOTPLAYER bootplayer;	/* dhcp info */
-extern void multiboot_tramp();
+#else
+#include <efi.h>
+#include <efilib.h>
+#include "loader_efi.h"
+
+static void (*trampoline)(uint32_t, struct relocator *, uint64_t);
+#endif
 
 #include "platform/acfreebsd.h"
 #include "acconfig.h"
@@ -55,8 +65,6 @@ extern ACPI_TABLE_RSDP *rsdp;
 static vm_offset_t last_addr;
 extern char bootprog_info[];
 
-extern int elf32_loadfile_raw(char *filename, u_int64_t dest,
-    struct preloaded_file **result, int multiboot);
 static int multiboot2_loadfile(char *, u_int64_t, struct preloaded_file **);
 static int multiboot2_exec(struct preloaded_file *);
 
@@ -276,6 +284,12 @@ multiboot2_loadfile(char *filename, u_int64_t dest,
 		fp->f_metadata = NULL;
 		error = 0;
 	} else {
+#if defined(EFI)
+		/* 32-bit kernel is not yet supported for EFI */
+		printf("32-bit kernel is not supported by UEFI loader\n");
+		error = ENOTSUP;
+		goto out;
+#endif
 		/* elf32_loadfile_raw will fill the attributes in fp. */
 		error = elf32_loadfile_raw(filename, dest, &fp, 2);
 		if (error != 0) {
@@ -295,7 +309,11 @@ multiboot2_loadfile(char *filename, u_int64_t dest,
 	}
 
 	setenv("kernelname", fp->f_name, 1);
+#if defined(EFI)
+	efi_addsmapdata(fp);
+#else
 	bios_addsmapdata(fp);
+#endif
 	*result = fp;
 out:
 	free(header_search);
@@ -656,6 +674,42 @@ module_size(struct preloaded_file *fp)
 	return (size);
 }
 
+#if defined (EFI)
+/*
+ * Calculate size for UEFI memory map tag.
+ */
+static int
+efimemmap_size(void)
+{
+	UINTN size, cur_size, desc_size;
+	EFI_MEMORY_DESCRIPTOR *mmap;
+	EFI_STATUS ret;
+
+	size = EFI_PAGE_SIZE;		/* Start with 4k. */
+	while (1) {
+		cur_size = size;
+		mmap = malloc(cur_size);
+		if (mmap == NULL)
+			return (0);
+		ret = BS->GetMemoryMap(&cur_size, mmap, NULL, &desc_size, NULL);
+		free(mmap);
+		if (ret == EFI_SUCCESS)
+			break;
+		if (ret == EFI_BUFFER_TOO_SMALL) {
+			if (size < cur_size)
+				size = cur_size;
+			size += (EFI_PAGE_SIZE);
+		} else
+			return (0);
+	}
+
+	/* EFI MMAP will grow when we allocate MBI, set some buffer. */
+	size += (3 << EFI_PAGE_SHIFT);
+	size = roundup(size, desc_size);
+	return (sizeof (multiboot_tag_efi_mmap_t) + size);
+}
+#endif
+
 /*
  * Calculate size for bios smap tag.
  */
@@ -684,15 +738,28 @@ mbi_size(struct preloaded_file *fp, char *cmdline)
 	size = roundup2(size, MULTIBOOT_TAG_ALIGN);
 	size += sizeof (multiboot_tag_string_t) + strlen(bootprog_info) + 1;
 	size = roundup2(size, MULTIBOOT_TAG_ALIGN);
+#if !defined (EFI)
 	size += sizeof (multiboot_tag_basic_meminfo_t);
 	size = roundup2(size, MULTIBOOT_TAG_ALIGN);
+#endif
 	size += module_size(fp);
 	size = roundup2(size, MULTIBOOT_TAG_ALIGN);
+#if defined (EFI)
+	size += sizeof (multiboot_tag_efi64_t);
+	size = roundup2(size, MULTIBOOT_TAG_ALIGN);
+	size += efimemmap_size();
+	size = roundup2(size, MULTIBOOT_TAG_ALIGN);
+
+	if (have_framebuffer == true) {
+		size += sizeof (multiboot_tag_framebuffer_t);
+		size = roundup2(size, MULTIBOOT_TAG_ALIGN);
+	}
+#endif
 	size += biossmap_size(fp);
 	size = roundup2(size, MULTIBOOT_TAG_ALIGN);
 
-	if (strstr(getenv("loaddev"), "pxe") != NULL) {
-		size += sizeof(multiboot_tag_network_t) + sizeof (BOOTPLAYER);
+	if (bootp_response != NULL) {
+		size += sizeof(multiboot_tag_network_t) + bootp_response_size;
 		size = roundup2(size, MULTIBOOT_TAG_ALIGN);
 	}
 
@@ -723,8 +790,18 @@ multiboot2_exec(struct preloaded_file *fp)
 	int rootfs = 0;
 	size_t size;
 	struct bios_smap *smap;
+#if defined (EFI)
+	multiboot_tag_module_t *module;
+	EFI_MEMORY_DESCRIPTOR *map;
+	struct relocator *relocator;
+	struct chunk_head *head;
+	struct chunk *chunk;
 	vm_offset_t tmp;
+
+	efi_getdev((void **)(&rootdev), NULL, NULL);
+#else
 	i386_getdev((void **)(&rootdev), NULL, NULL);
+#endif
 
 	error = EINVAL;
 	if (rootdev == NULL) {
@@ -756,10 +833,30 @@ multiboot2_exec(struct preloaded_file *fp)
 	size = mbi_size(fp, cmdline);	/* Get the size for MBI. */
 
 	/* Set up the base for mb_malloc. */
-	for (mfp = fp; mfp->f_next != NULL; mfp = mfp->f_next);
+	i = 0;
+	for (mfp = fp; mfp->f_next != NULL; mfp = mfp->f_next)
+		i++;
 
+#if defined (EFI)
+	/* We need space for kernel + MBI + # modules */
+	num = (EFI_PAGE_SIZE - offsetof(struct relocator, rel_chunklist)) /
+	    sizeof (struct chunk);
+	if (i + 2 >= num) {
+		printf("Too many modules, do not have space for relocator.\n");
+		error = ENOMEM;
+		goto error;
+	}
+
+	last_addr = efi_loadaddr(LOAD_MEM, &size, mfp->f_addr + mfp->f_size);
+	mbi = (multiboot2_info_header_t *)last_addr;
+	if (mbi == NULL) {
+		error = ENOMEM;
+		goto error;
+	}
+	last_addr = (vm_offset_t)mbi->mbi_tags;
+#else
 	/* Start info block from the new page. */
-	last_addr = roundup(mfp->f_addr + mfp->f_size, MULTIBOOT_MOD_ALIGN);
+	last_addr = i386_loadaddr(LOAD_MEM, &size, mfp->f_addr + mfp->f_size);
 
 	/* Do we have space for multiboot info? */
 	if (last_addr + size >= memtop_copyin) {
@@ -769,6 +866,7 @@ multiboot2_exec(struct preloaded_file *fp)
 
 	mbi = (multiboot2_info_header_t *)PTOV(last_addr);
 	last_addr = (vm_offset_t)mbi->mbi_tags;
+#endif	/* EFI */
 
 	{
 		multiboot_tag_string_t *tag;
@@ -793,6 +891,8 @@ multiboot2_exec(struct preloaded_file *fp)
 		    strlen(bootprog_info) + 1);
 	}
 
+#if !defined (EFI)
+	/* Only set in case of BIOS. */
 	{
 		multiboot_tag_basic_meminfo_t *tag;
 		tag = (multiboot_tag_basic_meminfo_t *)
@@ -803,6 +903,7 @@ multiboot2_exec(struct preloaded_file *fp)
 		tag->mb_mem_lower = bios_basemem / 1024;
 		tag->mb_mem_upper = bios_extmem / 1024;
 	}
+#endif
 
 	num = 0;
 	for (mfp = fp->f_next; mfp != NULL; mfp = mfp->f_next) {
@@ -824,8 +925,12 @@ multiboot2_exec(struct preloaded_file *fp)
 	 * - Modules are aligned to page boundary.
 	 * - MBI is aligned to page boundary.
 	 * - Set the tmp to point to physical address of the first module.
+	 * - tmp != mfp->f_addr only in case of EFI.
 	 */
+#if defined (EFI)
 	tmp = roundup2(load_addr + fp->f_size, MULTIBOOT_MOD_ALIGN);
+	module = (multiboot_tag_module_t *)last_addr;
+#endif
 
 	for (mfp = fp->f_next; mfp != NULL; mfp = mfp->f_next) {
 		multiboot_tag_module_t *tag;
@@ -852,9 +957,14 @@ multiboot2_exec(struct preloaded_file *fp)
 
 		tag->mb_type = MULTIBOOT_TAG_TYPE_MODULE;
 		tag->mb_size = sizeof (*tag) + num;
+#if defined (EFI)
 		tag->mb_mod_start = tmp;
 		tag->mb_mod_end = tmp + mfp->f_size;
-		tmp = roundup2(tag->mb_mod_end, MULTIBOOT_MOD_ALIGN);
+		tmp = roundup2(tag->mb_mod_end + 1, MULTIBOOT_MOD_ALIGN);
+#else
+		tag->mb_mod_start = mfp->f_addr;
+		tag->mb_mod_end = mfp->f_addr + mfp->f_size;
+#endif
 		memcpy(tag->mb_cmdline, cmdline, num);
 		free(cmdline);
 		cmdline = NULL;
@@ -893,14 +1003,14 @@ multiboot2_exec(struct preloaded_file *fp)
 		}
 	}
 
-	if (strstr(getenv("loaddev"), "pxe") != NULL) {
+	if (bootp_response != NULL) {
 		multiboot_tag_network_t *tag;
 		tag = (multiboot_tag_network_t *)
-		    mb_malloc(sizeof(*tag) + sizeof (BOOTPLAYER));
+		    mb_malloc(sizeof(*tag) + bootp_response_size);
 
 		tag->mb_type = MULTIBOOT_TAG_TYPE_NETWORK;
-		tag->mb_size = sizeof(*tag) + sizeof (BOOTPLAYER);
-		memcpy(tag->mb_dhcpack, &bootplayer, sizeof (BOOTPLAYER));
+		tag->mb_size = sizeof(*tag) + bootp_response_size;
+		memcpy(tag->mb_dhcpack, bootp_response, bootp_response_size);
 	}
 
 	if (rsdp != NULL) {
@@ -923,6 +1033,132 @@ multiboot2_exec(struct preloaded_file *fp)
 		}
 	}
 
+#if defined (EFI)
+	{
+		multiboot_tag_efi64_t *tag;
+		tag = (multiboot_tag_efi64_t *)
+		    mb_malloc(sizeof (*tag));
+
+		tag->mb_type = MULTIBOOT_TAG_TYPE_EFI64;
+		tag->mb_size = sizeof (*tag);
+		tag->mb_pointer = (uint64_t)(uintptr_t)ST;
+	}
+
+	if (have_framebuffer == true) {
+		multiboot_tag_framebuffer_t *tag;
+		int bpp;
+		struct efi_fb fb;
+		extern int efi_find_framebuffer(struct efi_fb *efifb);
+
+		if (efi_find_framebuffer(&fb) == 0) {
+			tag = (multiboot_tag_framebuffer_t *)
+			    mb_malloc(sizeof (*tag));
+
+			/*
+			 * We assume contiguous color bitmap, and use
+			 * the msb for bits per pixel calculation.
+			 */
+			bpp = fls(fb.fb_mask_red | fb.fb_mask_green |
+			    fb.fb_mask_blue | fb.fb_mask_reserved);
+
+			tag->framebuffer_common.mb_type =
+			    MULTIBOOT_TAG_TYPE_FRAMEBUFFER;
+			tag->framebuffer_common.mb_size =
+			    sizeof (multiboot_tag_framebuffer_t);
+			tag->framebuffer_common.framebuffer_addr = fb.fb_addr;
+			tag->framebuffer_common.framebuffer_width = fb.fb_width;
+			tag->framebuffer_common.framebuffer_height =
+			    fb.fb_height;
+			tag->framebuffer_common.framebuffer_bpp = bpp;
+			/*
+			 * Pitch is stride * bytes per pixel.
+			 * Stride is pixels per scanline.
+			 */
+			tag->framebuffer_common.framebuffer_pitch =
+			    fb.fb_stride * (bpp / 8);
+			tag->framebuffer_common.framebuffer_type =
+			    MULTIBOOT_FRAMEBUFFER_TYPE_RGB;
+			tag->framebuffer_common.mb_reserved = 0;
+
+			/*
+			 * The RGB or BGR color ordering.
+			 */
+			if (fb.fb_mask_red & 0x000000ff) {
+				tag->u.fb2.framebuffer_red_field_position = 0;
+				tag->u.fb2.framebuffer_blue_field_position = 16;
+			} else {
+				tag->u.fb2.framebuffer_red_field_position = 16;
+				tag->u.fb2.framebuffer_blue_field_position = 0;
+			}
+			tag->u.fb2.framebuffer_red_mask_size = 8;
+			tag->u.fb2.framebuffer_green_field_position = 8;
+			tag->u.fb2.framebuffer_green_mask_size = 8;
+			tag->u.fb2.framebuffer_blue_mask_size = 8;
+		}
+	}
+
+	/* Leave EFI memmap last as we will also switch off the BS. */
+	{
+		multiboot_tag_efi_mmap_t *tag;
+		UINTN size, desc_size, key;
+		EFI_STATUS status;
+
+		tag = (multiboot_tag_efi_mmap_t *)
+		    mb_malloc(sizeof (*tag));
+
+		size = 0;
+		status = BS->GetMemoryMap(&size,
+		    (EFI_MEMORY_DESCRIPTOR *)tag->mb_efi_mmap, &key,
+		    &desc_size, &tag->mb_descr_vers);
+		if (status != EFI_BUFFER_TOO_SMALL) {
+			error = EINVAL;
+			goto error;
+		}
+		status = BS->GetMemoryMap(&size,
+		    (EFI_MEMORY_DESCRIPTOR *)tag->mb_efi_mmap, &key,
+		    &desc_size, &tag->mb_descr_vers);
+		if (EFI_ERROR(status)) {
+			error = EINVAL;
+			goto error;
+		}
+		tag->mb_type = MULTIBOOT_TAG_TYPE_EFI_MMAP;
+		tag->mb_size = sizeof (*tag) + size;
+		tag->mb_descr_size = (uint32_t) desc_size;
+
+		/*
+		 * Find relocater pages. We assume we have free pages
+		 * below kernel load address.
+		 * In this version we are using 5 pages:
+		 * relocator data, trampoline, copy, memmove, stack.
+		 */
+		for (i = 0, map = (EFI_MEMORY_DESCRIPTOR *)tag->mb_efi_mmap;
+		    i < size / desc_size;
+		    i++, map = NextMemoryDescriptor(map, desc_size)) {
+			if (map->PhysicalStart == 0)
+				continue;
+			if (map->Type != EfiConventionalMemory)
+				continue;
+			if (map->PhysicalStart < load_addr &&
+			    map->NumberOfPages > 5)
+				break;
+		}
+		if (map->PhysicalStart == 0)
+			panic("Could not find memory for relocater\n");
+
+		if (keep_bs == 0) {
+			status = BS->ExitBootServices(IH, key);
+			if (EFI_ERROR(status)) {
+				printf("Call to ExitBootServices failed\n");
+				error = EINVAL;
+				goto error;
+			}
+		}
+
+		last_addr += size;
+		last_addr = roundup2(last_addr, MULTIBOOT_TAG_ALIGN);
+	}
+#endif
+
 	/*
 	 * MB tag list end marker.
 	 */
@@ -936,13 +1172,66 @@ multiboot2_exec(struct preloaded_file *fp)
 	mbi->mbi_total_size = last_addr - (vm_offset_t)mbi;
 	mbi->mbi_reserved = 0;
 
+#if defined (EFI)
+	/* At this point we have load_addr pointing to kernel load
+	 * address, module list in MBI having physical addresses,
+	 * module list in fp having logical addresses and tmp pointing to
+	 * physical address for MBI.
+	 * Now we must move all pieces to place and start the kernel.
+	 */
+	relocator = (struct relocator *)(uintptr_t)map->PhysicalStart;
+	head = &relocator->rel_chunk_head;
+	STAILQ_INIT(head);
+
+	i = 0;
+	chunk = &relocator->rel_chunklist[i++];
+	chunk->chunk_vaddr = fp->f_addr;
+	chunk->chunk_paddr = load_addr;
+	chunk->chunk_size = fp->f_size;
+
+	STAILQ_INSERT_TAIL(head, chunk, chunk_next);
+
+	for (mfp = fp->f_next; mfp != NULL; mfp = mfp->f_next) {
+		chunk = &relocator->rel_chunklist[i++];
+		chunk->chunk_vaddr = mfp->f_addr;
+		chunk->chunk_paddr = module->mb_mod_start;
+		chunk->chunk_size = mfp->f_size;
+		STAILQ_INSERT_TAIL(head, chunk, chunk_next);
+
+		module = (multiboot_tag_module_t *)
+		    roundup2((uintptr_t)module + module->mb_size,
+		    MULTIBOOT_TAG_ALIGN);
+	}
+	chunk = &relocator->rel_chunklist[i++];
+	chunk->chunk_vaddr = (EFI_VIRTUAL_ADDRESS)mbi;
+	chunk->chunk_paddr = tmp;
+	chunk->chunk_size = mbi->mbi_total_size;
+	STAILQ_INSERT_TAIL(head, chunk, chunk_next);
+
+	trampoline = (void *)(uintptr_t)relocator + EFI_PAGE_SIZE;
+	memmove(trampoline, multiboot_tramp, EFI_PAGE_SIZE);
+
+	relocator->rel_copy = (uintptr_t)trampoline + EFI_PAGE_SIZE;
+	memmove((void *)relocator->rel_copy, efi_copy_finish, EFI_PAGE_SIZE);
+
+	relocator->rel_memmove = (uintptr_t)relocator->rel_copy + EFI_PAGE_SIZE;
+	memmove((void *)relocator->rel_memmove, memmove, EFI_PAGE_SIZE);
+	relocator->rel_stack = relocator->rel_memmove + EFI_PAGE_SIZE - 8;
+
+	trampoline(MULTIBOOT2_BOOTLOADER_MAGIC, relocator, entry_addr);
+#else
 	dev_cleanup();
 	__exec((void *)VTOP(multiboot_tramp), MULTIBOOT2_BOOTLOADER_MAGIC,
 	    (void *)entry_addr, (void *)VTOP(mbi));
+#endif
 	panic("exec returned");
 
 error:
 	if (cmdline != NULL)
 		free(cmdline);
+#if defined (EFI)
+	if (mbi != NULL)
+		efi_free_loadaddr((uint64_t)mbi, EFI_SIZE_TO_PAGES(size));
+#endif
 	return (error);
 }

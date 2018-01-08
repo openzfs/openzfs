@@ -73,60 +73,62 @@ node('master') {
             }
 
             def build_workspace = null
-            node(env.BUILD_INSTANCE_ID) {
-                build_workspace = pwd()
+            try {
+                node(env.BUILD_INSTANCE_ID) {
+                    build_workspace = pwd()
 
-                stage('unstash repository') {
-                    unstash('openzfs')
-                }
-
-                stage('build') {
-                    shscript('nightly-build', false, [
-                        ['BUILD_NONDEBUG', 'yes'],
-                        ['BUILD_DEBUG', 'yes'],
-                        ['RUN_LINT', 'yes']
-                    ])
-                }
-
-                try {
-                    stage('nits') {
-                        shscript('nightly-nits', false, [])
+                    stage('unstash repository') {
+                        unstash('openzfs')
                     }
-                } catch (e) {
-                    // If nits fails, don't propagate the failure to the job's result.
-                }
 
-                stage('install') {
-                    shscript('nightly-install', false, [
-                        ['INSTALL_DEBUG', 'yes']
+                    stage('build') {
+                        shscript('nightly-build', false, [
+                            ['BUILD_NONDEBUG', 'yes'],
+                            ['BUILD_DEBUG', 'yes'],
+                            ['RUN_LINT', 'yes']
+                        ])
+                    }
+
+                    try {
+                        stage('nits') {
+                            shscript('nightly-nits', false, [])
+                        }
+                    } catch (e) {
+                        // If nits fails, don't propagate the failure to the job's result.
+                    }
+
+                    stage('install') {
+                        shscript('nightly-install', false, [
+                            ['INSTALL_DEBUG', 'yes']
+                        ])
+                    }
+                }
+            } finally {
+                if (build_workspace == null)
+                    error('could not determine the workspace used to perform the build')
+
+                stage('archive build artifacts') {
+                    shscript('download-remote-file', false, [
+                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+                        ['REMOTE_FILE', "${build_workspace}/log/*/nightly.log"],
+                        ['LOCAL_FILE', 'nightly.log']
                     ])
+                    archive(includes: 'nightly.log')
+
+                    shscript('download-remote-file', false, [
+                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+                        ['REMOTE_FILE', "${build_workspace}/log/*/mail_msg"],
+                        ['LOCAL_FILE', 'nightly-mail.log']
+                    ])
+                    archive(includes: 'nightly-mail.log')
+
+                    shscript('download-remote-directory', false, [
+                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+                        ['REMOTE_DIRECTORY', "${build_workspace}/packages"],
+                        ['LOCAL_FILE', 'nightly-packages.tar.xz']
+                    ])
+                    archive(includes: 'nightly-packages.tar.xz')
                 }
-            }
-
-            if (build_workspace == null)
-                error('could not determine the workspace used to perform the build')
-
-            stage('archive build artifacts') {
-                shscript('download-remote-file', false, [
-                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
-                    ['REMOTE_FILE', "${build_workspace}/log/*/nightly.log"],
-                    ['LOCAL_FILE', 'nightly.log']
-                ])
-                archive(includes: 'nightly.log')
-
-                shscript('download-remote-file', false, [
-                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
-                    ['REMOTE_FILE', "${build_workspace}/log/*/mail_msg"],
-                    ['LOCAL_FILE', 'nightly-mail.log']
-                ])
-                archive(includes: 'nightly-mail.log')
-
-                shscript('download-remote-directory', false, [
-                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
-                    ['REMOTE_DIRECTORY', "${build_workspace}/packages"],
-                    ['LOCAL_FILE', 'nightly-packages.tar.xz']
-                ])
-                archive(includes: 'nightly-packages.tar.xz')
             }
         }
 
@@ -138,6 +140,13 @@ node('master') {
             shscript('aws-terminate-instances', false, [
                 ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
             ])
+
+            /*
+             * Since the build instance was just terminated above, we want to prevent the "finally" clause below
+             * from attempting to terminate the instance a second time. Otherwise, the second attempt to
+             * terminate the instance would fail, and then prevent the build image from being deleted.
+             */
+            env.BUILD_INSTANCE_ID = ''
         }
 
         stage('run tests') {
@@ -169,6 +178,12 @@ node('master') {
             if (env.BUILD_IMAGE_ID && env.BUILD_IMAGE_ID != env.BASE_IMAGE_ID) {
                 shscript('aws-delete-image', false, [
                     ['IMAGE_ID', env.BUILD_IMAGE_ID]
+                ])
+            }
+
+            if (env.BUILD_INSTANCE_ID) {
+                shscript('aws-terminate-instances', false, [
+                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
                 ])
             }
         }
@@ -217,7 +232,7 @@ def run_test(script, instance_type, spot_price, limit, disks, parameters) {
                 ['ADD_DISKS_FOR', disks]
             ]).trim()
 
-            timeout(time: 2 * limit, unit: 'HOURS') {
+            timeout(time: 1.5 * limit, unit: 'HOURS') {
                 if (!instance_id) {
                     error('Unable to create instance.')
                 }
