@@ -23,6 +23,7 @@
  * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2013 Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2017 James S Blachly, MD <james.blachly@gmail.com>
  */
 
 #include <sys/zfs_context.h>
@@ -272,6 +273,7 @@ vdev_disk_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
 	boolean_t validate_devid = B_FALSE;
 	ddi_devid_t devid;
 	uint64_t capacity = 0, blksz = 0, pbsize;
+	int device_rotational;
 
 	/*
 	 * We must have a pathname, and it must be absolute.
@@ -542,6 +544,13 @@ skip_open:
 		(void) ldi_ioctl(dvd->vd_lh, DKIOCSETWCE, (intptr_t)&wce,
 		    FKIOCTL, kcred, NULL);
 	}
+
+	/*
+	 * Inform the ZIO pipeline if we are non-rotational
+	 */
+	device_rotational = ldi_prop_get_int(dvd->vd_lh, LDI_DEV_T_ANY,
+	    "device-rotational", 1);
+	vd->vdev_nonrot = (device_rotational ? B_FALSE : B_TRUE);
 
 	/*
 	 * Clear the nowritecache bit, so that on a vdev_reopen() we will
