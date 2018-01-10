@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2017 by Delphix. All rights reserved.
+# Copyright (c) 2017, 2018 by Delphix. All rights reserved.
 #
 
 ---
@@ -40,3 +40,23 @@
 - name: reload dumpadm.conf if changed
   command: dumpadm -u
   when: dumpadm.changed
+
+#
+# Update Java to the latest version available from the IPS repository.
+# The Jenkins Swarm client relies on Java, so we want to ensure we have
+# the most recent version installed before we start the Swarm client.
+#
+
+- name: refresh IPS repository index
+  command: pkg refresh
+
+- name: install lastest OpenJDK 8
+  pkg5:
+    state: latest
+    name:
+      - pkg:/developer/java/openjdk8
+      - pkg:/runtime/java/openjdk8
+  register: result
+  until: not result|failed
+  retries: 10
+  delay: 60
