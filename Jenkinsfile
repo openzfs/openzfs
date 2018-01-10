@@ -50,127 +50,127 @@ node('master') {
     }
 
     try {
-        stage('create build instance') {
-            env.BUILD_INSTANCE_ID = shscript('aws-request-spot-instances', true, [
-                ['IMAGE_ID', env.BASE_IMAGE_ID],
-                ['INSTANCE_TYPE', 'c4.xlarge'],
-                ['ADD_DISKS_FOR', 'none'],
-                ['SPOT_PRICE', '0.199']
-            ]).trim()
-        }
-
-        timeout(time: 6, unit: 'HOURS') {
-            stage('configure build instance') {
-                if (!env.BUILD_INSTANCE_ID) {
-                    error('Empty BUILD_INSTANCE_ID environment variable.')
-                }
-
-                shscript('ansible-deploy-roles', false, [
-                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
-                    ['ROLES', 'openzfs.build-slave openzfs.jenkins-slave'],
-                    ['WAIT_FOR_SSH', 'yes']
-                ])
-            }
-
-            def build_workspace = null
-            try {
-                node(env.BUILD_INSTANCE_ID) {
-                    build_workspace = pwd()
-
-                    stage('unstash repository') {
-                        unstash('openzfs')
-                    }
-
-                    stage('build') {
-                        shscript('nightly-build', false, [
-                            ['BUILD_NONDEBUG', 'yes'],
-                            ['BUILD_DEBUG', 'yes'],
-                            ['RUN_LINT', 'yes']
-                        ])
-                    }
-
-                    try {
-                        stage('nits') {
-                            shscript('nightly-nits', false, [])
-                        }
-                    } catch (e) {
-                        // If nits fails, don't propagate the failure to the job's result.
-                    }
-
-                    stage('install') {
-                        shscript('nightly-install', false, [
-                            ['INSTALL_DEBUG', 'yes']
-                        ])
-                    }
-                }
-            } finally {
-                if (build_workspace == null)
-                    error('could not determine the workspace used to perform the build')
-
-                stage('archive build artifacts') {
-                    shscript('download-remote-file', false, [
-                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
-                        ['REMOTE_FILE', "${build_workspace}/log/*/nightly.log"],
-                        ['LOCAL_FILE', 'nightly.log']
-                    ])
-                    archive(includes: 'nightly.log')
-
-                    shscript('download-remote-file', false, [
-                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
-                        ['REMOTE_FILE', "${build_workspace}/log/*/mail_msg"],
-                        ['LOCAL_FILE', 'nightly-mail.log']
-                    ])
-                    archive(includes: 'nightly-mail.log')
-
-                    shscript('download-remote-directory', false, [
-                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
-                        ['REMOTE_DIRECTORY', "${build_workspace}/packages"],
-                        ['LOCAL_FILE', 'nightly-packages.tar.xz']
-                    ])
-                    archive(includes: 'nightly-packages.tar.xz')
-                }
-            }
-        }
-
-        stage('create image') {
-            env.BUILD_IMAGE_ID = shscript('aws-create-image', true, [
-                ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
-            ]).trim()
-
-            shscript('aws-terminate-instances', false, [
-                ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
-            ])
-
-            /*
-             * Since the build instance was just terminated above, we want to prevent the "finally" clause below
-             * from attempting to terminate the instance a second time. Otherwise, the second attempt to
-             * terminate the instance would fail, and then prevent the build image from being deleted.
-             */
-            env.BUILD_INSTANCE_ID = ''
-        }
+//        stage('create build instance') {
+//            env.BUILD_INSTANCE_ID = shscript('aws-request-spot-instances', true, [
+//                ['IMAGE_ID', env.BASE_IMAGE_ID],
+//                ['INSTANCE_TYPE', 'c4.xlarge'],
+//                ['ADD_DISKS_FOR', 'none'],
+//                ['SPOT_PRICE', '0.199']
+//            ]).trim()
+//        }
+//
+//        timeout(time: 6, unit: 'HOURS') {
+//            stage('configure build instance') {
+//                if (!env.BUILD_INSTANCE_ID) {
+//                    error('Empty BUILD_INSTANCE_ID environment variable.')
+//                }
+//
+//                shscript('ansible-deploy-roles', false, [
+//                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+//                    ['ROLES', 'openzfs.build-slave openzfs.jenkins-slave'],
+//                    ['WAIT_FOR_SSH', 'yes']
+//                ])
+//            }
+//
+//            def build_workspace = null
+//            try {
+//                node(env.BUILD_INSTANCE_ID) {
+//                    build_workspace = pwd()
+//
+//                    stage('unstash repository') {
+//                        unstash('openzfs')
+//                    }
+//
+//                    stage('build') {
+//                        shscript('nightly-build', false, [
+//                            ['BUILD_NONDEBUG', 'yes'],
+//                            ['BUILD_DEBUG', 'yes'],
+//                            ['RUN_LINT', 'yes']
+//                        ])
+//                    }
+//
+//                    try {
+//                        stage('nits') {
+//                            shscript('nightly-nits', false, [])
+//                        }
+//                    } catch (e) {
+//                        // If nits fails, don't propagate the failure to the job's result.
+//                    }
+//
+//                    stage('install') {
+//                        shscript('nightly-install', false, [
+//                            ['INSTALL_DEBUG', 'yes']
+//                        ])
+//                    }
+//                }
+//            } finally {
+//                if (build_workspace == null)
+//                    error('could not determine the workspace used to perform the build')
+//
+//                stage('archive build artifacts') {
+//                    shscript('download-remote-file', false, [
+//                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+//                        ['REMOTE_FILE', "${build_workspace}/log/*/nightly.log"],
+//                        ['LOCAL_FILE', 'nightly.log']
+//                    ])
+//                    archive(includes: 'nightly.log')
+//
+//                    shscript('download-remote-file', false, [
+//                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+//                        ['REMOTE_FILE', "${build_workspace}/log/*/mail_msg"],
+//                        ['LOCAL_FILE', 'nightly-mail.log']
+//                    ])
+//                    archive(includes: 'nightly-mail.log')
+//
+//                    shscript('download-remote-directory', false, [
+//                        ['INSTANCE_ID', env.BUILD_INSTANCE_ID],
+//                        ['REMOTE_DIRECTORY', "${build_workspace}/packages"],
+//                        ['LOCAL_FILE', 'nightly-packages.tar.xz']
+//                    ])
+//                    archive(includes: 'nightly-packages.tar.xz')
+//                }
+//            }
+//        }
+//
+//        stage('create image') {
+//            env.BUILD_IMAGE_ID = shscript('aws-create-image', true, [
+//                ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
+//            ]).trim()
+//
+//            shscript('aws-terminate-instances', false, [
+//                ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
+//            ])
+//
+//            /*
+//             * Since the build instance was just terminated above, we want to prevent the "finally" clause below
+//             * from attempting to terminate the instance a second time. Otherwise, the second attempt to
+//             * terminate the instance would fail, and then prevent the build image from being deleted.
+//             */
+//            env.BUILD_INSTANCE_ID = ''
+//        }
 
         stage('run tests') {
             parallel('run libc-tests': {
-                run_test('run-libc-tests', 'm4.large', '0.100', 1, 'none', [
-                    ['RUNFILE', '/opt/libc-tests/runfiles/default.run']
-                ])
+//                run_test('run-libc-tests', 'm4.large', '0.100', 1, 'none', [
+//                    ['RUNFILE', '/opt/libc-tests/runfiles/default.run']
+//                ])
             }, 'run os-tests': {
-                run_test('run-os-tests', 'm4.large', '0.100', 1, 'none', [
-                    ['RUNFILE', '/opt/os-tests/runfiles/default.run']
-                ])
+//                run_test('run-os-tests', 'm4.large', '0.100', 1, 'none', [
+//                    ['RUNFILE', '/opt/os-tests/runfiles/default.run']
+//                ])
             }, 'run util-tests': {
-                run_test('run-util-tests', 'm4.large', '0.100', 1, 'none', [
-                    ['RUNFILE', '/opt/util-tests/runfiles/default.run']
-                ])
+//                run_test('run-util-tests', 'm4.large', '0.100', 1, 'none', [
+//                    ['RUNFILE', '/opt/util-tests/runfiles/default.run']
+//                ])
             }, 'run zfs-tests': {
                 run_test('run-zfs-tests', 'm4.large', '0.100', 8, 'run-zfs-tests', [
                     ['RUNFILE', '/opt/zfs-tests/runfiles/delphix.run']
                 ])
             }, 'run zloop': {
-                run_test('run-zloop', 'm4.large', '0.100', 2, 'none', [
-                    ['ENABLE_WATCHPOINTS', 'no'],
-                    ['RUN_TIME', '6000']
-                ])
+//                run_test('run-zloop', 'm4.large', '0.100', 2, 'none', [
+//                    ['ENABLE_WATCHPOINTS', 'no'],
+//                    ['RUN_TIME', '6000']
+//                ])
             })
         }
     } finally {
@@ -202,8 +202,8 @@ def run_test(script, instance_type, spot_price, limit, disks, parameters) {
      * different stages until that bug/feature is implemented.
      */
 
-    if (!env.BUILD_IMAGE_ID) {
-        error('Empty BUILD_IMAGE_ID environment variable.')
+    if (!env.BASE_IMAGE_ID) {
+        error('Empty BASE_IMAGE_ID environment variable.')
     }
 
     /*
@@ -226,7 +226,7 @@ def run_test(script, instance_type, spot_price, limit, disks, parameters) {
             unstash('jenkins')
 
             instance_id = shscript('aws-request-spot-instances', true, [
-                ['IMAGE_ID', env.BUILD_IMAGE_ID],
+                ['IMAGE_ID', env.BASE_IMAGE_ID],
                 ['INSTANCE_TYPE', instance_type],
                 ['SPOT_PRICE', spot_price],
                 ['ADD_DISKS_FOR', disks]
