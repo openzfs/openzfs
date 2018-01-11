@@ -16,6 +16,7 @@
 #
 
 {{ java_bin_path }} \
+    -Dhudson.remoting.Launcher.pingIntervalSec=600 \
     -jar "{{ jenkins_directory }}/swarm-client.jar" \
     -name "{{ jenkins_slave_name }}" \
     -fsroot "{{ jenkins_directory }}/root" \
