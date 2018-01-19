@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2018 by Delphix. All rights reserved.
  */
 
 #include <mdb/mdb_modapi.h>
@@ -67,6 +67,7 @@ crawl(uintptr_t frame, uintptr_t kbase, uintptr_t ktop, uintptr_t ubase,
     int kill_fp, findstack_info_t *fsip)
 {
 	int levels = 0;
+	uintptr_t fp_prev = 0;
 
 	fsip->fsi_depth = 0;
 	fsip->fsi_overflow = 0;
@@ -107,6 +108,24 @@ crawl(uintptr_t frame, uintptr_t kbase, uintptr_t ktop, uintptr_t ubase,
 
 		if (fp < kbase || fp >= (ktop - sizeof (struct rwindow)))
 			break;
+
+		/*
+		 * For every frame pointer after the first, compare it to the
+		 * previous frame pointer to make sure the stack is growing in
+		 * direction we expect. This keeps us from looping forever on
+		 * certain malformed stacks, e.g. stacks with a frame pointer
+		 * that points to itself.
+		 */
+		if (fsip->fsi_depth > 0) {
+#ifdef STACK_GROWTH_DOWN
+			if (fp <= fp_prev)
+				break;
+#else
+			if (fp >= fp_prev)
+				break;
+#endif
+		}
+		fp_prev = fp;
 
 		frame = KTOU(fp);
 		fs_dprintf(("<6> frame = %p\n", frame));
