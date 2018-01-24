@@ -889,7 +889,7 @@ dmu_tx_try_assign(dmu_tx_t *tx, txg_how_t txg_how)
 		 * of the failuremode setting.
 		 */
 		if (spa_get_failmode(spa) == ZIO_FAILURE_MODE_CONTINUE &&
-		    txg_how != TXG_WAIT)
+		    txg_how == TXG_NOWAIT)
 			return (SET_ERROR(EIO));
 
 		return (SET_ERROR(ERESTART));
@@ -1017,7 +1017,7 @@ dmu_tx_assign(dmu_tx_t *tx, txg_how_t txg_how)
 	while ((err = dmu_tx_try_assign(tx, txg_how)) != 0) {
 		dmu_tx_unassign(tx);
 
-		if (err != ERESTART || txg_how != TXG_WAIT)
+		if (err != ERESTART || txg_how == TXG_NOWAIT)
 			return (err);
 
 		dmu_tx_wait(tx);
