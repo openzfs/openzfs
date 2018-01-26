@@ -175,11 +175,11 @@ node('master') {
         }
     } finally {
         stage('delete image') {
-            if (env.BUILD_IMAGE_ID && env.BUILD_IMAGE_ID != env.BASE_IMAGE_ID) {
-                shscript('aws-delete-image', false, [
-                    ['IMAGE_ID', env.BUILD_IMAGE_ID]
-                ])
-            }
+//            if (env.BUILD_IMAGE_ID && env.BUILD_IMAGE_ID != env.BASE_IMAGE_ID) {
+//                shscript('aws-delete-image', false, [
+//                    ['IMAGE_ID', env.BUILD_IMAGE_ID]
+//                ])
+//            }
 
             if (env.BUILD_INSTANCE_ID) {
                 shscript('aws-terminate-instances', false, [
@@ -297,11 +297,11 @@ def run_test(script, instance_type, spot_price, limit, disks, parameters) {
                 }
             }
         } finally {
-            if (instance_id) {
-                shscript('aws-terminate-instances', false, [
-                    ['INSTANCE_ID', instance_id]
-                ])
-            }
+//            if (instance_id) {
+//                shscript('aws-terminate-instances', false, [
+//                    ['INSTANCE_ID', instance_id]
+//                ])
+//            }
         }
     }
 }
