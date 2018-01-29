@@ -2798,7 +2798,7 @@ ztest_vdev_attach_detach(ztest_ds_t *zd, uint64_t id)
 	 */
 	if (spa->spa_vdev_removal != NULL) {
 		spa_config_exit(spa, SCL_ALL, FTAG);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		mutex_exit(&ztest_vdev_lock);
 		return;
 	}
 
@@ -2967,7 +2967,7 @@ ztest_device_removal(ztest_ds_t *zd, uint64_t id)
 	vdev_t *vd;
 	uint64_t guid;
 
-	VERIFY(mutex_lock(&ztest_vdev_lock) == 0);
+	mutex_enter(&ztest_vdev_lock);
 
 	spa_config_enter(spa, SCL_VDEV, FTAG, RW_READER);
 	vd = vdev_lookup_top(spa, ztest_random_vdev_top(spa, B_FALSE));
@@ -2976,7 +2976,7 @@ ztest_device_removal(ztest_ds_t *zd, uint64_t id)
 
 	(void) spa_vdev_remove(spa, guid, B_FALSE);
 
-	VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+	mutex_exit(&ztest_vdev_lock);
 }
 
 /*
@@ -3115,7 +3115,7 @@ ztest_vdev_LUN_growth(ztest_ds_t *zd, uint64_t id)
 	 */
 	if (spa->spa_vdev_removal != NULL) {
 		spa_config_exit(spa, SCL_STATE, FTAG);
-		VERIFY(mutex_unlock(&ztest_vdev_lock) == 0);
+		mutex_exit(&ztest_vdev_lock);
 		return;
 	}
 
@@ -4696,14 +4696,14 @@ ztest_dsl_prop_get_set(ztest_ds_t *zd, uint64_t id)
 void
 ztest_remap_blocks(ztest_ds_t *zd, uint64_t id)
 {
-	(void) rw_rdlock(&ztest_name_lock);
+	rw_enter(&ztest_name_lock, RW_READER);
 
 	int error = dmu_objset_remap_indirects(zd->zd_name);
 	if (error == ENOSPC)
 		error = 0;
 	ASSERT0(error);
 
-	(void) rw_unlock(&ztest_name_lock);
+	rw_exit(&ztest_name_lock);
 }
 
 /* ARGSUSED */
