@@ -38,6 +38,7 @@ log_onexit cleanup
 
 # Attempt to remove the non mirrored disk.
 log_must zpool remove $TESTPOOL $TMPDIR/dsk1
+log_must wait_for_removal $TESTPOOL
 
 # Attempt to remove one of the disks in the mirror.
 log_mustnot zpool remove $TESTPOOL $TMPDIR/dsk2
