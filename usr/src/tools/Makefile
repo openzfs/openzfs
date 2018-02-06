@@ -39,16 +39,13 @@ COMMON_SUBDIRS= \
 	codesign \
 	cscope-fast \
 	ctf \
-	depcheck \
 	env \
 	findunref \
-	gk \
 	install.bin \
 	lintdump \
 	make \
 	ndrgen \
 	onbld \
-	pmodes \
 	protocmp \
 	protolist \
 	scripts
@@ -103,13 +100,11 @@ ROOTDIRS= \
 	$(ROOTONBLD)/lib/python$(PYTHON_VERSION) \
 	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld \
 	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld/Checks \
-	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld/hgext \
 	$(ROOTONBLD)/lib/python$(PYTHON_VERSION)/onbld/Scm \
 	$(ROOTONBLD)/env \
 	$(ROOTONBLD)/etc \
 	$(ROOTONBLD)/etc/exception_lists \
 	$(ROOTONBLD)/share \
-	$(ROOTONBLD)/gk \
 	$(ROOTONBLD)/man \
 	$(ROOTONBLD)/man/man1onbld
 
