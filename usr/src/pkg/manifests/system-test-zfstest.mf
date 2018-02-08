@@ -2731,6 +2731,7 @@ file path=opt/zfs-tests/tests/perf/fio/random_readwrite_fixed.fio mode=0444
 file path=opt/zfs-tests/tests/perf/fio/random_writes.fio mode=0444
 file path=opt/zfs-tests/tests/perf/fio/sequential_reads.fio mode=0444
 file path=opt/zfs-tests/tests/perf/fio/sequential_writes.fio mode=0444
+file path=opt/zfs-tests/tests/perf/nfs-sample.cfg mode=0444
 file path=opt/zfs-tests/tests/perf/perf.shlib mode=0444
 file path=opt/zfs-tests/tests/perf/regression/random_reads mode=0555
 file path=opt/zfs-tests/tests/perf/regression/random_readwrite mode=0555

@@ -132,7 +132,7 @@ constrain_path
 export PATH=$PATHDIR
 
 verify_id
-while getopts ac:q c; do
+while getopts ac:n:q c; do
 	case $c in
 	'a')
 		auto_detect=true
@@ -141,6 +141,12 @@ while getopts ac:q c; do
 		runfile=$OPTARG
 		[[ -f $runfile ]] || fail "Cannot read file: $runfile"
 		;;
+	'n')
+		nfsfile=$OPTARG
+		[[ -f $nfsfile ]] || fail "Cannot read file: $nfsfile"
+		export NFS=1
+		. "$nfsfile"
+		 ;;
 	'q')
 		quiet='-q'
 		;;
