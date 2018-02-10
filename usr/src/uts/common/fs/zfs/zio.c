@@ -43,9 +43,6 @@
 #include <sys/metaslab_impl.h>
 #include <sys/abd.h>
 
-#define	ZIO_CHILD_BIT(x)		(1 << (x))
-#define	ZIO_CHILD_BIT_IS_SET(val, x)	((val) & (1 << (x)))
-
 /*
  * ==========================================================================
  * I/O type descriptions
@@ -1245,8 +1242,8 @@ zio_write_compress(zio_t *zio)
 	 * If our children haven't all reached the ready stage,
 	 * wait for them and then repeat this pipeline stage.
 	 */
-	if (zio_wait_for_children(zio, ZIO_CHILD_BIT(ZIO_CHILD_LOGICAL) |
-	    ZIO_CHILD_BIT(ZIO_CHILD_GANG), ZIO_WAIT_READY)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_LOGICAL_BIT |
+	    ZIO_CHILD_GANG_BIT, ZIO_WAIT_READY)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
@@ -2089,8 +2086,7 @@ zio_gang_issue(zio_t *zio)
 {
 	blkptr_t *bp = zio->io_bp;
 
-	if (zio_wait_for_children(zio, ZIO_CHILD_BIT(ZIO_CHILD_GANG),
-	    ZIO_WAIT_DONE)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_GANG_BIT, ZIO_WAIT_DONE)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
@@ -2413,8 +2409,7 @@ zio_ddt_read_done(zio_t *zio)
 {
 	blkptr_t *bp = zio->io_bp;
 
-	if (zio_wait_for_children(zio, ZIO_CHILD_BIT(ZIO_CHILD_DDT),
-	    ZIO_WAIT_DONE)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_DDT_BIT, ZIO_WAIT_DONE)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
@@ -3122,8 +3117,7 @@ zio_vdev_io_done(zio_t *zio)
 	vdev_ops_t *ops = vd ? vd->vdev_ops : &vdev_mirror_ops;
 	boolean_t unexpected_error = B_FALSE;
 
-	if (zio_wait_for_children(zio, ZIO_CHILD_BIT(ZIO_CHILD_VDEV),
-	    ZIO_WAIT_DONE)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_VDEV_BIT, ZIO_WAIT_DONE)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
@@ -3191,8 +3185,7 @@ zio_vdev_io_assess(zio_t *zio)
 {
 	vdev_t *vd = zio->io_vd;
 
-	if (zio_wait_for_children(zio, ZIO_CHILD_BIT(ZIO_CHILD_VDEV),
-	    ZIO_WAIT_DONE)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_VDEV_BIT, ZIO_WAIT_DONE)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
@@ -3409,8 +3402,8 @@ zio_ready(zio_t *zio)
 	zio_t *pio, *pio_next;
 	zio_link_t *zl = NULL;
 
-	if (zio_wait_for_children(zio, ZIO_CHILD_BIT(ZIO_CHILD_GANG) |
-	    ZIO_CHILD_BIT(ZIO_CHILD_DDT), ZIO_WAIT_READY)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_GANG_BIT | ZIO_CHILD_DDT_BIT,
+	    ZIO_WAIT_READY)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
@@ -3552,9 +3545,9 @@ zio_done(zio_t *zio)
 	 * If our children haven't all completed,
 	 * wait for them and then repeat this pipeline stage.
 	 */
-	if (zio_wait_for_children(zio, ZIO_CHILD_BIT(ZIO_CHILD_VDEV) |
-	    ZIO_CHILD_BIT(ZIO_CHILD_GANG) | ZIO_CHILD_BIT(ZIO_CHILD_DDT) |
-	    ZIO_CHILD_BIT(ZIO_CHILD_LOGICAL), ZIO_WAIT_DONE)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_VDEV_BIT |
+	    ZIO_CHILD_GANG_BIT | ZIO_CHILD_DDT_BIT | ZIO_CHILD_LOGICAL_BIT,
+	    ZIO_WAIT_DONE)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
