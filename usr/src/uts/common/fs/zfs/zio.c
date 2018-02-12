@@ -3545,9 +3545,7 @@ zio_done(zio_t *zio)
 	 * If our children haven't all completed,
 	 * wait for them and then repeat this pipeline stage.
 	 */
-	if (zio_wait_for_children(zio, ZIO_CHILD_VDEV_BIT |
-	    ZIO_CHILD_GANG_BIT | ZIO_CHILD_DDT_BIT | ZIO_CHILD_LOGICAL_BIT,
-	    ZIO_WAIT_DONE)) {
+	if (zio_wait_for_children(zio, ZIO_CHILD_ALL_BITS, ZIO_WAIT_DONE)) {
 		return (ZIO_PIPELINE_STOP);
 	}
 
