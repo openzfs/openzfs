@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2017, 2018 by Delphix. All rights reserved.
  */
 
 #ifndef _SYS_ZTHR_H
@@ -29,6 +29,13 @@ struct zthr {
 	kmutex_t	zthr_lock;
 	kcondvar_t	zthr_cv;
 	boolean_t	zthr_cancel;
+
+	kcondvar_t	zthr_wait_cv;
+	boolean_t	zthr_wait;
+
+	kcondvar_t	zthr_init_cv;
+	boolean_t	zthr_init;
+
 	hrtime_t	zthr_wait_time;
 
 	zthr_checkfunc_t	*zthr_checkfunc;
@@ -47,9 +54,11 @@ extern void zthr_destroy(zthr_t *t);
 
 extern void zthr_wakeup(zthr_t *t);
 extern int zthr_cancel(zthr_t *t);
+extern int zthr_wait(zthr_t *t);
 extern void zthr_resume(zthr_t *t);
 
 extern boolean_t zthr_iscancelled(zthr_t *t);
+extern boolean_t zthr_iswaited(zthr_t *t);
 extern boolean_t zthr_isrunning(zthr_t *t);
 
 #endif /* _SYS_ZTHR_H */

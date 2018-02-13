@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2011, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2018 by Delphix. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
  * Copyright (c) 2017 Datto Inc.
  */
@@ -84,6 +84,9 @@ bpobj_alloc(objset_t *os, int blocksize, dmu_tx_t *tx)
 		size = BPOBJ_SIZE_V0;
 	else if (spa_version(dmu_objset_spa(os)) < SPA_VERSION_DEADLISTS)
 		size = BPOBJ_SIZE_V1;
+	else if (!spa_feature_is_active(dmu_objset_spa(os),
+	    SPA_FEATURE_LIVELIST))
+		size = BPOBJ_SIZE_V2;
 	else
 		size = sizeof (bpobj_phys_t);
 
@@ -172,6 +175,7 @@ bpobj_open(bpobj_t *bpo, objset_t *os, uint64_t object)
 	bpo->bpo_epb = doi.doi_data_block_size >> SPA_BLKPTRSHIFT;
 	bpo->bpo_havecomp = (doi.doi_bonus_size > BPOBJ_SIZE_V0);
 	bpo->bpo_havesubobj = (doi.doi_bonus_size > BPOBJ_SIZE_V1);
+	bpo->bpo_havefreed = (doi.doi_bonus_size > BPOBJ_SIZE_V2);
 	bpo->bpo_phys = bpo->bpo_dbuf->db_data;
 	return (0);
 }
@@ -208,8 +212,8 @@ bpobj_is_empty(bpobj_t *bpo)
 }
 
 static int
-bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
-    boolean_t free)
+bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, int64_t start,
+    dmu_tx_t *tx, boolean_t delete)
 {
 	dmu_object_info_t doi;
 	int epb;
@@ -219,14 +223,19 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 
 	ASSERT(bpobj_is_open(bpo));
 	mutex_enter(&bpo->bpo_lock);
+	ASSERT3U(start, >=, 0);
 
-	if (free)
+	if (bpobj_is_empty(bpo))
+		goto out;
+
+	if (delete)
 		dmu_buf_will_dirty(bpo->bpo_dbuf, tx);
 
-	for (i = bpo->bpo_phys->bpo_num_blkptrs - 1; i >= 0; i--) {
+	for (i = bpo->bpo_phys->bpo_num_blkptrs - 1; i >= start; i--) {
 		blkptr_t *bparray;
 		blkptr_t *bp;
 		uint64_t offset, blkoff;
+		boolean_t free;
 
 		offset = i * sizeof (blkptr_t);
 		blkoff = P2PHASE(i, bpo->bpo_epb);
@@ -234,8 +243,8 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 		if (dbuf == NULL || dbuf->db_offset > offset) {
 			if (dbuf)
 				dmu_buf_rele(dbuf, FTAG);
-			err = dmu_buf_hold(bpo->bpo_os, bpo->bpo_object, offset,
-			    FTAG, &dbuf, 0);
+			err = dmu_buf_hold(bpo->bpo_os, bpo->bpo_object,
+			    offset, FTAG, &dbuf, 0);
 			if (err)
 				break;
 		}
@@ -245,26 +254,36 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 
 		bparray = dbuf->db_data;
 		bp = &bparray[blkoff];
-		err = func(arg, bp, tx);
+		free = BP_GET_FREE(bp);
+		err = func(arg, bp, free, tx);
 		if (err)
 			break;
-		if (free) {
-			bpo->bpo_phys->bpo_bytes -=
-			    bp_get_dsize_sync(dmu_objset_spa(bpo->bpo_os), bp);
+		if (delete) {
+			int sign = free ? +1 : -1;
+			bpo->bpo_phys->bpo_bytes += sign *
+			    bp_get_dsize_sync(
+			    dmu_objset_spa(bpo->bpo_os), bp);
 			ASSERT3S(bpo->bpo_phys->bpo_bytes, >=, 0);
 			if (bpo->bpo_havecomp) {
-				bpo->bpo_phys->bpo_comp -= BP_GET_PSIZE(bp);
-				bpo->bpo_phys->bpo_uncomp -= BP_GET_UCSIZE(bp);
+				bpo->bpo_phys->bpo_comp += sign *
+				    BP_GET_PSIZE(bp);
+				bpo->bpo_phys->bpo_uncomp += sign *
+				    BP_GET_UCSIZE(bp);
 			}
 			bpo->bpo_phys->bpo_num_blkptrs--;
 			ASSERT3S(bpo->bpo_phys->bpo_num_blkptrs, >=, 0);
+			if (free) {
+				ASSERT(bpo->bpo_havefreed);
+				bpo->bpo_phys->bpo_num_freed--;
+				ASSERT3S(bpo->bpo_phys->bpo_num_freed, >=, 0);
+			}
 		}
 	}
 	if (dbuf) {
 		dmu_buf_rele(dbuf, FTAG);
 		dbuf = NULL;
 	}
-	if (free) {
+	if (delete) {
 		VERIFY3U(0, ==, dmu_free_range(bpo->bpo_os, bpo->bpo_object,
 		    (i + 1) * sizeof (blkptr_t), -1ULL, tx));
 	}
@@ -280,7 +299,7 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 	ASSERT3U(doi.doi_type, ==, DMU_OT_BPOBJ_SUBOBJ);
 	epb = doi.doi_data_block_size / sizeof (uint64_t);
 
-	for (i = bpo->bpo_phys->bpo_num_subobjs - 1; i >= 0; i--) {
+	for (i = bpo->bpo_phys->bpo_num_subobjs - 1; i >= start; i--) {
 		uint64_t *objarray;
 		uint64_t offset, blkoff;
 		bpobj_t sublist;
@@ -306,7 +325,7 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 		err = bpobj_open(&sublist, bpo->bpo_os, objarray[blkoff]);
 		if (err)
 			break;
-		if (free) {
+		if (delete) {
 			err = bpobj_space(&sublist,
 			    &used_before, &comp_before, &uncomp_before);
 			if (err != 0) {
@@ -314,8 +333,8 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 				break;
 			}
 		}
-		err = bpobj_iterate_impl(&sublist, func, arg, tx, free);
-		if (free) {
+		err = bpobj_iterate_impl(&sublist, func, arg, 0, tx, delete);
+		if (delete) {
 			VERIFY3U(0, ==, bpobj_space(&sublist,
 			    &used_after, &comp_after, &uncomp_after));
 			bpo->bpo_phys->bpo_bytes -= used_before - used_after;
@@ -328,7 +347,7 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 		bpobj_close(&sublist);
 		if (err)
 			break;
-		if (free) {
+		if (delete) {
 			err = dmu_object_free(bpo->bpo_os,
 			    objarray[blkoff], tx);
 			if (err)
@@ -341,7 +360,7 @@ bpobj_iterate_impl(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx,
 		dmu_buf_rele(dbuf, FTAG);
 		dbuf = NULL;
 	}
-	if (free) {
+	if (delete) {
 		VERIFY3U(0, ==, dmu_free_range(bpo->bpo_os,
 		    bpo->bpo_phys->bpo_subobjs,
 		    (i + 1) * sizeof (uint64_t), -1ULL, tx));
@@ -366,16 +385,27 @@ out:
 int
 bpobj_iterate(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx)
 {
-	return (bpobj_iterate_impl(bpo, func, arg, tx, B_TRUE));
+	return (bpobj_iterate_impl(bpo, func, arg, 0, tx, B_TRUE));
 }
 
 /*
  * Iterate the entries.  If func returns nonzero, iteration will stop.
  */
 int
-bpobj_iterate_nofree(bpobj_t *bpo, bpobj_itor_t func, void *arg, dmu_tx_t *tx)
+bpobj_iterate_nofree(bpobj_t *bpo, bpobj_itor_t func, void *arg)
 {
-	return (bpobj_iterate_impl(bpo, func, arg, tx, B_FALSE));
+	return (bpobj_iterate_impl(bpo, func, arg, 0, NULL, B_FALSE));
+}
+
+/*
+ * Iterate over the entries beginning at start, If func returns nonzero,
+ * iteration will stop.
+ */
+int
+bpobj_iterate_from_nofree(bpobj_t *bpo, bpobj_itor_t func, void *arg,
+    int64_t start)
+{
+	return (bpobj_iterate_impl(bpo, func, arg, start, NULL, B_FALSE));
 }
 
 void
@@ -465,7 +495,7 @@ bpobj_enqueue_subobj(bpobj_t *bpo, uint64_t subobj, dmu_tx_t *tx)
 }
 
 void
-bpobj_enqueue(bpobj_t *bpo, const blkptr_t *bp, dmu_tx_t *tx)
+bpobj_enqueue(bpobj_t *bpo, const blkptr_t *bp, boolean_t free, dmu_tx_t *tx)
 {
 	blkptr_t stored_bp = *bp;
 	uint64_t offset;
@@ -496,8 +526,8 @@ bpobj_enqueue(bpobj_t *bpo, const blkptr_t *bp, dmu_tx_t *tx)
 		bzero(&stored_bp.blk_cksum, sizeof (stored_bp.blk_cksum));
 	}
 
-	/* We never need the fill count. */
 	stored_bp.blk_fill = 0;
+	BP_SET_FREE(&stored_bp, free);
 
 	mutex_enter(&bpo->bpo_lock);
 
@@ -520,11 +550,16 @@ bpobj_enqueue(bpobj_t *bpo, const blkptr_t *bp, dmu_tx_t *tx)
 
 	dmu_buf_will_dirty(bpo->bpo_dbuf, tx);
 	bpo->bpo_phys->bpo_num_blkptrs++;
-	bpo->bpo_phys->bpo_bytes +=
+	int sign = free ? -1 : +1;
+	bpo->bpo_phys->bpo_bytes += sign *
 	    bp_get_dsize_sync(dmu_objset_spa(bpo->bpo_os), bp);
 	if (bpo->bpo_havecomp) {
-		bpo->bpo_phys->bpo_comp += BP_GET_PSIZE(bp);
-		bpo->bpo_phys->bpo_uncomp += BP_GET_UCSIZE(bp);
+		bpo->bpo_phys->bpo_comp += sign * BP_GET_PSIZE(bp);
+		bpo->bpo_phys->bpo_uncomp += sign * BP_GET_UCSIZE(bp);
+	}
+	if (free) {
+		ASSERT(bpo->bpo_havefreed);
+		bpo->bpo_phys->bpo_num_freed++;
 	}
 	mutex_exit(&bpo->bpo_lock);
 }
@@ -540,7 +575,7 @@ struct space_range_arg {
 
 /* ARGSUSED */
 static int
-space_range_cb(void *arg, const blkptr_t *bp, dmu_tx_t *tx)
+space_range_cb(void *arg, const blkptr_t *bp, boolean_t free, dmu_tx_t *tx)
 {
 	struct space_range_arg *sra = arg;
 
@@ -598,9 +633,24 @@ bpobj_space_range(bpobj_t *bpo, uint64_t mintxg, uint64_t maxtxg,
 	sra.mintxg = mintxg;
 	sra.maxtxg = maxtxg;
 
-	err = bpobj_iterate_nofree(bpo, space_range_cb, &sra, NULL);
+	err = bpobj_iterate_nofree(bpo, space_range_cb, &sra);
 	*usedp = sra.used;
 	*compp = sra.comp;
 	*uncompp = sra.uncomp;
 	return (err);
+}
+
+/*
+ * A bpobj_itor_t to append blkptrs to a bplist. Note that while blkptrs in a
+ * bpobj are designated as free or allocated that information is not preserved
+ * in bplists.
+ */
+/* ARGSUSED */
+int
+bplist_append_cb(void *arg, const blkptr_t *bp, boolean_t free,
+    dmu_tx_t *tx)
+{
+	bplist_t *bpl = arg;
+	bplist_append(bpl, bp);
+	return (0);
 }

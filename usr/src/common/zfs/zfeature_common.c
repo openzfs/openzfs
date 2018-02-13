@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2018 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014, Nexenta Systems, Inc. All rights reserved.
@@ -250,6 +250,11 @@ zpool_feature_init(void)
 	    "Space maps representing large segments are more efficient.",
 	    ZFEATURE_FLAG_READONLY_COMPAT | ZFEATURE_FLAG_ACTIVATE_ON_ENABLE,
 	    NULL);
+
+	zfeature_register(SPA_FEATURE_LIVELIST,
+	    "com.delphix:livelist", "livelist",
+	    "Improved clone deletion performance.",
+	    ZFEATURE_FLAG_READONLY_COMPAT, NULL);
 
 	static const spa_feature_t large_blocks_deps[] = {
 		SPA_FEATURE_EXTENSIBLE_DATASET,

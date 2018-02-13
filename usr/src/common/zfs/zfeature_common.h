@@ -20,7 +20,7 @@
  */
 
 /*
- * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2011, 2018 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
  * Copyright (c) 2013, Joyent, Inc. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
@@ -60,6 +60,7 @@ typedef enum spa_feature {
 	SPA_FEATURE_OBSOLETE_COUNTS,
 	SPA_FEATURE_POOL_CHECKPOINT,
 	SPA_FEATURE_SPACEMAP_V2,
+	SPA_FEATURE_LIVELIST,
 	SPA_FEATURES
 } spa_feature_t;
 

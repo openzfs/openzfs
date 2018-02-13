@@ -14,7 +14,7 @@
  */
 
 /*
- * Copyright (c) 2017 by Delphix. All rights reserved.
+ * Copyright (c) 2017, 2018 by Delphix. All rights reserved.
  */
 
 /*
@@ -178,6 +178,8 @@ zthr_exit(zthr_t *t, int rc)
 	t->zthr_thread = NULL;
 	t->zthr_rc = rc;
 	cv_broadcast(&t->zthr_cv);
+	t->zthr_wait = B_FALSE;
+	cv_broadcast(&t->zthr_wait_cv);
 	mutex_exit(&t->zthr_lock);
 	thread_exit();
 }
@@ -189,6 +191,9 @@ zthr_procedure(void *arg)
 	int rc = 0;
 
 	mutex_enter(&t->zthr_lock);
+	t->zthr_init = B_TRUE;
+	cv_broadcast(&t->zthr_init_cv);
+
 	while (!t->zthr_cancel) {
 		if (t->zthr_checkfunc(t->zthr_arg, t)) {
 			mutex_exit(&t->zthr_lock);
@@ -203,6 +208,10 @@ zthr_procedure(void *arg)
 				    &t->zthr_lock, t->zthr_wait_time,
 				    MSEC2NSEC(1), 0);
 			}
+		}
+		if (t->zthr_wait) {
+			t->zthr_wait = B_FALSE;
+			cv_broadcast(&t->zthr_wait_cv);
 		}
 	}
 	mutex_exit(&t->zthr_lock);
@@ -228,6 +237,8 @@ zthr_create_timer(zthr_checkfunc_t *checkfunc, zthr_func_t *func,
 	zthr_t *t = kmem_zalloc(sizeof (*t), KM_SLEEP);
 	mutex_init(&t->zthr_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&t->zthr_cv, NULL, CV_DEFAULT, NULL);
+	cv_init(&t->zthr_wait_cv, NULL, CV_DEFAULT, NULL);
+	cv_init(&t->zthr_init_cv, NULL, CV_DEFAULT, NULL);
 
 	mutex_enter(&t->zthr_lock);
 	t->zthr_checkfunc = checkfunc;
@@ -237,8 +248,17 @@ zthr_create_timer(zthr_checkfunc_t *checkfunc, zthr_func_t *func,
 
 	t->zthr_thread = thread_create(NULL, 0, zthr_procedure, t,
 	    0, &p0, TS_RUN, minclsyspri);
-	mutex_exit(&t->zthr_lock);
 
+	/*
+	 * Wait until the zthr has finished initializing. This ensures
+	 * that the only time another thread can obtain the lock is when
+	 * the zthr func is running or the zthr is alseep.
+	 */
+	t->zthr_init = B_FALSE;
+	while (!t->zthr_init) {
+		cv_wait(&t->zthr_init_cv, &t->zthr_lock);
+	}
+	mutex_exit(&t->zthr_lock);
 	return (t);
 }
 
@@ -248,6 +268,8 @@ zthr_destroy(zthr_t *t)
 	VERIFY3P(t->zthr_thread, ==, NULL);
 	mutex_destroy(&t->zthr_lock);
 	cv_destroy(&t->zthr_cv);
+	cv_destroy(&t->zthr_wait_cv);
+	cv_destroy(&t->zthr_init_cv);
 	kmem_free(t, sizeof (*t));
 }
 
@@ -290,6 +312,27 @@ zthr_cancel(zthr_t *t)
 	return (rc);
 }
 
+/*
+ * Wait for the zthr to finish it's current function. It requests that the
+ * thread finish early - zthr_iswaited() will return TRUE. If the zthr
+ * is sleeping or cancelled, return immediately.
+ */
+int
+zthr_wait(zthr_t *t)
+{
+	mutex_enter(&t->zthr_lock);
+
+	/* broadcast in case the zthr is sleeping */
+	cv_broadcast(&t->zthr_cv);
+
+	t->zthr_wait = B_TRUE;
+	while ((t->zthr_wait) && (t->zthr_thread != NULL))
+		cv_wait(&t->zthr_wait_cv, &t->zthr_lock);
+	mutex_exit(&t->zthr_lock);
+
+	return (0);
+}
+
 void
 zthr_resume(zthr_t *t)
 {
@@ -300,10 +343,20 @@ zthr_resume(zthr_t *t)
 	ASSERT3P(&t->zthr_checkfunc, !=, NULL);
 	ASSERT3P(&t->zthr_func, !=, NULL);
 	ASSERT(!t->zthr_cancel);
+	ASSERT(!t->zthr_wait);
 
 	t->zthr_thread = thread_create(NULL, 0, zthr_procedure, t,
 	    0, &p0, TS_RUN, minclsyspri);
 
+	/*
+	 * Wait until the zthr has finished initializing. This ensures
+	 * that the only time another thread can obtain the lock is when
+	 * the zthr func is running or the zthr is alseep.
+	 */
+	t->zthr_init = B_FALSE;
+	while (!t->zthr_init) {
+		cv_wait(&t->zthr_init_cv, &t->zthr_lock);
+	}
 	mutex_exit(&t->zthr_lock);
 }
 
@@ -328,6 +381,28 @@ zthr_iscancelled(zthr_t *t)
 	mutex_exit(&t->zthr_lock);
 
 	return (cancelled);
+}
+
+/*
+ * This function is intended to be used by the zthr itself
+ * to check if another thread is waiting on it to finish
+ *
+ * returns TRUE if we are being waited on.
+ *
+ * returns FALSE otherwise.
+ */
+boolean_t
+zthr_iswaited(zthr_t *t)
+{
+	boolean_t waited;
+
+	ASSERT3P(t->zthr_thread, ==, curthread);
+
+	mutex_enter(&t->zthr_lock);
+	waited = t->zthr_wait;
+	mutex_exit(&t->zthr_lock);
+
+	return (waited);
 }
 
 boolean_t

@@ -1339,9 +1339,6 @@ recv_begin_check_existing_impl(dmu_recv_begin_arg_t *drba, dsl_dataset_t *ds,
 		/* if full, then must be forced */
 		if (!drba->drba_cookie->drc_force)
 			return (SET_ERROR(EEXIST));
-		/* start from $ORIGIN@$ORIGIN, if supported */
-		drba->drba_snapobj = dp->dp_origin_snap != NULL ?
-		    dp->dp_origin_snap->ds_object : 0;
 	}
 
 	return (0);

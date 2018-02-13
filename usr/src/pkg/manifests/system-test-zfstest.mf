@@ -750,6 +750,12 @@ file \
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/cleanup \
     mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/setup mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_clone_livelist_condense_and_disable \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_clone_livelist_condense_races \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy.cfg \
     mode=0444
 file \
@@ -801,8 +807,17 @@ file \
     path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_016_pos \
     mode=0555
 file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_clone_livelist \
+    mode=0555
+file \
     path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_common.kshlib \
     mode=0444
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_dev_removal \
+    mode=0555
+file \
+    path=opt/zfs-tests/tests/functional/cli_root/zfs_destroy/zfs_destroy_dev_removal_condense \
+    mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_get/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_get/setup mode=0555
 file path=opt/zfs-tests/tests/functional/cli_root/zfs_get/zfs_get_001_pos \

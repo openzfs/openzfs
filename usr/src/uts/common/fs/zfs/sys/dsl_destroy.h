@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2018 by Delphix. All rights reserved.
  * Copyright (c) 2012, Joyent, Inc. All rights reserved.
  */
 
@@ -33,6 +33,7 @@ extern "C" {
 
 struct nvlist;
 struct dsl_dataset;
+struct dsl_pool;
 struct dmu_tx;
 
 int dsl_destroy_snapshots_nvl(struct nvlist *, boolean_t,
