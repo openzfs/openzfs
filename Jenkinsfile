@@ -13,7 +13,7 @@
  * Copyright (c) 2017 by Delphix. All rights reserved.
  */
 
-env.BASE_IMAGE_ID = 'ami-c5c0a7d3'
+env.BASE_IMAGE_ID = 'ami-c89df7b2'
 
 node('master') {
     stage('checkout, verify, stash') {
