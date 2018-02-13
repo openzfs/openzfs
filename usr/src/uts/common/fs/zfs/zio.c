@@ -564,6 +564,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 
 	zio = kmem_cache_alloc(zio_cache, KM_SLEEP);
 	bzero(zio, sizeof (zio_t));
+	zio->io_mirror_child_hint = -1;
 
 	mutex_init(&zio->io_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&zio->io_cv, NULL, CV_DEFAULT, NULL);
