@@ -2569,7 +2569,7 @@ arc_loan_compressed_buf(spa_t *spa, uint64_t psize, uint64_t lsize,
 	arc_buf_t *buf = arc_alloc_compressed_buf(spa, arc_onloan_tag,
 	    psize, lsize, compression_type);
 
-	arc_loaned_bytes_update(psize);
+	arc_loaned_bytes_update(arc_buf_size(buf));
 
 	return (buf);
 }
