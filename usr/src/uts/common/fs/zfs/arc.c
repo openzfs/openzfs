@@ -2557,7 +2557,7 @@ arc_loan_buf(spa_t *spa, boolean_t is_metadata, int size)
 	arc_buf_t *buf = arc_alloc_buf(spa, arc_onloan_tag,
 	    is_metadata ? ARC_BUFC_METADATA : ARC_BUFC_DATA, size);
 
-	arc_loaned_bytes_update(size);
+	arc_loaned_bytes_update(arc_buf_size(buf));
 
 	return (buf);
 }
