@@ -18,7 +18,7 @@
 source ${JENKINS_DIRECTORY}/sh/library/common.sh
 source ${JENKINS_DIRECTORY}/sh/library/nightly.sh
 
-check_env OPENZFS_DIRECTORY BUILD_NONDEBUG BUILD_DEBUG RUN_LINT
+check_env OPENZFS_DIRECTORY BUILD_VERSION BUILD_NONDEBUG BUILD_DEBUG RUN_LINT
 
 #
 # Updates the nightly environment file. If there's a default value
