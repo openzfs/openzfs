@@ -25,7 +25,7 @@ node('master') {
                   branches: [[name: OPENZFS_BRANCH]]])
         stash(name: 'openzfs', useDefaultExcludes: false)
         misc = load('jenkins/pipelines/miscellaneous.groovy')
-        commit = sh(script: 'git rev-parse --short HEAD', returnStdout: true)
+        commit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
         if (!commit)
             error ('Could not determine git commit hash.')
     }

@@ -49,7 +49,7 @@ node('master') {
          */
         stash(name: 'jenkins', includes: 'jenkins/**')
 
-        commit = sh(script: 'git rev-parse HEAD', returnStdout: true)
+        commit = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
         if (!commit)
             error ('Could not determine git commit hash.')
     }
