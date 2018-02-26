@@ -152,7 +152,7 @@ else
 	# OpenIndiana.
 	#
 	# Thus, we use the following awk-foo to do this, by using the
-	# YEAR and MAJOR used in the package in the OpenIndiana package
+	# YEAR and MAJOR used by the package in the OpenIndiana package
 	# repository, and then incrementing the MAJOR by one.
 	#
 	# If we don't set PKGVERS_BRANCH properly, we can wind up in a
