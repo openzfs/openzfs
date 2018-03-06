@@ -55,7 +55,7 @@ extern boolean_t zfs_free_leak_on_eio;
 #define	ZFS_DEBUG_DNODE_VERIFY		(1 << 2)
 #define	ZFS_DEBUG_SNAPNAMES		(1 << 3)
 #define	ZFS_DEBUG_MODIFY		(1 << 4)
-#define	ZFS_DEBUG_SPA			(1 << 5)	/* Deprecated */
+/* 1<<5 was previously used, try not to reuse */
 #define	ZFS_DEBUG_ZIO_FREE		(1 << 6)
 #define	ZFS_DEBUG_HISTOGRAM_VERIFY	(1 << 7)
 #define	ZFS_DEBUG_METASLAB_VERIFY	(1 << 8)
