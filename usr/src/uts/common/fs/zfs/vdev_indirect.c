@@ -218,7 +218,7 @@ vdev_indirect_map_free(zio_t *zio)
 {
 	indirect_vsd_t *iv = zio->io_vsd;
 
-	kmem_free(iv, sizeof (iv));
+	kmem_free(iv, sizeof (*iv));
 }
 
 static const zio_vsd_ops_t vdev_indirect_vsd_ops = {
