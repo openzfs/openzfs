@@ -1345,7 +1345,7 @@ Limits the amount of space a dataset can consume.
 This property enforces a hard limit on the amount of space used.
 This hard limit does not include space used by descendents, including file
 systems and snapshots.
-.It Sy refreservation Ns = Ns Em size Ns | Ns Sy none
+.It Sy refreservation Ns = Ns Em size Ns | Ns Sy none Ns | Ns Sy auto
 The minimum amount of space guaranteed to a dataset, not including its
 descendents.
 When the amount of space used is below this value, the dataset is treated as if
@@ -1363,14 +1363,39 @@ this reservation to accommodate the current number of
 .Qq referenced
 bytes in the dataset.
 .Pp
+If
+.Sy refreservation
+is set to
+.Sy auto ,
+a volume is made dense
+.Po or
+.Qq not sparse
+.Pc .
+.Sy refreservation Ns = Ns Sy auto
+is only supported on volumes. See
+.Sy volsize
+in the
+.Sx Native Properties
+section for more information about sparse volumes.
+.Pp
 This property can also be referred to by its shortened column name,
 .Sy refreserv .
-.It Sy reservation Ns = Ns Em size Ns | Ns Sy none
+.It Sy reservation Ns = Ns Em size Ns | Ns Sy none Ns | Ns Sy auto
 The minimum amount of space guaranteed to a dataset and its descendants.
 When the amount of space used is below this value, the dataset is treated as if
 it were taking up the amount of space specified by its reservation.
 Reservations are accounted for in the parent datasets' space used, and count
 against the parent datasets' quotas and reservations.
+.Pp
+See
+.Sy refreservation Ns = Ns Sy auto
+above for a description of the behavior of setting
+.Sy reservation
+to
+.Sy auto .
+If the pool is at version 9 or later,
+.Sy refreservation Ns = Ns Sy auto
+should be used instead.
 .Pp
 This property can also be referred to by its shortened column name,
 .Sy reserv .
@@ -1586,13 +1611,19 @@ option to the
 command, or by changing the reservation after the volume has been created.
 A
 .Qq sparse volume
-is a volume where the reservation is less then the volume size.
+is a volume where the reservation is less than the size of the volume plus the
+space required to store its metadata.
 Consequently, writes to a sparse volume can fail with
 .Er ENOSPC
 when the pool is low on space.
 For a sparse volume, changes to
 .Sy volsize
-are not reflected in the reservation.
+are not reflected in the reservation.  A sparse volume can be made dense
+.Po or
+.Qq not sparse
+.Pc
+by setting the reservation to
+.Sy auto .
 .It Sy vscan Ns = Ns Sy on Ns | Ns Sy off
 Controls whether regular files should be scanned for viruses when a file is
 opened and closed.
