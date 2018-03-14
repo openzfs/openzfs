@@ -179,8 +179,14 @@ vdev_mirror_map_alloc(zio_t *zio)
 			mm->mm_resilvering = B_FALSE;
 		}
 
-		mm->mm_preferred = mm->mm_resilvering ? 0 :
-		    (zio->io_offset >> vdev_mirror_shift) % c;
+		if (mm->mm_resilvering) {
+			mm->mm_preferred = 0;
+		} else if (zio->io_mirror_child_hint != -1) {
+			mm->mm_preferred = zio->io_mirror_child_hint % c;
+		} else {
+			mm->mm_preferred =
+			    (zio->io_offset >> vdev_mirror_shift) % c;
+		}
 		mm->mm_root = B_FALSE;
 
 		for (c = 0; c < mm->mm_children; c++) {
@@ -345,12 +351,15 @@ vdev_mirror_io_start(zio_t *zio)
 	}
 
 	if (zio->io_type == ZIO_TYPE_READ) {
-		if ((zio->io_flags & ZIO_FLAG_SCRUB) && !mm->mm_resilvering) {
+		if (zio->io_bp != NULL &&
+		    (zio->io_flags & ZIO_FLAG_SCRUB) && !mm->mm_resilvering) {
 			/*
-			 * For scrubbing reads we need to allocate a read
-			 * buffer for each child and issue reads to all
-			 * children.  If any child succeeds, it will copy its
-			 * data into zio->io_data in vdev_mirror_scrub_done.
+			 * For scrubbing reads (if we can verify the
+			 * checksum here, as indicated by io_bp being
+			 * non-NULL) we need to allocate a read buffer for
+			 * each child and issue reads to all children.  If
+			 * any child succeeds, it will copy its data into
+			 * zio->io_data in vdev_mirror_scrub_done.
 			 */
 			for (c = 0; c < mm->mm_children; c++) {
 				mc = &mm->mm_child[c];

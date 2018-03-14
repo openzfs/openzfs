@@ -23,6 +23,7 @@
 #include <sys/vdev_impl.h>
 #include <sys/fs/zfs.h>
 #include <sys/zio.h>
+#include <sys/zio_checksum.h>
 #include <sys/metaslab.h>
 #include <sys/refcount.h>
 #include <sys/dmu.h>
@@ -202,6 +203,28 @@ uint64_t zfs_condense_min_mapping_bytes = 128 * 1024;
  * condensing in production, a maximum value of 1 should be sufficient.
  */
 int zfs_condense_indirect_commit_entry_delay_ticks = 0;
+
+/*
+ * data specific to an indirect zio
+ */
+typedef struct indirect_vsd {
+	boolean_t iv_split_block;
+	int iv_mirror_child_hint;
+	int iv_mirror_max_children;
+} indirect_vsd_t;
+
+static void
+vdev_indirect_map_free(zio_t *zio)
+{
+	indirect_vsd_t *iv = zio->io_vsd;
+
+	kmem_free(iv, sizeof (*iv));
+}
+
+static const zio_vsd_ops_t vdev_indirect_vsd_ops = {
+	vdev_indirect_map_free,
+	zio_vsd_default_cksum_report
+};
 
 /*
  * Mark the given offset and size as being obsolete in the given txg.
@@ -816,12 +839,6 @@ vdev_indirect_close(vdev_t *vd)
 }
 
 /* ARGSUSED */
-static void
-vdev_indirect_io_done(zio_t *zio)
-{
-}
-
-/* ARGSUSED */
 static int
 vdev_indirect_open(vdev_t *vd, uint64_t *psize, uint64_t *max_psize,
     uint64_t *ashift)
@@ -1069,22 +1086,52 @@ vdev_indirect_io_start_cb(uint64_t split_offset, vdev_t *vd, uint64_t offset,
     uint64_t size, void *arg)
 {
 	zio_t *zio = arg;
+	blkptr_t *bp = NULL;
+	indirect_vsd_t *iv = zio->io_vsd;
 
 	ASSERT3P(vd, !=, NULL);
 
 	if (vd->vdev_ops == &vdev_indirect_ops)
 		return;
 
-	zio_nowait(zio_vdev_child_io(zio, NULL, vd, offset,
+	if (split_offset == 0 && size == zio->io_size) {
+		/*
+		 * This is not a split block; we are pointing to the entire
+		 * data, which will checksum the same as the original data.
+		 * Pass the BP down so that the child i/o can verify the
+		 * checksum, and try a different location if available
+		 * (e.g. on a mirror).
+		 */
+		bp = zio->io_bp;
+		iv->iv_split_block = B_FALSE;
+	} else {
+		iv->iv_split_block = B_TRUE;
+	}
+
+	if (vd->vdev_ops == &vdev_mirror_ops) {
+		iv->iv_mirror_max_children = MAX(iv->iv_mirror_max_children,
+		    vd->vdev_children);
+	}
+
+	zio_t *cio = zio_vdev_child_io(zio, bp, vd, offset,
 	    abd_get_offset(zio->io_abd, split_offset),
 	    size, zio->io_type, zio->io_priority,
-	    0, vdev_indirect_child_io_done, zio));
+	    0, vdev_indirect_child_io_done, zio);
+
+	if (iv->iv_split_block)
+		cio->io_mirror_child_hint = iv->iv_mirror_child_hint;
+
+	zio_nowait(cio);
 }
 
 static void
 vdev_indirect_io_start(zio_t *zio)
 {
 	spa_t *spa = zio->io_spa;
+	indirect_vsd_t *iv = kmem_zalloc(sizeof (*iv), KM_SLEEP);
+
+	zio->io_vsd = iv;
+	zio->io_vsd_ops = &vdev_indirect_vsd_ops;
 
 	ASSERT(spa_config_held(spa, SCL_ALL, RW_READER) != 0);
 	if (zio->io_type != ZIO_TYPE_READ) {
@@ -1097,6 +1144,65 @@ vdev_indirect_io_start(zio_t *zio)
 	    vdev_indirect_io_start_cb, zio);
 
 	zio_execute(zio);
+}
+
+/* ARGSUSED */
+static void
+vdev_indirect_io_done(zio_t *zio)
+{
+	indirect_vsd_t *iv = zio->io_vsd;
+
+	if (!iv->iv_split_block) {
+		/*
+		 * This was not a split block, so we passed the BP down,
+		 * and the checksum was handled by the (one) child zio.
+		 */
+		return;
+	}
+	if (iv->iv_mirror_max_children == 0) {
+		/*
+		 * We didn't point to any mirrors, in which case there's
+		 * nothing else to try.  The checksum will be verified
+		 * by this zio.
+		 */
+		return;
+	}
+
+	zio_bad_cksum_t zbc;
+	int ret = zio_checksum_error(zio, &zbc);
+	if (ret == 0)
+		goto out;
+
+	if (iv->iv_mirror_child_hint + 1 < iv->iv_mirror_max_children) {
+		/*
+		 * The checksum doesn't match, but there are more mirrored
+		 * copies of this data.  Try a different version.
+		 */
+		iv->iv_mirror_child_hint++;
+		zio_vdev_io_redone(zio);
+		vdev_indirect_remap(zio->io_vd, zio->io_offset, zio->io_size,
+		    vdev_indirect_io_start_cb, zio);
+                return;
+	} else {
+		zio->io_error = ret;
+	}
+
+out:
+	/*
+	 * Note, indirect vdevs don't handle a few important cases for split
+	 * blocks when one side of a mirror is silently corrupt:
+	 *
+	 * When we read bad data and then retry the other side of the mirror,
+	 * we should issue a repair write to fix the bad copy.
+	 *
+	 * When scrubbing, we should read all copies of the data (and
+	 * repair any bad copies).
+	 *
+	 * We should generate ereports for any data we read with the wrong
+	 * checksums.
+	 */
+
+	zio_checksum_verified(zio);
 }
 
 vdev_ops_t vdev_indirect_ops = {

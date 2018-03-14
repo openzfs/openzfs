@@ -427,6 +427,7 @@ struct zio {
 	vdev_t		*io_vd;
 	void		*io_vsd;
 	const zio_vsd_ops_t *io_vsd_ops;
+	int		io_mirror_child_hint;
 
 	uint64_t	io_offset;
 	hrtime_t	io_timestamp;
