@@ -10,7 +10,7 @@
 #
 
 #
-# Copyright (c) 2015, 2016 by Delphix. All rights reserved.
+# Copyright (c) 2015, 2017 by Delphix. All rights reserved.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -24,7 +24,7 @@ export PERF_RUNTIME_NIGHTLY=$((10 * 60))
 
 # Default fs creation options
 export PERF_FS_OPTS=${PERF_FS_OPTS:-'-o recsize=8k -o compress=lz4' \
-    ' -o checksum=sha256 -o redundant_metadata=most'}
+    ' -o checksum=edonr -o redundant_metadata=most'}
 
 function get_sync_str
 {
