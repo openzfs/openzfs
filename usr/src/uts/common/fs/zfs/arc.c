@@ -285,8 +285,19 @@ boolean_t arc_watch = B_FALSE;
 int arc_procfd;
 #endif
 
+/*
+ * This thread's job is to keep enough free memory in the system, by
+ * calling arc_kmem_reap_now() plus arc_shrink(), which improves
+ * arc_available_memory().
+ */
 static zthr_t		*arc_reap_zthr;
+
+/*
+ * This thread's job is to keep arc_size under arc_c, by calling
+ * arc_adjust(), which improves arc_is_overflowing().
+ */
 static zthr_t		*arc_adjust_zthr;
+
 static kmutex_t		arc_adjust_lock;
 static kcondvar_t	arc_adjust_waiters_cv;
 static boolean_t	arc_adjust_needed = B_FALSE;
@@ -306,7 +317,7 @@ int zfs_arc_evict_batch_limit = 10;
 int arc_grow_retry = 60;
 
 /*
- * Minimum time between calls to arc_kmem_reap_now().  Note that this will
+ * Minimum time between calls to arc_kmem_reap_soon().  Note that this will
  * be converted to ticks, so with the default hz=100, a setting of 15 ms
  * will actually wait 2 ticks, or 20ms.
  */
@@ -4256,7 +4267,7 @@ arc_reap_cb(void *arg, zthr_t *zthr)
 
 	/*
 	 * Wait at least arc_kmem_cache_reap_retry_ms between
-	 * arc_kmem_reap_now() calls. Without this check it is possible to
+	 * arc_kmem_reap_soon() calls. Without this check it is possible to
 	 * end up in a situation where we spend lots of time reaping
 	 * caches, while we're near arc_c_min.  Waiting here also gives the
 	 * subsequent free memory check a chance of finding that the
