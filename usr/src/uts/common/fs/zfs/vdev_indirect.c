@@ -1364,6 +1364,9 @@ vdev_indirect_repair(zio_t *zio)
 	if (!(zio->io_flags & (ZIO_FLAG_SCRUB | ZIO_FLAG_RESILVER)))
 		flags |= ZIO_FLAG_SELF_HEAL;
 
+	if (!spa_writeable(zio->io_spa))
+		return;
+
 	for (indirect_split_t *is = list_head(&iv->iv_splits);
 	    is != NULL; is = list_next(&iv->iv_splits, is)) {
 		indirect_child_t *good_child = &is->is_child[is->is_good_child];
