@@ -166,8 +166,11 @@ sub init {
 	detailed_usage() if $vflag;
 	@hdr = @xhdr if $xflag;		#reset headers to xhdr
 
-	# check if L2ARC exists
+	# we want to capture the stats here, so that we can use them to check
+	# if an L2ARC device exists; but more importantly, so that we print
+	# the stats since boot as the first line of output from main().
 	snap_stats();
+	
 	if (defined $cur{"l2_size"}) {
 		$l2exist = 1;
 	}
