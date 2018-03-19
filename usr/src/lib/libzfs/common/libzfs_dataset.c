@@ -1387,6 +1387,16 @@ badlabel:
 
 			switch (prop) {
 			case ZFS_PROP_RESERVATION:
+				if (intval > volsize) {
+					zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
+					    "'%s' is greater than current "
+					    "volume size"), propname);
+					(void) zfs_error(hdl, EZFS_BADPROP,
+					    errbuf);
+					goto error;
+				}
+				break;
+
 			case ZFS_PROP_REFRESERVATION:
 				if (intval > volsize && intval != UINT64_MAX) {
 					zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
@@ -1500,7 +1510,7 @@ zfs_add_synthetic_resv(zfs_handle_t *zhp, nvlist_t *nvl)
 }
 
 /*
- * Helper for 'zfs {set|clone} [ref]reservation=auto'.  Must be called after
+ * Helper for 'zfs {set|clone} refreservation=auto'.  Must be called after
  * zfs_valid_proplist(), as it is what sets the UINT64_MAX sentinal value.
  * Return codes must match zfs_add_synthetic_resv().
  */
@@ -1519,6 +1529,11 @@ zfs_fix_auto_resv(zfs_handle_t *zhp, nvlist_t *nvl)
 	if (zfs_which_resv_prop(zhp, &prop) != 0) {
 		return (-1);
 	}
+
+	if (prop != ZFS_PROP_REFRESERVATION) {
+		return (0);
+	}
+
 	if (nvlist_lookup_uint64(nvl, zfs_prop_to_name(prop), &resvsize) != 0) {
 		/* No value being set, so it can't be "auto" */
 		return (0);
@@ -1541,6 +1556,7 @@ zfs_fix_auto_resv(zfs_handle_t *zhp, nvlist_t *nvl)
 	resvsize = zvol_volsize_to_reservation(volsize, props);
 	fnvlist_free(props);
 
+	(void) nvlist_remove_all(nvl, zfs_prop_to_name(prop));
 	if (nvlist_add_uint64(nvl, zfs_prop_to_name(prop), resvsize) != 0) {
 		(void) no_memory(zhp->zfs_hdl);
 		return (-1);

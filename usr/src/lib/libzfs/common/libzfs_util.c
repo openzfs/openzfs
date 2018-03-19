@@ -1254,14 +1254,12 @@ zprop_parse_value(libzfs_handle_t *hdl, nvpair_t *elem, int prop,
 		}
 
 		/*
-		 * Special handling for setting 'reservation' and
-		 * 'refreservation' to 'auto'.  Use UINT64_MAX to tell the
-		 * caller to use zfs_fix_auto_resv().  'auto' is only allowed on
-		 * volumes.
+		 * Special handling for setting 'refreservation' to 'auto'.  Use
+		 * UINT64_MAX to tell the caller to use zfs_fix_auto_resv().
+		 * 'auto' is only allowed on volumes.
 		 */
 		if (isauto) {
 			switch (prop) {
-			case ZFS_PROP_RESERVATION:
 			case ZFS_PROP_REFRESERVATION:
 				if ((type & ZFS_TYPE_VOLUME) == 0) {
 					zfs_error_aux(hdl, dgettext(TEXT_DOMAIN,
