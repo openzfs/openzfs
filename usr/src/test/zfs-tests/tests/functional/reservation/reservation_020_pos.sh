@@ -20,10 +20,10 @@
 #
 # DESCRIPTION:
 #
-# Cloning a dense volume results in a sparse volume
+# Cloning a thick provisioned volume results in a sparse volume
 #
 # STRATEGY:
-# 1) Create a dense volume.
+# 1) Create a thick provisioned volume.
 # 2) Snapshot and clone it.
 # 3) Verify that the clone is sparse.
 #
@@ -40,7 +40,7 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Cloning a dense volume results in a sparse volume"
+log_assert "Cloning a thick provisioned volume results in a sparse volume"
 
 space_avail=$(get_prop available $TESTPOOL)
 (( vol_size = (space_avail / 4) & ~(1024 * 1024 - 1) ))
@@ -63,4 +63,4 @@ log_must zfs clone $snap $vol2
 resv=$(get_prop refreservation $vol2)
 log_must test $resv -eq 0
 
-log_pass "Cloning a dense volume results in a sparse volume, as expected"
+log_pass "Cloning a thick provisioned volume results in a sparse volume"

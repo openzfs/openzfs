@@ -20,11 +20,12 @@
 #
 # DESCRIPTION:
 #
-# A sparse volume can be made dense with 'zfs set refreservation=auto'.
+# A thin provisioned volume can become thick provisioned with 'zfs set
+# refreservation=auto'.
 #
 # STRATEGY:
 # 1) Create a sparse value.
-# 2) Use zfs set refreservation=auto to make it dense.
+# 2) Use zfs set refreservation=auto to make it thick provisioned.
 # 3) Verify that refreservation is now the size predicted by
 # volsize_to_reservation().
 #
@@ -40,8 +41,8 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "A sparse volume can be made non-sparse with" \
-	"'zfs set refreservation=auto'"
+log_assert "A thin provisioned volume can become thick provisioned with" \
+    "'zfs set refreservation=auto'."
 
 space_avail=$(get_prop available $TESTPOOL)
 (( vol_size = (space_avail / 2) & ~(1024 * 1024 - 1) ))

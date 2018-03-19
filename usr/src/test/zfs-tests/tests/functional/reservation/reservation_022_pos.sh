@@ -20,7 +20,8 @@
 #
 # DESCRIPTION:
 #
-# Cloning a volume with -o refreservation=auto creates a dense volume
+# Cloning a volume with -o refreservation=auto creates a thick provisioned
+# volume
 #
 # STRATEGY:
 # 1) Create a sparse volume.
@@ -45,7 +46,8 @@ function cleanup
 
 log_onexit cleanup
 
-log_assert "Cloning a volume with -o refreservation=auto creates a dense volume"
+log_assert "Cloning a volume with -o refreservation=auto creates a thick" \
+    "provisioned volume"
 
 space_avail=$(get_prop available $TESTPOOL)
 (( vol_size = (space_avail / 4) & ~(1024 * 1024 - 1) ))
@@ -64,19 +66,19 @@ snap=$vol@clone
 log_must zfs snapshot $snap
 log_must zfs clone -o refreservation=auto $snap $vol2
 
-# Verify it is dense
+# Verify it is thick provisioned
 resv=$(get_prop refreservation $vol2)
 expected=$(volsize_to_reservation $vol2 $vol_size)
 log_must test $resv -eq $expected
 
-# Clone the dense volume
+# Clone the thick provisioned volume
 snap=$vol2@clone
 log_must zfs snapshot $snap
 log_must zfs clone -o refreservation=auto $snap $vol3
 
-# Verify new newest clone is also dense
+# Verify new newest clone is also thick provisioned
 resv=$(get_prop refreservation $vol3)
 expected=$(volsize_to_reservation $vol3 $vol_size)
 log_must test $resv -eq $expected
 
-log_pass "Cloning a dense volume results in a sparse volume, as expected"
+log_pass "Cloning a thick provisioned volume results in a sparse volume"

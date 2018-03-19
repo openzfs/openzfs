@@ -1367,12 +1367,13 @@ If
 .Sy refreservation
 is set to
 .Sy auto ,
-a volume is made dense
+a volume is thick provisioned
 .Po or
 .Qq not sparse
 .Pc .
 .Sy refreservation Ns = Ns Sy auto
-is only supported on volumes. See
+is only supported on volumes.
+See
 .Sy volsize
 in the
 .Sx Native Properties
@@ -1618,10 +1619,10 @@ Consequently, writes to a sparse volume can fail with
 when the pool is low on space.
 For a sparse volume, changes to
 .Sy volsize
-are not reflected in the reservation.  A sparse volume can be made dense
-.Po or
-.Qq not sparse
-.Pc
+are not reflected in the reservation.
+A volume that is not sparse is said to be
+.Qq thick provisioned .
+A sparse volume can become thick provisioned
 by setting the reservation to
 .Sy auto .
 .It Sy vscan Ns = Ns Sy on Ns | Ns Sy off
