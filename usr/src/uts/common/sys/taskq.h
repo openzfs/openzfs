@@ -63,7 +63,7 @@ struct proc;
 #define	TQ_NOALLOC	0x04	/* cannot allocate memory; may fail */
 #define	TQ_FRONT	0x08	/* Put task at the front of the queue */
 
-#if defined(_KERNEL) || defined(_FAKE_KERNEL)
+#if defined(_KERNEL) || defined(_FAKE_KERNEL) || defined(_TASKQUSER)
 
 extern taskq_t *system_taskq;
 
@@ -87,7 +87,7 @@ extern int	taskq_suspended(taskq_t *);
 extern void	taskq_resume(taskq_t *);
 extern int	taskq_member(taskq_t *, kthread_t *);
 
-#endif	/* _KERNEL */
+#endif	/* _KERNEL || _FAKE_KERNEL || _TASKQUSER */
 
 #ifdef	__cplusplus
 }

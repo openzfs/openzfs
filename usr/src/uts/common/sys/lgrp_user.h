@@ -243,7 +243,8 @@ typedef struct lgrp_snapshot_header32 {
 #endif	/* _SYSCALL32 */
 
 
-#if !defined(_KERNEL) && !defined(_FAKE_KERNEL) && !defined(_KMEMUSER)
+#if !defined(_KERNEL) && !defined(_FAKE_KERNEL) && \
+	!defined(_KMEMUSER) && !defined(_TASKQUSER)
 
 lgrp_affinity_t	lgrp_affinity_get(idtype_t idtype, id_t id, lgrp_id_t lgrp);
 
@@ -286,7 +287,7 @@ int		lgrp_version(int version);
 
 lgrp_view_t	lgrp_view(lgrp_cookie_t cookie);
 
-#endif	/* !_KERNEL && !_FAKE_KERNEL && !_KMEMUSER */
+#endif	/* !_KERNEL && !_FAKE_KERNEL && !_KMEMUSER && !_TASKQUSER */
 
 #ifdef	__cplusplus
 }
