@@ -24,7 +24,6 @@
  * Copyright (c) 2011-2012 Pawel Jakub Dawidek. All rights reserved.
  * Portions Copyright 2011 Martin Matuska
  * Copyright 2015, OmniTI Computer Consulting, Inc. All rights reserved.
- * Copyright 2015 Nexenta Systems, Inc.  All rights reserved.
  * Copyright (c) 2014, 2016 Joyent, Inc. All rights reserved.
  * Copyright (c) 2011, 2017 by Delphix. All rights reserved.
  * Copyright (c) 2013 by Saso Kiselkov. All rights reserved.
@@ -33,6 +32,7 @@
  * Copyright 2016 Toomas Soome <tsoome@me.com>
  * Copyright 2017 RackTop Systems.
  * Copyright (c) 2017 Datto Inc.
+ * Copyright 2018 Nexenta Systems, Inc.
  */
 
 /*
@@ -4371,26 +4371,69 @@ zfs_ioc_recv(zfs_cmd_t *zc)
 	    &zc->zc_action_handle);
 
 	if (error == 0) {
-		zfsvfs_t *zfsvfs = NULL;
+		size_t retry = 0;
 
-		if (getzfsvfs(tofs, &zfsvfs) == 0) {
-			/* online recv */
+		for (;;) {
+			zfsvfs_t *zfsvfs = NULL;
 			dsl_dataset_t *ds;
-			int end_err;
+			boolean_t done = B_TRUE;
+
+			error = getzfsvfs(tofs, &zfsvfs);
+			if (error != 0)
+				error = zfsvfs_create(tofs, &zfsvfs);
+
+			if (error != 0) {
+				/*
+				 * We cannot retrieve or created zfsvfs for a new fs
+				 */
+				if (drc.drc_newfs || ++retry > 100) {
+					error = dmu_recv_end(&drc, NULL);
+					break;
+				}
+
+				delay(1);
+				continue;
+			}
 
 			ds = dmu_objset_ds(zfsvfs->z_os);
-			error = zfs_suspend_fs(zfsvfs);
+
 			/*
-			 * If the suspend fails, then the recv_end will
-			 * likely also fail, and clean up after itself.
+			 * Need to successfully suspend FS to avoid
+			 * race between umounting and receiving
 			 */
-			end_err = dmu_recv_end(&drc, zfsvfs);
-			if (error == 0)
+			error = zfs_suspend_fs(zfsvfs);
+			if (error == 0) {
+				int end_err;
+
+				end_err = dmu_recv_end(&drc, zfsvfs);
 				error = zfs_resume_fs(zfsvfs, ds);
-			error = error ? error : end_err;
-			VFS_RELE(zfsvfs->z_vfs);
-		} else {
-			error = dmu_recv_end(&drc, NULL);
+				error = (error != 0) ? error : end_err;
+			} else {
+				done = B_FALSE;
+			}
+
+			if (zfsvfs->z_vfs) {
+				VFS_RELE(zfsvfs->z_vfs);
+			} else {
+				dmu_objset_disown(zfsvfs->z_os, zfsvfs);
+				zfsvfs_free(zfsvfs);
+			}
+
+			if (done)
+				break;
+
+			if (++retry > 100) {
+				/*
+				 * 'suspend' failed and we cannot retry,
+				 * but we still need to call dmu_recv_end()
+				 * to rele long-hold of received FS
+				 */
+				error = dmu_recv_end(&drc, NULL);
+				break;
+			}
+
+			delay(1);
+			continue;
 		}
 
 		/* Set delayed properties now, after we're done receiving. */

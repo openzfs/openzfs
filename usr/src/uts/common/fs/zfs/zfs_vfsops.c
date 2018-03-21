@@ -22,7 +22,7 @@
  * Copyright (c) 2005, 2010, Oracle and/or its affiliates. All rights reserved.
  * Copyright (c) 2012, 2015 by Delphix. All rights reserved.
  * Copyright (c) 2014 Integros [integros.com]
- * Copyright 2016 Nexenta Systems, Inc. All rights reserved.
+ * Copyright 2018 Nexenta Systems, Inc. All rights reserved.
  */
 
 /* Portions Copyright 2010 Robert Milkowski */
@@ -2046,7 +2046,7 @@ zfs_resume_fs(zfsvfs_t *zfsvfs, dsl_dataset_t *ds)
 	VERIFY0(dmu_objset_from_ds(ds, &os));
 
 	err = zfsvfs_init(zfsvfs, os);
-	if (err != 0)
+	if (err != 0 || zfsvfs->z_vfs == NULL)
 		goto bail;
 
 	VERIFY(zfsvfs_setup(zfsvfs, B_FALSE) == 0);
