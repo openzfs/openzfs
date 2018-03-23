@@ -3006,7 +3006,7 @@ zdb_claim_removing(spa_t *spa, zdb_cb_t *zcb)
 	spa_config_enter(spa, SCL_CONFIG, FTAG, RW_READER);
 
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
-	vdev_t *vd = svr->svr_vdev;
+	vdev_t *vd = vdev_lookup_top(spa, svr->svr_vdev_id);
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 
 	for (uint64_t msi = 0; msi < vd->vdev_ms_count; msi++) {

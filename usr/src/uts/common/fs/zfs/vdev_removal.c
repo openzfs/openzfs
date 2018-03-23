@@ -169,7 +169,7 @@ spa_vdev_removal_create(vdev_t *vd)
 	mutex_init(&svr->svr_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&svr->svr_cv, NULL, CV_DEFAULT, NULL);
 	svr->svr_allocd_segs = range_tree_create(NULL, NULL);
-	svr->svr_vdev = vd;
+	svr->svr_vdev_id = vd->vdev_id;
 
 	for (int i = 0; i < TXG_SIZE; i++) {
 		svr->svr_frees[i] = range_tree_create(NULL, NULL);
@@ -211,9 +211,10 @@ spa_vdev_removal_destroy(spa_vdev_removal_t *svr)
 static void
 vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 {
-	vdev_t *vd = arg;
+	int vdev_id = (uintptr_t)arg;
+	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
+	vdev_t *vd = vdev_lookup_top(spa, vdev_id);
 	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
-	spa_t *spa = vd->vdev_spa;
 	objset_t *mos = spa->spa_dsl_pool->dp_meta_objset;
 	spa_vdev_removal_t *svr = NULL;
 	uint64_t txg = dmu_tx_get_txg(tx);
@@ -335,7 +336,7 @@ vdev_remove_initiate_sync(void *arg, dmu_tx_t *tx)
 	ASSERT3P(spa->spa_vdev_removal, ==, NULL);
 	spa->spa_vdev_removal = svr;
 	svr->svr_thread = thread_create(NULL, 0,
-	    spa_vdev_remove_thread, vd, 0, &p0, TS_RUN, minclsyspri);
+	    spa_vdev_remove_thread, spa, 0, &p0, TS_RUN, minclsyspri);
 }
 
 /*
@@ -376,21 +377,24 @@ spa_remove_init(spa_t *spa)
 		spa_config_enter(spa, SCL_STATE, FTAG, RW_READER);
 		vdev_t *vd = vdev_lookup_top(spa,
 		    spa->spa_removing_phys.sr_removing_vdev);
-		spa_config_exit(spa, SCL_STATE, FTAG);
 
-		if (vd == NULL)
+		if (vd == NULL) {
+			spa_config_exit(spa, SCL_STATE, FTAG);
 			return (EINVAL);
+		}
 
 		vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 
 		ASSERT(vdev_is_concrete(vd));
 		spa_vdev_removal_t *svr = spa_vdev_removal_create(vd);
-		ASSERT(svr->svr_vdev->vdev_removing);
+		ASSERT3U(svr->svr_vdev_id, ==, vd->vdev_id);
+		ASSERT(vd->vdev_removing);
 
 		vd->vdev_indirect_mapping = vdev_indirect_mapping_open(
 		    spa->spa_meta_objset, vic->vic_mapping_object);
 		vd->vdev_indirect_births = vdev_indirect_births_open(
 		    spa->spa_meta_objset, vic->vic_births_object);
+		spa_config_exit(spa, SCL_STATE, FTAG);
 
 		spa->spa_vdev_removal = svr;
 	}
@@ -443,15 +447,8 @@ spa_restart_removal(spa_t *spa)
 	if (!spa_writeable(spa))
 		return;
 
-	vdev_t *vd = svr->svr_vdev;
-	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
-
-	ASSERT3P(vd, !=, NULL);
-	ASSERT(vd->vdev_removing);
-
-	zfs_dbgmsg("restarting removal of %llu at count=%llu",
-	    vd->vdev_id, vdev_indirect_mapping_num_entries(vim));
-	svr->svr_thread = thread_create(NULL, 0, spa_vdev_remove_thread, vd,
+	zfs_dbgmsg("restarting removal of %llu", svr->svr_vdev_id);
+	svr->svr_thread = thread_create(NULL, 0, spa_vdev_remove_thread, spa,
 	    0, &p0, TS_RUN, minclsyspri);
 }
 
@@ -472,7 +469,7 @@ free_from_removing_vdev(vdev_t *vd, uint64_t offset, uint64_t size)
 	ASSERT(vd->vdev_indirect_config.vic_mapping_object != 0);
 	ASSERT3U(vd->vdev_indirect_config.vic_mapping_object, ==,
 	    vdev_indirect_mapping_object(vim));
-	ASSERT3P(vd, ==, svr->svr_vdev);
+	ASSERT3U(vd->vdev_id, ==, svr->svr_vdev_id);
 
 	mutex_enter(&svr->svr_lock);
 
@@ -655,7 +652,7 @@ spa_finish_removal(spa_t *spa, dsl_scan_state_t state, dmu_tx_t *tx)
 
 	if (state == DSS_FINISHED) {
 		spa_removing_phys_t *srp = &spa->spa_removing_phys;
-		vdev_t *vd = svr->svr_vdev;
+		vdev_t *vd = vdev_lookup_top(spa, svr->svr_vdev_id);
 		vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 
 		if (srp->sr_prev_indirect_vdev != UINT64_MAX) {
@@ -698,7 +695,7 @@ vdev_mapping_sync(void *arg, dmu_tx_t *tx)
 {
 	spa_vdev_removal_t *svr = arg;
 	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
-	vdev_t *vd = svr->svr_vdev;
+	vdev_t *vd = vdev_lookup_top(spa, svr->svr_vdev_id);
 	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	uint64_t txg = dmu_tx_get_txg(tx);
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
@@ -919,8 +916,8 @@ static void
 vdev_remove_complete_sync(void *arg, dmu_tx_t *tx)
 {
 	spa_vdev_removal_t *svr = arg;
-	vdev_t *vd = svr->svr_vdev;
-	spa_t *spa = vd->vdev_spa;
+	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
+	vdev_t *vd = vdev_lookup_top(spa, svr->svr_vdev_id);
 
 	ASSERT3P(vd->vdev_ops, ==, &vdev_indirect_ops);
 
@@ -946,37 +943,6 @@ vdev_remove_complete_sync(void *arg, dmu_tx_t *tx)
 	/* vd->vdev_path is not available here */
 	spa_history_log_internal(spa, "vdev remove completed",  tx,
 	    "%s vdev %llu", spa_name(spa), vd->vdev_id);
-}
-
-static void
-vdev_indirect_state_transfer(vdev_t *ivd, vdev_t *vd)
-{
-	ivd->vdev_indirect_config = vd->vdev_indirect_config;
-
-	ASSERT3P(ivd->vdev_indirect_mapping, ==, NULL);
-	ASSERT(vd->vdev_indirect_mapping != NULL);
-	ivd->vdev_indirect_mapping = vd->vdev_indirect_mapping;
-	vd->vdev_indirect_mapping = NULL;
-
-	ASSERT3P(ivd->vdev_indirect_births, ==, NULL);
-	ASSERT(vd->vdev_indirect_births != NULL);
-	ivd->vdev_indirect_births = vd->vdev_indirect_births;
-	vd->vdev_indirect_births = NULL;
-
-	ASSERT0(range_tree_space(vd->vdev_obsolete_segments));
-	ASSERT0(range_tree_space(ivd->vdev_obsolete_segments));
-
-	if (vd->vdev_obsolete_sm != NULL) {
-		ASSERT3U(ivd->vdev_asize, ==, vd->vdev_asize);
-
-		/*
-		 * We cannot use space_map_{open,close} because we hold all
-		 * the config locks as writer.
-		 */
-		ASSERT3P(ivd->vdev_obsolete_sm, ==, NULL);
-		ivd->vdev_obsolete_sm = vd->vdev_obsolete_sm;
-		vd->vdev_obsolete_sm = NULL;
-	}
 }
 
 static void
@@ -1014,17 +980,13 @@ vdev_remove_replace_with_indirect(vdev_t *vd, uint64_t txg)
 	vdev_remove_enlist_zaps(vd, svr->svr_zaplist);
 
 	ivd = vdev_add_parent(vd, &vdev_indirect_ops);
+	ivd->vdev_removing = 0;
 
 	vd->vdev_leaf_zap = 0;
 
 	vdev_remove_child(ivd, vd);
 	vdev_compact_children(ivd);
 
-	vdev_indirect_state_transfer(ivd, vd);
-
-	svr->svr_vdev = ivd;
-
-	ASSERT(!ivd->vdev_removing);
 	ASSERT(!list_link_active(&vd->vdev_state_dirty_node));
 
 	tx = dmu_tx_create_assigned(spa->spa_dsl_pool, txg);
@@ -1047,9 +1009,8 @@ vdev_remove_replace_with_indirect(vdev_t *vd, uint64_t txg)
  * context by the removal thread after we have copied all vdev's data.
  */
 static void
-vdev_remove_complete(vdev_t *vd)
+vdev_remove_complete(spa_t *spa)
 {
-	spa_t *spa = vd->vdev_spa;
 	uint64_t txg;
 
 	/*
@@ -1057,8 +1018,12 @@ vdev_remove_complete(vdev_t *vd)
 	 * vdev_metaslab_fini()
 	 */
 	txg_wait_synced(spa->spa_dsl_pool, 0);
-
 	txg = spa_vdev_enter(spa);
+	vdev_t *vd = vdev_lookup_top(spa, spa->spa_vdev_removal->svr_vdev_id);
+
+	sysevent_t *ev = spa_event_create(spa, vd, NULL,
+	    ESC_ZFS_VDEV_REMOVE_DEV);
+
 	zfs_dbgmsg("finishing device removal for vdev %llu in txg %llu",
 	    vd->vdev_id, txg);
 
@@ -1078,6 +1043,10 @@ vdev_remove_complete(vdev_t *vd)
 	/*
 	 * We now release the locks, allowing spa_sync to run and finish the
 	 * removal via vdev_remove_complete_sync in syncing context.
+	 *
+	 * Note that we hold on to the vdev_t that has been replaced.  Since
+	 * it isn't part of the vdev tree any longer, it can't be concurrently
+	 * manipulated, even while we don't have the config lock.
 	 */
 	(void) spa_vdev_exit(spa, NULL, txg, 0);
 
@@ -1109,7 +1078,7 @@ vdev_remove_complete(vdev_t *vd)
  * this size again this txg.
  */
 static void
-spa_vdev_copy_impl(spa_vdev_removal_t *svr, vdev_copy_arg_t *vca,
+spa_vdev_copy_impl(vdev_t *vd, spa_vdev_removal_t *svr, vdev_copy_arg_t *vca,
     uint64_t *max_alloc, dmu_tx_t *tx)
 {
 	uint64_t txg = dmu_tx_get_txg(tx);
@@ -1148,7 +1117,7 @@ spa_vdev_copy_impl(spa_vdev_removal_t *svr, vdev_copy_arg_t *vca,
 	while (length > 0) {
 		uint64_t mylen = MIN(length, thismax);
 
-		int error = spa_vdev_copy_segment(svr->svr_vdev,
+		int error = spa_vdev_copy_segment(vd,
 		    offset, mylen, txg, vca, &zal);
 
 		if (error == ENOSPC) {
@@ -1206,12 +1175,14 @@ spa_vdev_copy_impl(spa_vdev_removal_t *svr, vdev_copy_arg_t *vca,
 static void
 spa_vdev_remove_thread(void *arg)
 {
-	vdev_t *vd = arg;
-	spa_t *spa = vd->vdev_spa;
+	spa_t *spa = arg;
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
 	vdev_copy_arg_t vca;
 	uint64_t max_alloc = zfs_remove_max_segment;
 	uint64_t last_txg = 0;
+
+	spa_config_enter(spa, SCL_CONFIG, FTAG, RW_READER);
+	vdev_t *vd = vdev_lookup_top(spa, svr->svr_vdev_id);
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 	uint64_t start_offset = vdev_indirect_mapping_max_offset(vim);
 
@@ -1219,7 +1190,6 @@ spa_vdev_remove_thread(void *arg)
 	ASSERT(vdev_is_concrete(vd));
 	ASSERT(vd->vdev_removing);
 	ASSERT(vd->vdev_indirect_config.vic_mapping_object != 0);
-	ASSERT3P(svr->svr_vdev, ==, vd);
 	ASSERT(vim != NULL);
 
 	mutex_init(&vca.vca_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -1301,6 +1271,17 @@ spa_vdev_remove_thread(void *arg)
 			mutex_exit(&svr->svr_lock);
 
 			/*
+			 * We need to periodically drop the config lock so that
+			 * writers can get in.  Additionally, we can't wait
+			 * for a txg to sync while holding a config lock
+			 * (since a waiting writer could cause a 3-way deadlock
+			 * with the sync thread, which also gets a config
+			 * lock for reader).  So we can't hold the config lock
+			 * while calling dmu_tx_assign().
+			 */
+			spa_config_exit(spa, SCL_CONFIG, FTAG);
+
+			/*
 			 * This delay will pause the removal around the point
 			 * specified by zfs_remove_max_bytes_pause. We do this
 			 * solely from the test suite or during debugging.
@@ -1320,17 +1301,26 @@ spa_vdev_remove_thread(void *arg)
 			}
 			mutex_exit(&vca.vca_lock);
 
+
 			dmu_tx_t *tx =
 			    dmu_tx_create_dd(spa_get_dsl(spa)->dp_mos_dir);
 
 			VERIFY0(dmu_tx_assign(tx, TXG_WAIT));
 			uint64_t txg = dmu_tx_get_txg(tx);
 
+			/*
+			 * Reacquire the vdev_config lock.  The vdev_t
+			 * that we're removing may have changed, e.g. due
+			 * to a vdev_attach or vdev_detach.
+			 */
+			spa_config_enter(spa, SCL_CONFIG, FTAG, RW_READER);
+			vd = vdev_lookup_top(spa, svr->svr_vdev_id);
+
 			if (txg != last_txg)
 				max_alloc = zfs_remove_max_segment;
 			last_txg = txg;
 
-			spa_vdev_copy_impl(svr, &vca, &max_alloc, tx);
+			spa_vdev_copy_impl(vd, svr, &vca, &max_alloc, tx);
 
 			dmu_tx_commit(tx);
 			mutex_enter(&svr->svr_lock);
@@ -1338,6 +1328,10 @@ spa_vdev_remove_thread(void *arg)
 	}
 
 	mutex_exit(&svr->svr_lock);
+
+	/* XXX drop config lock */
+	spa_config_exit(spa, SCL_CONFIG, FTAG);
+
 	/*
 	 * Wait for all copies to finish before cleaning up the vca.
 	 */
@@ -1355,7 +1349,7 @@ spa_vdev_remove_thread(void *arg)
 		mutex_exit(&svr->svr_lock);
 	} else {
 		ASSERT0(range_tree_space(svr->svr_allocd_segs));
-		vdev_remove_complete(vd);
+		vdev_remove_complete(spa);
 	}
 }
 
@@ -1396,7 +1390,7 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 {
 	spa_t *spa = dmu_tx_pool(tx)->dp_spa;
 	spa_vdev_removal_t *svr = spa->spa_vdev_removal;
-	vdev_t *vd = svr->svr_vdev;
+	vdev_t *vd = vdev_lookup_top(spa, svr->svr_vdev_id);
 	vdev_indirect_config_t *vic = &vd->vdev_indirect_config;
 	vdev_indirect_mapping_t *vim = vd->vdev_indirect_mapping;
 	objset_t *mos = spa->spa_meta_objset;
@@ -1531,7 +1525,7 @@ spa_vdev_remove_cancel(spa_t *spa)
 	if (spa->spa_vdev_removal == NULL)
 		return (ENOTACTIVE);
 
-	uint64_t vdid = spa->spa_vdev_removal->svr_vdev->vdev_id;
+	uint64_t vdid = spa->spa_vdev_removal->svr_vdev_id;
 
 	int error = dsl_sync_task(spa->spa_name, spa_vdev_remove_cancel_check,
 	    spa_vdev_remove_cancel_sync, NULL, 0,
@@ -1842,7 +1836,7 @@ spa_vdev_remove_top(vdev_t *vd, uint64_t *txg)
 	dmu_tx_t *tx = dmu_tx_create_assigned(spa->spa_dsl_pool, *txg);
 	dsl_sync_task_nowait(spa->spa_dsl_pool,
 	    vdev_remove_initiate_sync,
-	    vd, 0, ZFS_SPACE_CHECK_NONE, tx);
+	    (void *)(uintptr_t)vd->vdev_id, 0, ZFS_SPACE_CHECK_NONE, tx);
 	dmu_tx_commit(tx);
 
 	return (0);

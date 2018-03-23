@@ -5509,8 +5509,7 @@ spa_vdev_add(spa_t *spa, nvlist_t *nvroot)
 		for (int c = 0; c < vd->vdev_children; c++) {
 			tvd = vd->vdev_child[c];
 			if (spa->spa_vdev_removal != NULL &&
-			    tvd->vdev_ashift !=
-			    spa->spa_vdev_removal->svr_vdev->vdev_ashift) {
+			    tvd->vdev_ashift != spa->spa_max_ashift) {
 				return (spa_vdev_exit(spa, vd, txg, EINVAL));
 			}
 			/* Fail if top level vdev is raidz */
