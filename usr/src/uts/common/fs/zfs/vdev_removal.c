@@ -1068,6 +1068,8 @@ vdev_remove_complete(spa_t *spa)
 	 */
 	vdev_config_dirty(spa->spa_root_vdev);
 	(void) spa_vdev_exit(spa, vd, txg, 0);
+
+	spa_event_post(ev);
 }
 
 /*
