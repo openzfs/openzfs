@@ -1303,7 +1303,6 @@ spa_vdev_remove_thread(void *arg)
 			}
 			mutex_exit(&vca.vca_lock);
 
-
 			dmu_tx_t *tx =
 			    dmu_tx_create_dd(spa_get_dsl(spa)->dp_mos_dir);
 
@@ -1331,7 +1330,6 @@ spa_vdev_remove_thread(void *arg)
 
 	mutex_exit(&svr->svr_lock);
 
-	/* XXX drop config lock */
 	spa_config_exit(spa, SCL_CONFIG, FTAG);
 
 	/*

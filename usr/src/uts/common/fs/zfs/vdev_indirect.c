@@ -231,9 +231,9 @@ typedef struct indirect_child {
 } indirect_child_t;
 
 /*
- * The indirect_split_t represents one mapped segment of the an i/o to
- * the indirect vdev. For non-split (contiguously-mapped) blocks, there will
- * be only one indirect_split_t, with is_spit_offset==0 and is_size==io_size.
+ * The indirect_split_t represents one mapped segment of an i/o to the
+ * indirect vdev. For non-split (contiguously-mapped) blocks, there will be
+ * only one indirect_split_t, with is_spit_offset==0 and is_size==io_size.
  * For split blocks, there will be several of these.
  */
 typedef struct indirect_split {
