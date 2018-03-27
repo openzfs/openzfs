@@ -206,6 +206,19 @@ uint64_t zfs_condense_min_mapping_bytes = 128 * 1024;
 int zfs_condense_indirect_commit_entry_delay_ticks = 0;
 
 /*
+ * If a split block contains more than this many segments, consider it too
+ * computationally expensive to check all (2^num_segments) possible
+ * combinations. Instead, try at most 2^_segments_max randomly-selected
+ * combinations.
+ *
+ * This is reasonable if only a few segment copies are damaged and the
+ * majority of segment copies are good. This allows all the segment copies to
+ * participate fairly in the reconstruction and prevents the repeated use of
+ * one bad copy.
+ */
+int zfs_reconstruct_indirect_segments_max = 10;
+
+/*
  * The indirect_child_t represents the vdev that we will read from, when we
  * need to read all copies of the data (e.g. for scrub or reconstruction).
  * For plain (non-mirror) top-level vdevs (i.e. is_vdev is not a mirror),
@@ -1471,6 +1484,13 @@ static void
 vdev_indirect_reconstruct_io_done(zio_t *zio)
 {
 	indirect_vsd_t *iv = zio->io_vsd;
+	uint64_t attempts = 0;
+	uint64_t attempts_max = 1ULL << zfs_reconstruct_indirect_segments_max;
+	int segments = 0;
+
+	for (indirect_split_t *is = list_head(&iv->iv_splits);
+	    is != NULL; is = list_next(&iv->iv_splits, is))
+		segments++;
 
 	for (;;) {
 		/* copy data from splits to main zio */
@@ -1504,22 +1524,42 @@ vdev_indirect_reconstruct_io_done(zio_t *zio)
 
 		/*
 		 * Checksum failed; try a different combination of split
-		 * children, by adding one to the first split's good_child.
-		 * If it overflows, then "carry over" to the next split
-		 * (like counting in base is_children, but each digit can
-		 * have a different base).
+		 * children.
 		 */
 		boolean_t more;
 next:
 		more = B_FALSE;
-		for (indirect_split_t *is = list_head(&iv->iv_splits);
-		    is != NULL; is = list_next(&iv->iv_splits, is)) {
-			is->is_good_child++;
-			if (is->is_good_child < is->is_children) {
-				more = B_TRUE;
-				break;
+		if (segments <= zfs_reconstruct_indirect_segments_max) {
+			/*
+			 * There are relatively few segments, so
+			 * deterministically check all combinations.  We do
+			 * this by by adding one to the first split's
+			 * good_child.  If it overflows, then "carry over" to
+			 * the next split (like counting in base is_children,
+			 * but each digit can have a different base).
+			 */
+			for (indirect_split_t *is = list_head(&iv->iv_splits);
+			    is != NULL; is = list_next(&iv->iv_splits, is)) {
+				is->is_good_child++;
+				if (is->is_good_child < is->is_children) {
+					more = B_TRUE;
+					break;
+				}
+				is->is_good_child = 0;
 			}
-			is->is_good_child = 0;
+		} else if (++attempts < attempts_max) {
+			/*
+			 * There are too many combinations to try all of them
+			 * in a reasonable amount of time, so try a fixed
+			 * number of random combinations, after which we'll
+			 * consider the block unrecoverable.
+			 */
+			for (indirect_split_t *is = list_head(&iv->iv_splits);
+			    is != NULL; is = list_next(&iv->iv_splits, is)) {
+				is->is_good_child =
+				    spa_get_random(is->is_children);
+			}
+			more = B_TRUE;
 		}
 		if (!more) {
 			/* All combinations failed. */
