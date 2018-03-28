@@ -1464,8 +1464,11 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 			 * because we have not allocated mappings for it yet.
 			 */
 			uint64_t syncd = vdev_indirect_mapping_max_offset(vim);
-			range_tree_clear(svr->svr_allocd_segs, syncd,
-			    msp->ms_sm->sm_start + msp->ms_sm->sm_size - syncd);
+			uint64_t sm_end = msp->ms_sm->sm_start +
+			    msp->ms_sm->sm_size;
+			if (sm_end > syncd)
+				range_tree_clear(svr->svr_allocd_segs,
+				    syncd, sm_end - syncd);
 
 			mutex_exit(&svr->svr_lock);
 		}
