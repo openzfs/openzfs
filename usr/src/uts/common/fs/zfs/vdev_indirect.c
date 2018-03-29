@@ -222,8 +222,8 @@ int zfs_reconstruct_indirect_segments_max = 10;
  * The indirect_child_t represents the vdev that we will read from, when we
  * need to read all copies of the data (e.g. for scrub or reconstruction).
  * For plain (non-mirror) top-level vdevs (i.e. is_vdev is not a mirror),
- * this is the same as is_vdev.  However, for mirror top-level vdevs, this
- * is a child of the mirror.
+ * ic_vdev is the same as is_vdev.  However, for mirror top-level vdevs,
+ * ic_vdev is a child of the mirror.
  */
 typedef struct indirect_child {
 	abd_t *ic_data;
@@ -233,7 +233,7 @@ typedef struct indirect_child {
 /*
  * The indirect_split_t represents one mapped segment of an i/o to the
  * indirect vdev. For non-split (contiguously-mapped) blocks, there will be
- * only one indirect_split_t, with is_spit_offset==0 and is_size==io_size.
+ * only one indirect_split_t, with is_split_offset==0 and is_size==io_size.
  * For split blocks, there will be several of these.
  */
 typedef struct indirect_split {
@@ -1439,13 +1439,18 @@ vdev_indirect_all_checksum_errors(zio_t *zio)
 }
 
 /*
- * This function is called when we have read all copies of the data and
- * need to find which combination of copies gives us the right checksum.
+ * This function is called when we have read all copies of the data and need
+ * to try to find a combination of copies that gives us the right checksum.
+ *
  * If we pointed to any mirror vdevs, this effectively does the job of the
  * mirror.  The mirror vdev code can't do its own job because we don't know
  * the checksum of each split segment individually.  We have to try every
- * combination of copies of split segments, until we find one that
- * checksums correctly. For example, if we have 3 segments in the split,
+ * combination of copies of split segments, until we find one that checksums
+ * correctly.  (Or until we have tried all combinations, or have tried
+ * 2^zfs_reconstruct_indirect_segments_max combinations.  In these cases we
+ * set io_error to ECKSUM to propagate the error up to the user.)
+ *
+ * For example, if we have 3 segments in the split,
  * and each points to a 2-way mirror, we will have the following pieces of
  * data:
  *
@@ -1474,11 +1479,12 @@ vdev_indirect_all_checksum_errors(zio_t *zio)
  * data_A_1 data_B_1 data_C_1
  *
  * Note that the split segments may be on the same or different top-level
- * vdevs.  In either case, we try every combination.  This ensures that if
- * a mirror has small silent errors on all of its children, we can still
- * reconstruct the correct data, as long as those errors are at
- * sufficiently-separated offsets (specifically, separated by the largest
- * block size - default of 128KB, but up to 16MB).
+ * vdevs. In either case, we try lots of combinations (see
+ * zfs_reconstruct_indirect_segments_max).  This ensures that if a mirror has
+ * small silent errors on all of its children, we can still reconstruct the
+ * correct data, as long as those errors are at sufficiently-separated
+ * offsets (specifically, separated by the largest block size - default of
+ * 128KB, but up to 16MB).
  */
 static void
 vdev_indirect_reconstruct_io_done(zio_t *zio)

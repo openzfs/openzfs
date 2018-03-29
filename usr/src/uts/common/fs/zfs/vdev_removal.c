@@ -85,7 +85,8 @@ typedef struct vdev_copy_arg {
 
 /*
  * The maximum amount of memory we can use for outstanding i/o while
- * doing a device removal.
+ * doing a device removal.  This determines how much i/o we can have
+ * in flight concurrently.
  */
 int zfs_remove_max_copy_bytes = 64 * 1024 * 1024;
 
