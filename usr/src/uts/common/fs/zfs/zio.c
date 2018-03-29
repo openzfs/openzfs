@@ -3081,9 +3081,13 @@ zio_vdev_io_start(zio_t *zio)
 		ASSERT(spa->spa_trust_config);
 
 		if (zio->io_vd->vdev_removing) {
+			/*
+			 * Note: the code can handle other kinds of writes,
+			 * but we don't expect them.
+			 */
 			ASSERT(zio->io_flags &
 			    (ZIO_FLAG_PHYSICAL | ZIO_FLAG_SELF_HEAL |
-			    ZIO_FLAG_INDUCE_DAMAGE));
+			    ZIO_FLAG_RESILVER | ZIO_FLAG_INDUCE_DAMAGE));
 		}
 	}
 
