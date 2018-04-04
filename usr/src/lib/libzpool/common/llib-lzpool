@@ -39,6 +39,7 @@
 #include <sys/dnode.h>
 #include <sys/dsl_prop.h>
 #include <sys/dsl_dataset.h>
+#include <sys/dsl_scan.h>
 #include <sys/spa.h>
 #include <sys/spa_impl.h>
 #include <sys/space_map.h>
