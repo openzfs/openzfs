@@ -733,6 +733,8 @@ dnode_move_impl(dnode_t *odn, dnode_t *ndn)
 	ndn->dn_datablkszsec = odn->dn_datablkszsec;
 	ndn->dn_datablksz = odn->dn_datablksz;
 	ndn->dn_maxblkid = odn->dn_maxblkid;
+	bcopy(&odn->dn_next_type[0], &ndn->dn_next_type[0],
+	    sizeof (odn->dn_next_type));
 	bcopy(&odn->dn_next_nblkptr[0], &ndn->dn_next_nblkptr[0],
 	    sizeof (odn->dn_next_nblkptr));
 	bcopy(&odn->dn_next_nlevels[0], &ndn->dn_next_nlevels[0],
@@ -1968,6 +1970,10 @@ dnode_next_offset(dnode_t *dn, int flags, uint64_t *offset,
 	}
 
 	maxlvl = dn->dn_phys->dn_nlevels;
+	if (minlvl > maxlvl) {
+		error = SET_ERROR(ESRCH);
+		goto out;
+	}
 
 	for (lvl = minlvl; lvl <= maxlvl; lvl++) {
 		error = dnode_next_offset_level(dn,
