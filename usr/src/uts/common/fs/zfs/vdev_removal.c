@@ -1621,6 +1621,11 @@ spa_vdev_remove_cancel_sync(void *arg, dmu_tx_t *tx)
 			mutex_enter(&svr->svr_lock);
 			VERIFY0(space_map_load(msp->ms_sm,
 			    svr->svr_allocd_segs, SM_ALLOC));
+
+			range_tree_walk(msp->ms_unflushed_allocs,
+			    range_tree_add, svr->svr_allocd_segs);
+			range_tree_walk(msp->ms_unflushed_frees,
+			    range_tree_remove, svr->svr_allocd_segs);
 			range_tree_walk(msp->ms_freeing,
 			    range_tree_remove, svr->svr_allocd_segs);
 
