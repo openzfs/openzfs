@@ -284,7 +284,7 @@ vdev_indirect_map_free(zio_t *zio)
 		}
 		list_remove(&iv->iv_splits, is);
 		kmem_free(is,
-		    offsetof (indirect_split_t, is_child[is->is_children]));
+		    offsetof(indirect_split_t, is_child[is->is_children]));
 	}
 	kmem_free(iv, sizeof (*iv));
 }
@@ -1170,7 +1170,7 @@ vdev_indirect_gather_splits(uint64_t split_offset, vdev_t *vd, uint64_t offset,
 		n = vd->vdev_children;
 
 	indirect_split_t *is =
-	    kmem_zalloc(offsetof (indirect_split_t, is_child[n]), KM_SLEEP);
+	    kmem_zalloc(offsetof(indirect_split_t, is_child[n]), KM_SLEEP);
 
 	is->is_children = n;
 	is->is_size = size;
@@ -1255,7 +1255,7 @@ vdev_indirect_io_start(zio_t *zio)
 	spa_t *spa = zio->io_spa;
 	indirect_vsd_t *iv = kmem_zalloc(sizeof (*iv), KM_SLEEP);
 	list_create(&iv->iv_splits,
-	    sizeof (indirect_split_t), offsetof (indirect_split_t, is_node));
+	    sizeof (indirect_split_t), offsetof(indirect_split_t, is_node));
 
 	zio->io_vsd = iv;
 	zio->io_vsd_ops = &vdev_indirect_vsd_ops;
@@ -1320,11 +1320,12 @@ vdev_indirect_io_start(zio_t *zio)
 			    is != NULL; is = list_next(&iv->iv_splits, is)) {
 				zio_nowait(zio_vdev_child_io(zio, NULL,
 				    is->is_vdev, is->is_target_offset,
-				    abd_get_offset(zio->io_abd, is->is_split_offset),
-				    is->is_size, zio->io_type, zio->io_priority, 0,
+				    abd_get_offset(zio->io_abd,
+				    is->is_split_offset),
+				    is->is_size, zio->io_type,
+				    zio->io_priority, 0,
 				    vdev_indirect_child_io_done, zio));
 			}
-
 		}
 	}
 

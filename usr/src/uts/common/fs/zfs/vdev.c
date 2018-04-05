@@ -882,7 +882,8 @@ vdev_top_transfer(vdev_t *svd, vdev_t *tvd)
 	tvd->vdev_indirect_config = svd->vdev_indirect_config;
 	tvd->vdev_indirect_mapping = svd->vdev_indirect_mapping;
 	tvd->vdev_indirect_births = svd->vdev_indirect_births;
-	range_tree_swap(&svd->vdev_obsolete_segments, &tvd->vdev_obsolete_segments);
+	range_tree_swap(&svd->vdev_obsolete_segments,
+	    &tvd->vdev_obsolete_segments);
 	tvd->vdev_obsolete_sm = svd->vdev_obsolete_sm;
 	svd->vdev_indirect_config.vic_mapping_object = 0;
 	svd->vdev_indirect_config.vic_births_object = 0;
