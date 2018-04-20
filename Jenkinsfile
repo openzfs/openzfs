@@ -65,6 +65,12 @@ node('master') {
         }
 
         timeout(time: 6, unit: 'HOURS') {
+            stage('update build instance') {
+                shscript('reboot-and-update', false, [
+                    ['INSTANCE_ID', env.BUILD_INSTANCE_ID]
+                ])
+            }
+
             stage('configure build instance') {
                 if (!env.BUILD_INSTANCE_ID) {
                     error('Empty BUILD_INSTANCE_ID environment variable.')
