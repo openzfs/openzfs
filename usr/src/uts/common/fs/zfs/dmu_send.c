@@ -2641,6 +2641,15 @@ receive_read_record(struct receive_arg *ra)
 	case DRR_OBJECT:
 	{
 		struct drr_object *drro = &ra->rrd->header.drr_u.drr_object;
+		if (drro->drr_compress >= ZIO_COMPRESS_FUNCTIONS)
+			return (SET_ERROR(ENOTSUP));
+		if (drro->drr_checksumtype >= ZIO_CHECKSUM_FUNCTIONS)
+			return (SET_ERROR(ENOTSUP));
+		if (drro->drr_blksz < SPA_MINBLOCKSIZE ||
+		    drro->drr_blksz > spa_maxblocksize(dmu_objset_spa(ra->os)))
+			return (SET_ERROR(ENOTSUP));
+		if (P2PHASE(drro->drr_blksz, SPA_MINBLOCKSIZE))
+			return (SET_ERROR(EINVAL));
 		uint32_t size = P2ROUNDUP(drro->drr_bonuslen, 8);
 		void *buf = kmem_zalloc(size, KM_SLEEP);
 		dmu_object_info_t doi;
@@ -2669,6 +2678,16 @@ receive_read_record(struct receive_arg *ra)
 	case DRR_WRITE:
 	{
 		struct drr_write *drrw = &ra->rrd->header.drr_u.drr_write;
+		if (drrw->drr_compressiontype >= ZIO_COMPRESS_FUNCTIONS)
+			return (SET_ERROR(ENOTSUP));
+		if (drrw->drr_checksumtype >= ZIO_CHECKSUM_FUNCTIONS)
+			return (SET_ERROR(ENOTSUP));
+		if (drrw->drr_logical_size < SPA_MINBLOCKSIZE ||
+		    drrw->drr_logical_size >
+		    spa_maxblocksize(dmu_objset_spa(ra->os)))
+			return (SET_ERROR(ENOTSUP));
+		if (P2PHASE(drrw->drr_logical_size, SPA_MINBLOCKSIZE))
+			return (SET_ERROR(EINVAL));
 		arc_buf_t *abuf;
 		boolean_t is_meta = DMU_OT_IS_METADATA(drrw->drr_type);
 		if (DRR_WRITE_COMPRESSED(drrw)) {
@@ -2700,6 +2719,8 @@ receive_read_record(struct receive_arg *ra)
 	{
 		struct drr_write_byref *drrwb =
 		    &ra->rrd->header.drr_u.drr_write_byref;
+		if (drrwr->drr_checksumtype >= ZIO_CHECKSUM_FUNCTIONS)
+			return (SET_ERROR(ENOTSUP));
 		err = receive_read_payload_and_next_header(ra, 0, NULL);
 		receive_read_prefetch(ra, drrwb->drr_object, drrwb->drr_offset,
 		    drrwb->drr_length);
@@ -2709,6 +2730,8 @@ receive_read_record(struct receive_arg *ra)
 	{
 		struct drr_write_embedded *drrwe =
 		    &ra->rrd->header.drr_u.drr_write_embedded;
+		if (drrwe->drr_compression >= ZIO_COMPRESS_FUNCTIONS)
+			return (SET_ERROR(ENOTSUP));
 		uint32_t size = P2ROUNDUP(drrwe->drr_psize, 8);
 		void *buf = kmem_zalloc(size, KM_SLEEP);
 
