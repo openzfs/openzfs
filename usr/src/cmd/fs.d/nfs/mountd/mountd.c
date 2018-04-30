@@ -21,7 +21,7 @@
 
 /*
  * Copyright (c) 1989, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+ * Copyright (c) 2012, 2018 by Delphix. All rights reserved.
  * Copyright 2016 Nexenta Systems, Inc.  All rights reserved.
  */
 
@@ -3082,7 +3082,6 @@ check_sharetab()
 	FILE *f;
 	struct stat st;
 	static timestruc_t last_sharetab_time;
-	timestruc_t prev_sharetab_time;
 	share_t *sh;
 	struct sh_list *shp, *shp_prev;
 	int res, c = 0;
@@ -3103,19 +3102,24 @@ check_sharetab()
 		return;
 	}
 
-	/*
-	 * Remember the mod time, then after getting the
-	 * write lock check again.  If another thread
-	 * already did the update, then there's no
-	 * work to do.
-	 */
-	prev_sharetab_time = last_sharetab_time;
-
 	(void) rw_wrlock(&sharetab_lock);
 
-	if (prev_sharetab_time.tv_sec != last_sharetab_time.tv_sec ||
-	    prev_sharetab_time.tv_nsec != last_sharetab_time.tv_nsec) {
+	/*
+	 * Now that we have the lock, reverify that no one else beat us to the
+	 * punch.
+	 */
+	if (stat(SHARETAB, &st) != 0) {
+		syslog(LOG_ERR, "Cannot stat %s: %m", SHARETAB);
 		(void) rw_unlock(&sharetab_lock);
+		return;
+	}
+
+	if (st.st_mtim.tv_sec == last_sharetab_time.tv_sec &&
+	    st.st_mtim.tv_nsec == last_sharetab_time.tv_nsec) {
+		(void) rw_unlock(&sharetab_lock);
+		/*
+		 * No change.
+		 */
 		return;
 	}
 
@@ -3163,8 +3167,8 @@ check_sharetab()
 	if (res < 0)
 		syslog(LOG_ERR, "%s: invalid at line %d\n",
 		    SHARETAB, c + 1);
-
-	if (stat(SHARETAB, &st) != 0) {
+	/* Get the actual mtime of the sharetab snapshot in use. */
+	if (fstat(fileno(f), &st) != 0) {
 		syslog(LOG_ERR, "Cannot stat %s: %m", SHARETAB);
 		(void) fclose(f);
 		(void) rw_unlock(&sharetab_lock);
