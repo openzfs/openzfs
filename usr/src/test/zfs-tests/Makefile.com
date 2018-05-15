@@ -60,4 +60,4 @@ $(TARGETDIR)/%: %
 	$(INS.file)
 
 .PARALLEL: $(SUBDIRS)
-SUBDIRS:sh = find ./* -maxdepth 0 -type d
+SUBDIRS:sh = ls */Makefile 2>/dev/null | sed 's/\/Makefile//g'
