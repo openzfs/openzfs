@@ -68,6 +68,7 @@ known = {
     'grow_replicas/grow_replicas_001_pos': 'FAIL',
     'inheritance/inherit_001_pos': 'FAIL',
     'mdb/mdb_001_pos': 'FAIL',
+    'no_space/enospc_002_pos': 'FAIL',
     'refreserv/refreserv_004_pos': 'FAIL',
     'rootpool/rootpool_002_neg': 'FAIL',
     'rootpool/rootpool_007_neg': 'FAIL',
