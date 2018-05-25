@@ -1180,11 +1180,6 @@ static boolean_t l2arc_write_eligible(uint64_t, arc_buf_hdr_t *);
 static void l2arc_read_done(zio_t *);
 
 
-SYSCTL_UINT(_vfs_zfs, OID_AUTO, arc_min_prfetch_ms, CTLFLAG_RW,
-    &zfs_arc_min_prefetch_ms, 0, "Min life of prefetch block in ms");
-SYSCTL_UINT(_vfs_zfs, OID_AUTO, arc_min_prescient_prefetch_ms, CTLFLAG_RW,
-    &zfs_arc_min_prescient_prefetch_ms, 0, "Min life oof prescient prefetched block in ms");
-
 /*
  * We use Cityhash for this. It's fast, and has good hash properties without
  * requiring any large static buffers.

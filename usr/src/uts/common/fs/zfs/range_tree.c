@@ -621,7 +621,7 @@ range_tree_space(range_tree_t *rt)
 
 /* Generic range tree functions for maintaining segments in an AVL tree. */
 void
-rt_avl_create(range_tree_t *rt, void *arg)
+rt_avl_create(range_tree_t *rt __unused, void *arg)
 {
 	avl_tree_t *tree = arg;
 
@@ -630,7 +630,7 @@ rt_avl_create(range_tree_t *rt, void *arg)
 }
 
 void
-rt_avl_destroy(range_tree_t *rt, void *arg)
+rt_avl_destroy(range_tree_t *rt __unused, void *arg)
 {
 	avl_tree_t *tree = arg;
 
@@ -639,14 +639,14 @@ rt_avl_destroy(range_tree_t *rt, void *arg)
 }
 
 void
-rt_avl_add(range_tree_t *rt, range_seg_t *rs, void *arg)
+rt_avl_add(range_tree_t *rt __unused, range_seg_t *rs, void *arg)
 {
 	avl_tree_t *tree = arg;
 	avl_add(tree, rs);
 }
 
 void
-rt_avl_remove(range_tree_t *rt, range_seg_t *rs, void *arg)
+rt_avl_remove(range_tree_t *rt __unused, range_seg_t *rs, void *arg)
 {
 	avl_tree_t *tree = arg;
 	avl_remove(tree, rs);

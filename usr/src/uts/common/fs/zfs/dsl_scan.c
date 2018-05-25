@@ -1143,7 +1143,6 @@ dsl_scan_check_suspend(dsl_scan_t *scn, const zbookmark_phys_t *zb)
 	 *  or
 	 *  - the scan queue has reached its memory use limit
 	 */
-	uint64_t elapsed_nanosecs = gethrtime();
 	uint64_t curr_time_ns = gethrtime();
 	uint64_t scan_time_ns = curr_time_ns - scn->scn_sync_start_time;
 	uint64_t sync_time_ns = curr_time_ns -
@@ -1424,7 +1423,7 @@ dsl_scan_prefetch_dnode(dsl_scan_t *scn, dnode_phys_t *dnp,
 }
 
 void
-dsl_scan_prefetch_cb(zio_t *zio, const zbookmark_phys_t *zb, const blkptr_t *bp,
+dsl_scan_prefetch_cb(zio_t *zio __unused, const zbookmark_phys_t *zb, const blkptr_t *bp,
     arc_buf_t *buf, void *private)
 {
 	scan_prefetch_ctx_t *spc = private;
@@ -1490,8 +1489,6 @@ dsl_scan_prefetch_thread(void *arg)
 {
 	dsl_scan_t *scn = arg;
 	spa_t *spa = scn->scn_dp->dp_spa;
-	vdev_t *rvd = spa->spa_root_vdev;
-	uint64_t maxinflight = rvd->vdev_children * zfs_top_maxinflight;
 	scan_prefetch_issue_ctx_t *spic;
 
 	/* loop until we are told to stop */
@@ -3500,7 +3497,7 @@ dsl_scan_scrub_cb(dsl_pool_t *dp,
 	dsl_scan_t *scn = dp->dp_scan;
 	spa_t *spa = dp->dp_spa;
 	uint64_t phys_birth = BP_PHYSICAL_BIRTH(bp);
-	size_t size = BP_GET_PSIZE(bp);
+	size_t psize = BP_GET_PSIZE(bp);
 	boolean_t needs_io;
 	int zio_flags = ZIO_FLAG_SCAN_THREAD | ZIO_FLAG_RAW | ZIO_FLAG_CANFAIL;
 
