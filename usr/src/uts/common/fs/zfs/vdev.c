@@ -464,19 +464,21 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 
 	rw_init(&vd->vdev_indirect_rwlock, NULL, RW_DEFAULT, NULL);
 	mutex_init(&vd->vdev_obsolete_lock, NULL, MUTEX_DEFAULT, NULL);
-	vd->vdev_obsolete_segments = range_tree_create(NULL, NULL);
+	vd->vdev_obsolete_segments = range_tree_create(NULL, NULL, &vd->vdev_obsolete_lock);
 
 	mutex_init(&vd->vdev_dtl_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_stat_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_probe_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_queue_lock, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&vd->vdev_scan_io_queue_lock, NULL, MUTEX_DEFAULT, NULL);
+ 
 	mutex_init(&vd->vdev_initialize_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_initialize_io_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&vd->vdev_initialize_cv, NULL, CV_DEFAULT, NULL);
 	cv_init(&vd->vdev_initialize_io_cv, NULL, CV_DEFAULT, NULL);
 
 	for (int t = 0; t < DTL_TYPES; t++) {
-		vd->vdev_dtl[t] = range_tree_create(NULL, NULL);
+		vd->vdev_dtl[t] = range_tree_create(NULL, NULL, k&vd->vdev_dtl_lock);
 	}
 	txg_list_create(&vd->vdev_ms_list, spa,
 	    offsetof(struct metaslab, ms_txg_node));
@@ -788,6 +790,18 @@ vdev_free(vdev_t *vd)
 	ASSERT(vd->vdev_parent == NULL);
 
 	/*
+	 * Scan queues are normally destroyed at the end of a scan. If the
+	 * queue exists here, that implies the vdev is being removed while
+	 * the scan is still running.
+	 */
+	if (vd->vdev_scan_io_queue != NULL) {
+		mutex_enter(&vd->vdev_scan_io_queue_lock);
+		dsl_scan_io_queue_destroy(vd->vdev_scan_io_queue);
+		vd->vdev_scan_io_queue = NULL;
+		mutex_exit(&vd->vdev_scan_io_queue_lock);
+	}
+
+	/*
 	 * Clean up vdev structure.
 	 */
 	vdev_queue_fini(vd);
@@ -839,6 +853,7 @@ vdev_free(vdev_t *vd)
 	mutex_destroy(&vd->vdev_dtl_lock);
 	mutex_destroy(&vd->vdev_stat_lock);
 	mutex_destroy(&vd->vdev_probe_lock);
+	mutex_destroy(&vd->vdev_scan_io_queue_lock);
 	mutex_destroy(&vd->vdev_initialize_lock);
 	mutex_destroy(&vd->vdev_initialize_io_lock);
 	cv_destroy(&vd->vdev_initialize_io_cv);
@@ -945,6 +960,8 @@ vdev_top_transfer(vdev_t *svd, vdev_t *tvd)
 
 	tvd->vdev_islog = svd->vdev_islog;
 	svd->vdev_islog = 0;
+
+	dsl_scan_io_queue_vdev_xfer(svd, tvd);
 }
 
 static void
@@ -2210,6 +2227,21 @@ vdev_dtl_empty(vdev_t *vd, vdev_dtl_type_t t)
 }
 
 /*
+ * Returns B_TRUE if vdev determines offset needs to be resilvered.
+ */
+boolean_t
+vdev_dtl_need_resilver(vdev_t *vd, uint64_t offset, size_t psize)
+{
+        ASSERT(vd != vd->vdev_spa->spa_root_vdev);
+
+        if (vd->vdev_ops->vdev_op_need_resilver == NULL ||
+            vd->vdev_ops->vdev_op_leaf)
+                return (B_TRUE);
+
+        return (vd->vdev_ops->vdev_op_need_resilver(vd, offset, psize));
+}
+
+/*
  * Returns the lowest txg in the DTL range.
  */
 static uint64_t
@@ -2485,6 +2517,7 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	range_tree_t *rt = vd->vdev_dtl[DTL_MISSING];
 	objset_t *mos = spa->spa_meta_objset;
 	range_tree_t *rtsync;
+	kmutex_t rtlock;
 	dmu_tx_t *tx;
 	uint64_t object = space_map_object(vd->vdev_dtl_sm);
 
@@ -2526,7 +2559,10 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 		ASSERT(vd->vdev_dtl_sm != NULL);
 	}
 
-	rtsync = range_tree_create(NULL, NULL);
+	bzero(&rtlock, sizeof(rtlock));
+	mutex_init(&rtlock, NULL, MUTEX_DEFAULT, NULL);
+
+	rtsync = range_tree_create(NULL, NULL, &rtlock);
 
 	mutex_enter(&vd->vdev_dtl_lock);
 	range_tree_walk(rt, range_tree_add, rtsync);
