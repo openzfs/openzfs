@@ -478,7 +478,7 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	cv_init(&vd->vdev_initialize_io_cv, NULL, CV_DEFAULT, NULL);
 
 	for (int t = 0; t < DTL_TYPES; t++) {
-		vd->vdev_dtl[t] = range_tree_create(NULL, NULL, k&vd->vdev_dtl_lock);
+		vd->vdev_dtl[t] = range_tree_create(NULL, NULL, &vd->vdev_dtl_lock);
 	}
 	txg_list_create(&vd->vdev_ms_list, spa,
 	    offsetof(struct metaslab, ms_txg_node));
