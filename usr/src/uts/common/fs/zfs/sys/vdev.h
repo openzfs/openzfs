@@ -134,6 +134,7 @@ extern void vdev_queue_init(vdev_t *vd);
 extern void vdev_queue_fini(vdev_t *vd);
 extern zio_t *vdev_queue_io(zio_t *zio);
 extern void vdev_queue_io_done(zio_t *zio);
+extern void vdev_queue_change_io_priority(zio_t *zio, zio_priority_t priority);
 
 extern void vdev_config_dirty(vdev_t *vd);
 extern void vdev_config_clean(vdev_t *vd);
