@@ -1497,7 +1497,7 @@ metaslab_init(metaslab_group_t *mg, uint64_t id, uint64_t object, uint64_t txg,
 	 * data fault on any attempt to use this metaslab before it's ready.
 	 */
 	ms->ms_allocatable = range_tree_create_impl(&rt_avl_ops, &ms->ms_allocatable_by_size,
-	    metaslab_rangesize_compare, &ms->ms_lock, 0);
+	    metaslab_rangesize_compare, 0);
 	metaslab_group_add(mg, ms);
 
 	metaslab_set_fragmentation(ms);
@@ -2260,7 +2260,7 @@ metaslab_condense(metaslab_t *msp, uint64_t txg, dmu_tx_t *tx)
 	 * a relatively inexpensive operation since we expect these trees to
 	 * have a small number of nodes.
 	 */
-	condense_tree = range_tree_create(NULL, NULL, &msp->ms_lock);
+	condense_tree = range_tree_create(NULL, NULL);
 	range_tree_add(condense_tree, msp->ms_start, msp->ms_size);
 
 	range_tree_walk(msp->ms_freeing, range_tree_remove, condense_tree);
@@ -2550,23 +2550,23 @@ metaslab_sync_done(metaslab_t *msp, uint64_t txg)
 		for (int t = 0; t < TXG_SIZE; t++) {
 			ASSERT(msp->ms_allocating[t] == NULL);
 
-			msp->ms_allocating[t] = range_tree_create(NULL, NULL, &msp->ms_lock);
+			msp->ms_allocating[t] = range_tree_create(NULL, NULL);
 		}
 
 		ASSERT3P(msp->ms_freeing, ==, NULL);
-		msp->ms_freeing = range_tree_create(NULL, NULL, &msp->ms_lock);
+		msp->ms_freeing = range_tree_create(NULL, NULL);
 
 		ASSERT3P(msp->ms_freed, ==, NULL);
-		msp->ms_freed = range_tree_create(NULL, NULL, &msp->ms_lock);
+		msp->ms_freed = range_tree_create(NULL, NULL);
 
 		for (int t = 0; t < TXG_DEFER_SIZE; t++) {
 			ASSERT(msp->ms_defer[t] == NULL);
 
-			msp->ms_defer[t] = range_tree_create(NULL, NULL, &msp->ms_lock);
+			msp->ms_defer[t] = range_tree_create(NULL, NULL);
 		}
 
 		ASSERT3P(msp->ms_checkpointing, ==, NULL);
-		msp->ms_checkpointing = range_tree_create(NULL, NULL, &msp->ms_lock);
+		msp->ms_checkpointing = range_tree_create(NULL, NULL);
 
 		vdev_space_update(vd, 0, 0, msp->ms_size);
 	}

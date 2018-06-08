@@ -464,7 +464,7 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 
 	rw_init(&vd->vdev_indirect_rwlock, NULL, RW_DEFAULT, NULL);
 	mutex_init(&vd->vdev_obsolete_lock, NULL, MUTEX_DEFAULT, NULL);
-	vd->vdev_obsolete_segments = range_tree_create(NULL, NULL, &vd->vdev_obsolete_lock);
+	vd->vdev_obsolete_segments = range_tree_create(NULL, NULL);
 
 	mutex_init(&vd->vdev_dtl_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_stat_lock, NULL, MUTEX_DEFAULT, NULL);
@@ -478,7 +478,7 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	cv_init(&vd->vdev_initialize_io_cv, NULL, CV_DEFAULT, NULL);
 
 	for (int t = 0; t < DTL_TYPES; t++) {
-		vd->vdev_dtl[t] = range_tree_create(NULL, NULL, &vd->vdev_dtl_lock);
+		vd->vdev_dtl[t] = range_tree_create(NULL, NULL);
 	}
 	txg_list_create(&vd->vdev_ms_list, spa,
 	    offsetof(struct metaslab, ms_txg_node));
@@ -2517,7 +2517,6 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 	range_tree_t *rt = vd->vdev_dtl[DTL_MISSING];
 	objset_t *mos = spa->spa_meta_objset;
 	range_tree_t *rtsync;
-	kmutex_t rtlock;
 	dmu_tx_t *tx;
 	uint64_t object = space_map_object(vd->vdev_dtl_sm);
 
@@ -2559,10 +2558,7 @@ vdev_dtl_sync(vdev_t *vd, uint64_t txg)
 		ASSERT(vd->vdev_dtl_sm != NULL);
 	}
 
-	bzero(&rtlock, sizeof(rtlock));
-	mutex_init(&rtlock, NULL, MUTEX_DEFAULT, NULL);
-
-	rtsync = range_tree_create(NULL, NULL, &rtlock);
+	rtsync = range_tree_create(NULL, NULL);
 
 	mutex_enter(&vd->vdev_dtl_lock);
 	range_tree_walk(rt, range_tree_add, rtsync);
