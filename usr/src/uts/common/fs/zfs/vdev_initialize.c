@@ -589,7 +589,6 @@ vdev_initialize_thread(void *arg)
 	spa_t *spa = vd->vdev_spa;
 	int error = 0;
 	uint64_t ms_count = 0;
-	kmutex_t tree_lock;
 
 	ASSERT(vdev_is_concrete(vd));
 	spa_config_enter(spa, SCL_CONFIG, FTAG, RW_READER);
@@ -599,8 +598,7 @@ vdev_initialize_thread(void *arg)
 
 	abd_t *deadbeef = vdev_initialize_block_alloc();
 
-	mutex_init(&tree_lock, NULL, MUTEX_DEFAULT, NULL);
-	vd->vdev_initialize_tree = range_tree_create(NULL, NULL, &tree_lock);
+	vd->vdev_initialize_tree = range_tree_create(NULL, NULL);
 
 	for (uint64_t i = 0; !vd->vdev_detached &&
 	    i < vd->vdev_top->vdev_ms_count; i++) {
@@ -642,7 +640,6 @@ vdev_initialize_thread(void *arg)
 	mutex_exit(&vd->vdev_initialize_io_lock);
 
 	range_tree_destroy(vd->vdev_initialize_tree);
-	mutex_destroy(&tree_lock);
 	vdev_initialize_block_free(deadbeef);
 	vd->vdev_initialize_tree = NULL;
 
