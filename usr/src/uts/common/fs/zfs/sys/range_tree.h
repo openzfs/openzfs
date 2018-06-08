@@ -60,7 +60,6 @@ typedef struct range_tree {
 	 * 2^i <= size of range in bytes < 2^(i+1)
 	 */
 	uint64_t	rt_histogram[RANGE_TREE_HISTOGRAM_SIZE];
-	kmutex_t	*rt_lock;	/* pointer to lock that protects map */
 } range_tree_t;
 
 typedef struct range_seg {
@@ -84,8 +83,8 @@ typedef void range_tree_func_t(void *arg, uint64_t start, uint64_t size);
 void range_tree_init(void);
 void range_tree_fini(void);
 range_tree_t *range_tree_create_impl(range_tree_ops_t *ops, void *arg,
-    int (*avl_compare)(const void*, const void*), kmutex_t *lp, uint64_t gap);
-range_tree_t *range_tree_create(range_tree_ops_t *ops, void *arg, kmutex_t *lp);
+    int (*avl_compare)(const void*, const void*), uint64_t gap);
+	range_tree_t *range_tree_create(range_tree_ops_t *ops, void *arg);
 void range_tree_destroy(range_tree_t *rt);
 boolean_t range_tree_contains(range_tree_t *rt, uint64_t start, uint64_t size);
 range_seg_t *range_tree_find(range_tree_t *rt, uint64_t start, uint64_t size);
@@ -94,7 +93,6 @@ void range_tree_resize_segment(range_tree_t *rt, range_seg_t *rs,
 uint64_t range_tree_space(range_tree_t *rt);
 boolean_t range_tree_is_empty(range_tree_t *rt);
 void range_tree_verify(range_tree_t *rt, uint64_t start, uint64_t size);
-void range_tree_set_lock(range_tree_t *rt, kmutex_t *lp);
 void range_tree_swap(range_tree_t **rtsrc, range_tree_t **rtdst);
 void range_tree_stat_verify(range_tree_t *rt);
 uint64_t range_tree_min(range_tree_t *rt);

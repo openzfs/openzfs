@@ -3715,8 +3715,7 @@ scan_io_queue_create(vdev_t *vd)
 	q->q_vd = vd;
 	cv_init(&q->q_zio_cv, NULL, CV_DEFAULT, NULL);
 	q->q_exts_by_addr = range_tree_create_impl(&rt_avl_ops,
-	    &q->q_exts_by_size, ext_size_compare,
-	    &q->q_vd->vdev_scan_io_queue_lock, zfs_scan_max_ext_gap);
+	    &q->q_exts_by_size, ext_size_compare, zfs_scan_max_ext_gap);
 	avl_create(&q->q_sios_by_addr, io_addr_compare,
 	    sizeof (scan_io_t), offsetof(scan_io_t, sio_nodes.sio_addr_node));
 
@@ -3769,11 +3768,8 @@ dsl_scan_io_queue_vdev_xfer(vdev_t *svd, vdev_t *tvd)
 	VERIFY3P(tvd->vdev_scan_io_queue, ==, NULL);
 	tvd->vdev_scan_io_queue = svd->vdev_scan_io_queue;
 	svd->vdev_scan_io_queue = NULL;
-	if (tvd->vdev_scan_io_queue != NULL) {
+	if (tvd->vdev_scan_io_queue != NULL)
 		tvd->vdev_scan_io_queue->q_vd = tvd;
-		range_tree_set_lock(tvd->vdev_scan_io_queue->q_exts_by_addr,
-		    &tvd->vdev_scan_io_queue_lock);
-	}
 
 	mutex_exit(&tvd->vdev_scan_io_queue_lock);
 	mutex_exit(&svd->vdev_scan_io_queue_lock);

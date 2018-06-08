@@ -125,18 +125,6 @@ range_tree_stat_verify(range_tree_t *rt)
 	}
 }
 
-/*
- * Changes out the lock used by the range tree. Useful when you are moving
- * the range tree between containing structures without having to recreate
- * it. Both the old and new locks must be held by the caller.
- */
-void
-range_tree_set_lock(range_tree_t *rt, kmutex_t *lp)
-{
-	ASSERT(MUTEX_HELD(rt->rt_lock) && MUTEX_HELD(lp));
-	rt->rt_lock = lp;
-}
-
 static void
 range_tree_stat_incr(range_tree_t *rt, range_seg_t *rs)
 {
@@ -182,14 +170,13 @@ range_tree_seg_compare(const void *x1, const void *x2)
 
 range_tree_t *
 range_tree_create_impl(range_tree_ops_t *ops, void *arg,
-    int (*avl_compare) (const void *, const void *), kmutex_t *lp, uint64_t gap)
+    int (*avl_compare) (const void *, const void *), uint64_t gap)
 {
 	range_tree_t *rt = kmem_zalloc(sizeof (range_tree_t), KM_SLEEP);
 
 	avl_create(&rt->rt_root, range_tree_seg_compare,
 	    sizeof (range_seg_t), offsetof(range_seg_t, rs_node));
 
-	rt->rt_lock = lp;
 	rt->rt_ops = ops;
 	rt->rt_arg = arg;
 	rt->rt_gap = gap;
@@ -202,9 +189,9 @@ range_tree_create_impl(range_tree_ops_t *ops, void *arg,
 }
 
 range_tree_t *
-range_tree_create(range_tree_ops_t *ops, void *arg, kmutex_t *lp)
+range_tree_create(range_tree_ops_t *ops, void *arg)
 {
-	return (range_tree_create_impl(ops, arg, NULL, lp, 0));
+	return (range_tree_create_impl(ops, arg, NULL, 0));
 }
 
 void
@@ -222,8 +209,6 @@ range_tree_destroy(range_tree_t *rt)
 void
 range_tree_adjust_fill(range_tree_t *rt, range_seg_t *rs, int64_t delta)
 {
-	ASSERT(MUTEX_HELD(rt->rt_lock));
-
 	ASSERT3U(rs->rs_fill + delta, !=, 0);
 	ASSERT3U(rs->rs_fill + delta, <=, rs->rs_end - rs->rs_start);
 
@@ -490,8 +475,6 @@ range_tree_resize_segment(range_tree_t *rt, range_seg_t *rs,
 {
 	int64_t delta = newsize - (rs->rs_end - rs->rs_start);
 
-	ASSERT(MUTEX_HELD(rt->rt_lock));
-
 	range_tree_stat_decr(rt, rs);
 	if (rt->rt_ops != NULL && rt->rt_ops->rtop_remove != NULL)
 		rt->rt_ops->rtop_remove(rt, rs, rt->rt_arg);
@@ -608,7 +591,6 @@ range_tree_walk(range_tree_t *rt, range_tree_func_t *func, void *arg)
 range_seg_t *
 range_tree_first(range_tree_t *rt)
 {
-	ASSERT(MUTEX_HELD(rt->rt_lock));
 	return (avl_first(&rt->rt_root));
 }
 
