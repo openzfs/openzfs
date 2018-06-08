@@ -196,7 +196,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	strfree;
 
 	system_taskq;
-	system_taskq_fini;	
+	system_taskq_fini;
 	system_taskq_init;
 	taskq_create;
 	taskq_create_proc;
@@ -207,6 +207,7 @@ SYMBOL_VERSION SUNWprivate_1.1 {
 	taskq_empty;
 	taskq_member;
 	taskq_wait;
+	taskq_wait_id;
 
 	thread_create;
 	thread_join;

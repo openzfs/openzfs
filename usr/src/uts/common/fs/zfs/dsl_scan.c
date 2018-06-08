@@ -3525,7 +3525,7 @@ dsl_scan_scrub_cb(dsl_pool_t *dp,
 	if (zb->zb_level == ZB_ZIL_LEVEL)
 		zio_flags |= ZIO_FLAG_SPECULATIVE;
 
-	for (d = 0; d < BP_GET_NDVAS(bp); d++) {
+	for (int d = 0; d < BP_GET_NDVAS(bp); d++) {
 		const dva_t *dva = &bp->blk_dva[d];
 
 		/*
