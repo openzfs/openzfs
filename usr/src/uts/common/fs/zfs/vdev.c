@@ -470,6 +470,8 @@ vdev_alloc_common(spa_t *spa, uint_t id, uint64_t guid, vdev_ops_t *ops)
 	mutex_init(&vd->vdev_stat_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_probe_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_queue_lock, NULL, MUTEX_DEFAULT, NULL);
+	mutex_init(&vd->vdev_scan_io_queue_lock, NULL, MUTEX_DEFAULT, NULL);
+ 
 	mutex_init(&vd->vdev_initialize_lock, NULL, MUTEX_DEFAULT, NULL);
 	mutex_init(&vd->vdev_initialize_io_lock, NULL, MUTEX_DEFAULT, NULL);
 	cv_init(&vd->vdev_initialize_cv, NULL, CV_DEFAULT, NULL);
@@ -788,6 +790,18 @@ vdev_free(vdev_t *vd)
 	ASSERT(vd->vdev_parent == NULL);
 
 	/*
+	 * Scan queues are normally destroyed at the end of a scan. If the
+	 * queue exists here, that implies the vdev is being removed while
+	 * the scan is still running.
+	 */
+	if (vd->vdev_scan_io_queue != NULL) {
+		mutex_enter(&vd->vdev_scan_io_queue_lock);
+		dsl_scan_io_queue_destroy(vd->vdev_scan_io_queue);
+		vd->vdev_scan_io_queue = NULL;
+		mutex_exit(&vd->vdev_scan_io_queue_lock);
+	}
+
+	/*
 	 * Clean up vdev structure.
 	 */
 	vdev_queue_fini(vd);
@@ -839,6 +853,7 @@ vdev_free(vdev_t *vd)
 	mutex_destroy(&vd->vdev_dtl_lock);
 	mutex_destroy(&vd->vdev_stat_lock);
 	mutex_destroy(&vd->vdev_probe_lock);
+	mutex_destroy(&vd->vdev_scan_io_queue_lock);
 	mutex_destroy(&vd->vdev_initialize_lock);
 	mutex_destroy(&vd->vdev_initialize_io_lock);
 	cv_destroy(&vd->vdev_initialize_io_cv);
@@ -945,6 +960,8 @@ vdev_top_transfer(vdev_t *svd, vdev_t *tvd)
 
 	tvd->vdev_islog = svd->vdev_islog;
 	svd->vdev_islog = 0;
+
+	dsl_scan_io_queue_vdev_xfer(svd, tvd);
 }
 
 static void
@@ -2207,6 +2224,21 @@ vdev_dtl_empty(vdev_t *vd, vdev_dtl_type_t t)
 	mutex_exit(&vd->vdev_dtl_lock);
 
 	return (empty);
+}
+
+/*
+ * Returns B_TRUE if vdev determines offset needs to be resilvered.
+ */
+boolean_t
+vdev_dtl_need_resilver(vdev_t *vd, uint64_t offset, size_t psize)
+{
+        ASSERT(vd != vd->vdev_spa->spa_root_vdev);
+
+        if (vd->vdev_ops->vdev_op_need_resilver == NULL ||
+            vd->vdev_ops->vdev_op_leaf)
+                return (B_TRUE);
+
+        return (vd->vdev_ops->vdev_op_need_resilver(vd, offset, psize));
 }
 
 /*

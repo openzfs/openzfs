@@ -208,6 +208,7 @@ typedef struct vattr {
 	u_offset_t	va_size;	/* file size in bytes */
 } vattr_t;
 
+#define TASKQID_INVALID         ((taskqid_t)0)
 
 typedef struct xvattr {
 	vattr_t		xva_vattr;	/* Embedded vattr structure */
