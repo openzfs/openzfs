@@ -977,7 +977,8 @@ dbuf_whichblock(dnode_t *dn, int64_t level, uint64_t offset)
 }
 
 static void
-dbuf_read_done(zio_t *zio, arc_buf_t *buf, void *vdb)
+dbuf_read_done(zio_t *zio __unused, const zbookmark_phys_t *zb __unused, const blkptr_t *bp __unused,
+    arc_buf_t *buf, void *vdb)
 {
 	dmu_buf_impl_t *db = vdb;
 
@@ -989,26 +990,26 @@ dbuf_read_done(zio_t *zio, arc_buf_t *buf, void *vdb)
 	ASSERT(refcount_count(&db->db_holds) > 0);
 	ASSERT(db->db_buf == NULL);
 	ASSERT(db->db.db_data == NULL);
-	if (buf == NULL) {
-		/* i/o error */
-		ASSERT(zio == NULL || zio->io_error != 0);
-		ASSERT(db->db_blkid != DMU_BONUS_BLKID);
-		ASSERT3P(db->db_buf, ==, NULL);
-		db->db_state = DB_UNCACHED;
-	} else if (db->db_level == 0 && db->db_freed_in_flight) {
+
+	if (db->db_level == 0 && db->db_freed_in_flight) {
 		/* freed in flight */
-		ASSERT(zio == NULL || zio->io_error == 0);
+		if (buf == NULL) {
+			buf = arc_alloc_buf(db->db_objset->os_spa,
+			     db, DBUF_GET_BUFC_TYPE(db), db->db.db_size);
+		}
 		arc_release(buf, db);
 		bzero(buf->b_data, db->db.db_size);
 		arc_buf_freeze(buf);
 		db->db_freed_in_flight = FALSE;
 		dbuf_set_data(db, buf);
 		db->db_state = DB_CACHED;
-	} else {
-		/* success */
-		ASSERT(zio == NULL || zio->io_error == 0);
+	} else if (buf != NULL) {
 		dbuf_set_data(db, buf);
 		db->db_state = DB_CACHED;
+	} else {
+		ASSERT(db->db_blkid != DMU_BONUS_BLKID);
+		ASSERT3P(db->db_buf, ==, NULL);
+		db->db_state = DB_UNCACHED;
 	}
 	cv_broadcast(&db->db_changed);
 	dbuf_rele_and_unlock(db, NULL);
@@ -2414,7 +2415,8 @@ dbuf_issue_final_prefetch(dbuf_prefetch_arg_t *dpa, blkptr_t *bp)
  * prefetch if the next block down is our target.
  */
 static void
-dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
+dbuf_prefetch_indirect_done(zio_t *zio, const zbookmark_phys_t *zb __unused,
+    const blkptr_t *iobp __unused, arc_buf_t *abuf, void *private)
 {
 	dbuf_prefetch_arg_t *dpa = private;
 
@@ -2460,6 +2462,11 @@ dbuf_prefetch_indirect_done(zio_t *zio, arc_buf_t *abuf, void *private)
 		dbuf_rele(db, FTAG);
 	}
 
+	if (abuf == NULL) {
+		kmem_free(dpa, sizeof(*dpa));
+		return;
+	}
+	
 	dpa->dpa_curlevel--;
 
 	uint64_t nextblkid = dpa->dpa_zb.zb_blkid >>
@@ -3851,7 +3858,7 @@ dbuf_write(dbuf_dirty_record_t *dr, arc_buf_t *data, dmu_tx_t *tx)
 		 * ready callback so that we can properly handle an indirect
 		 * block that only contains holes.
 		 */
-		arc_done_func_t *children_ready_cb = NULL;
+		arc_write_done_func_t *children_ready_cb = NULL;
 		if (db->db_level != 0)
 			children_ready_cb = dbuf_write_children_ready;
 
