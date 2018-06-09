@@ -610,6 +610,7 @@ rt_avl_create(range_tree_t *rt __unused, void *arg)
 	    offsetof(range_seg_t, rs_pp_node));
 }
 
+/*ARGSUSED*/
 void
 rt_avl_destroy(range_tree_t *rt __unused, void *arg)
 {
@@ -619,6 +620,7 @@ rt_avl_destroy(range_tree_t *rt __unused, void *arg)
 	avl_destroy(tree);
 }
 
+/*ARGSUSED*/
 void
 rt_avl_add(range_tree_t *rt __unused, range_seg_t *rs, void *arg)
 {
@@ -626,6 +628,7 @@ rt_avl_add(range_tree_t *rt __unused, range_seg_t *rs, void *arg)
 	avl_add(tree, rs);
 }
 
+/*ARGSUSED*/
 void
 rt_avl_remove(range_tree_t *rt __unused, range_seg_t *rs, void *arg)
 {

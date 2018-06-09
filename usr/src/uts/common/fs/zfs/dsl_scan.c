@@ -1305,7 +1305,7 @@ scan_prefetch_ctx_create(dsl_scan_t *scn, dnode_phys_t *dnp, void *tag)
 
 	spc = kmem_alloc(sizeof (scan_prefetch_ctx_t), KM_SLEEP);
 	refcount_create(&spc->spc_refcnt);
-	refcount_add(&spc->spc_refcnt, tag);
+	(void)refcount_add(&spc->spc_refcnt, tag);
 	spc->spc_scn = scn;
 	if (dnp != NULL) {
 		spc->spc_datablkszsec = dnp->dn_datablkszsec;
@@ -1422,6 +1422,7 @@ dsl_scan_prefetch_dnode(dsl_scan_t *scn, dnode_phys_t *dnp,
 	scan_prefetch_ctx_rele(spc, FTAG);
 }
 
+/*ARGSUSED*/
 void
 dsl_scan_prefetch_cb(zio_t *zio __unused, const zbookmark_phys_t *zb, const blkptr_t *bp,
     arc_buf_t *buf, void *private)

@@ -1366,6 +1366,7 @@ taskq_wait(taskq_t *tq)
 	}
 }
 
+/*ARGSUSED*/
 void
 taskq_wait_id(taskq_t *tq, taskqid_t id __unused)
 {
