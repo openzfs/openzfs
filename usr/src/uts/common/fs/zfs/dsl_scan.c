@@ -1323,7 +1323,7 @@ scan_prefetch_ctx_create(dsl_scan_t *scn, dnode_phys_t *dnp, void *tag)
 static void
 scan_prefetch_ctx_add_ref(scan_prefetch_ctx_t *spc, void *tag)
 {
-	refcount_add(&spc->spc_refcnt, tag);
+	(void)refcount_add(&spc->spc_refcnt, tag);
 }
 
 static boolean_t
