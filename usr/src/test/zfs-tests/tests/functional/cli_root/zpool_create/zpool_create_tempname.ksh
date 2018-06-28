@@ -40,7 +40,7 @@ log_assert "'zpool create -t <tempname>' can create a pool with the specified" \
 log_onexit cleanup
 
 TEMPPOOL="tempname.$$"
-typeset poolprops=('comment=text' 'ashift=12' 'listsnapshots=on' 'autoexpand=on'
+typeset poolprops=('comment=text' 'listsnapshots=on' 'autoexpand=on'
     'autoreplace=on' 'delegation=off' 'failmode=continue')
 typeset fsprops=('canmount=off' 'mountpoint=none' 'utf8only=on'
     'casesensitivity=mixed' 'version=1' 'normalization=formKD')
