@@ -1,4 +1,4 @@
-#!/usr/bin/bash -p
+#!/bin/ksh -p
 #
 # CDDL HEADER START
 #
@@ -35,54 +35,51 @@
 #
 # DESCRIPTION:
 #
-# In pool with a full filesystem and a filesystem with a reservation
-# destroying another filesystem should allow more data to be written to
-# the full filesystem
+# In pool with a full filesystem and a regular volume (with implicit
+# reservation) destroying the volume should allow more data to be written
+# to the filesystem
 #
 #
 # STRATEGY:
-# 1) Create a filesystem as dataset
+# 1) Create a regular (non-sparse) volume
 # 2) Create a filesystem at the same level
-# 3) Set a reservation on the dataset filesystem
-# 4) Fill up the second filesystem
-# 5) Destroy the dataset filesystem
-# 6) Verify can write more data to the full filesystem
+# 3) Fill up the filesystem
+# 4) Destroy the volume
+# 5) Verify can write more data to the filesystem
 #
 
-verify_runnable "both"
+verify_runnable "global"
 
-log_assert "Destroying top level filesystem with reservation allows more " \
-    "data to be written to another top level filesystem"
+log_assert "Destroying a regular volume with reservation allows more data to" \
+    " be written to top level filesystem"
 
 function cleanup
 {
-	datasetexists $TESTPOOL/$TESTFS1 && \
-	    log_must zfs destroy $TESTPOOL/$TESTFS1
+	datasetexists $TESTPOOL/$TESTVOL && \
+	    log_must zfs destroy $TESTPOOL/$TESTVOL
 
 	[[ -e $TESTDIR/$TESTFILE1 ]] && log_must rm -rf $TESTDIR/$TESTFILE1
 	[[ -e $TESTDIR/$TESTFILE2 ]] && log_must rm -rf $TESTDIR/$TESTFILE2
 }
-
 log_onexit cleanup
 
-log_must zfs create $TESTPOOL/$TESTFS1
-
-space_avail=`get_prop available $TESTPOOL`
+space_avail=$(largest_volsize_from_pool $TESTPOOL)
 
 #
 # To make sure this test doesn't take too long to execute on
-# large pools, we calculate a reservation setting which when
-# applied to the dataset filesystem  will ensure we have
-# RESV_FREE_SPACE left free in the pool.
+# large pools, we calculate a volume size which will ensure we
+# have RESV_FREE_SPACE left free in the pool.
 #
-((resv_size_set = space_avail - RESV_FREE_SPACE))
+((vol_set_size = space_avail - RESV_FREE_SPACE))
+vol_set_size=$(floor_volsize $vol_set_size)
 
-log_must zfs set reservation=$resv_size_set $TESTPOOL/$TESTFS1
+# Creating a regular volume implicitly sets its reservation
+# property to the same value.
+log_must zfs create -V $vol_set_size $TESTPOOL/$TESTVOL
 
-space_avail_still=`get_prop available $TESTPOOL`
-
-fill_size=`expr $space_avail_still + $RESV_TOLERANCE`
-write_count=`expr $fill_size / $BLOCK_SIZE`
+space_avail_still=$(get_prop available $TESTPOOL)
+fill_size=$((space_avail_still + $RESV_TOLERANCE))
+write_count=$((fill_size / BLOCK_SIZE))
 
 # Now fill up the filesystem (which doesn't have a reservation set
 # and thus will use up whatever free space is left in the pool).
@@ -92,10 +89,10 @@ if (($ret != $ENOSPC)); then
 	log_fail "Did not get ENOSPC as expected (got $ret)."
 fi
 
-log_must zfs destroy -f $TESTPOOL/$TESTFS1
+log_must zfs destroy -f $TESTPOOL/$TESTVOL
 
 log_must file_write -o create -f $TESTDIR/$TESTFILE2 -b pagesize \
     -c 1000 -d 0
 
-log_pass "Destroying top level filesystem with reservation allows more data " \
-    "to be written to another top level filesystem"
+log_pass "Destroying volume with reservation allows more data to be written " \
+    "to top level filesystem"
