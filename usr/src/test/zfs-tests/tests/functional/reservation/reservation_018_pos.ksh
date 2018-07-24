@@ -1,4 +1,4 @@
-#!/usr/bin/bash -p
+#!/bin/ksh -p
 #
 # CDDL HEADER START
 #
@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
+# Copyright 2009 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
@@ -35,41 +35,38 @@
 #
 # DESCRIPTION:
 #
-# ZFS has two mechanisms dealing with space for datasets, namely
-# reservations and quotas. Setting one should not affect the other,
-# provided the values are legal (i.e. enough space in pool etc).
+# Verify that reservation doesn't inherit its value from parent.
 #
 # STRATEGY:
-# 1) Create one filesystem
-# 2) Get the current quota setting
-# 3) Set a reservation
-# 4) Verify that the quota value remains unchanged
+# 1) Create a filesystem tree
+# 2) Set reservation for parents
+# 3) Verify that the 'reservation' for descendent doesnot inherit the value.
 #
 
 verify_runnable "both"
 
-log_assert "Verify reservation settings do not affect quota settings"
-
 function cleanup
 {
-	log_must zero_reservation $TESTPOOL/$TESTFS
+	datasetexists $fs_child && log_must zfs destroy $fs_child
+	log_must zfs set reservation=$reserv_val $fs
 }
 
 log_onexit cleanup
 
-space_avail=`get_prop available $TESTPOOL`
+log_assert "Verify that reservation doesnot inherit its value from parent."
 
-((resv_size_set = (space_avail - RESV_DELTA) / 2))
+fs=$TESTPOOL/$TESTFS
+fs_child=$TESTPOOL/$TESTFS/$TESTFS
 
-fs_quota=`zfs get quota $TESTPOOL/$TESTFS`
+space_avail=$(get_prop available $fs)
+reserv_val=$(get_prop reservation $fs)
+typeset -l reservsize=$space_avail
+((reservsize = reservsize / 2))
+log_must zfs set reservation=$reservsize $fs
 
-log_must zfs set reservation=$resv_size_set $TESTPOOL/$TESTFS
+log_must zfs create $fs_child
+rsv_space=$(get_prop reservation $fs_child)
+[[ $rsv_space == $reservsize ]] && \
+    log_fail "The reservation of child dataset inherits its value from parent."
 
-new_fs_quota=`zfs get quota $TESTPOOL/$TESTFS`
-
-if [[ $fs_quota != $new_fs_quota ]]; then
-	log_fail "Quota value on $TESTFS has changed " \
-	    "($fs_quota != $new_fs_quota)"
-fi
-
-log_pass "Quota settings unaffected by reservation settings"
+log_pass "reservation doesnot inherit its value from parent as expected."

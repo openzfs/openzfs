@@ -142,22 +142,22 @@ function floor_volsize #<largest_volsize> [volblksize]
 function volsize_to_reservation
 {
 	typeset vol=$1
-	typeset -i volsize=$2
+	typeset -li volsize=$2
 
-	typeset -i DN_MAX_INDBLKSHIFT=17
-	typeset -i SPA_BLKPTRSHIFT=7
-	typeset -i SPA_DVAS_PER_BP=3
+	typeset -li DN_MAX_INDBLKSHIFT=17
+	typeset -li SPA_BLKPTRSHIFT=7
+	typeset -li SPA_DVAS_PER_BP=3
 
-	typeset -i DNODES_PER_LEVEL_SHIFT=$((DN_MAX_INDBLKSHIFT - \
+	typeset -li DNODES_PER_LEVEL_SHIFT=$((DN_MAX_INDBLKSHIFT - \
 	    SPA_BLKPTRSHIFT))
-	typeset -i DNODES_PER_LEVEL=$((1 << $DNODES_PER_LEVEL_SHIFT))
+	typeset -li DNODES_PER_LEVEL=$((1 << $DNODES_PER_LEVEL_SHIFT))
 
 	if ds_is_volume $vol; then
-		typeset -i ncopies=$(get_prop copies $vol)
-		typeset -i volblocksize=$(get_prop volblocksize $vol)
+		typeset -li ncopies=$(get_prop copies $vol)
+		typeset -li volblocksize=$(get_prop volblocksize $vol)
 	else
-		typeset -i ncopies=1
-		typeset -i volblocksize=8192
+		typeset -li ncopies=1
+		typeset -li volblocksize=8192
 	fi
 	typeset -i nblocks=$((volsize / volblocksize))
 

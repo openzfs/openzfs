@@ -1,4 +1,4 @@
-#!/usr/bin/bash -p
+#!/bin/ksh -p
 #
 # CDDL HEADER START
 #
@@ -21,7 +21,7 @@
 #
 
 #
-# Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
+# Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
 
@@ -35,60 +35,66 @@
 #
 # DESCRIPTION:
 #
-# When a reservation property of a filesystem, regular volume
-# or sparse volume is set to 'none' the space previously consumed by the
-# reservation should be released back to the pool
+# When a dataset which has a reservation set on it is destroyed,
+# the space consumed or reserved by that dataset should be released
+# back into the pool.
 #
 # STRATEGY:
-# 1) Create a filesystem, regular volume and sparse volume
+# 1) Create a filesystem, regular and sparse volume
 # 2) Get the space used and available in the pool
 # 3) Set a reservation on the filesystem less than the space available.
 # 4) Verify that the 'reservation' property for the filesystem has
 # the correct value.
-# 5) Reset the reservation value back to zero (or 'none')
+# 5) Destroy the filesystem without resetting the reservation value.
 # 6) Verify that the space used and available totals for the pool have
 # changed by the expected amounts (within tolerances).
-# 7) Repeat steps 3-6 for a regular volume, sparse volume
+# 7) Repeat steps 3-6 for a regular volume and sparse volume
 #
 
 verify_runnable "both"
 
-log_assert "Verify space released when reservation on a dataset is set "\
-	"to 'none'"
+function cleanup {
 
-function cleanup
-{
 	for obj in $OBJ_LIST; do
 		datasetexists $obj && log_must zfs destroy -f $obj
 	done
 }
 
+log_assert "Verify space released when a dataset with reservation is destroyed"
+
 log_onexit cleanup
+
+log_must zfs create $TESTPOOL/$TESTFS2
 
 space_avail=`get_prop available $TESTPOOL`
 
 if ! is_global_zone ; then
-	OBJ_LIST=""
+	OBJ_LIST="$TESTPOOL/$TESTFS2"
 else
-	OBJ_LIST="$TESTPOOL/$TESTVOL $TESTPOOL/$TESTVOL2"
+	OBJ_LIST="$TESTPOOL/$TESTFS2 \
+		$TESTPOOL/$TESTVOL $TESTPOOL/$TESTVOL2"
+
 	((vol_set_size = space_avail / 4))
 	vol_set_size=$(floor_volsize $vol_set_size)
 	((sparse_vol_set_size = space_avail * 4))
 	sparse_vol_set_size=$(floor_volsize $sparse_vol_set_size)
 
-
 	log_must zfs create -V $vol_set_size $TESTPOOL/$TESTVOL
+	log_must zfs set refreservation=none $TESTPOOL/$TESTVOL
 	log_must zfs set reservation=none $TESTPOOL/$TESTVOL
 	log_must zfs create -s -V $sparse_vol_set_size $TESTPOOL/$TESTVOL2
 fi
 
+# re-calculate space available.
 space_avail=`get_prop available $TESTPOOL`
-space_used=`get_prop used $TESTPOOL`
 
 # Calculate a large but valid reservation value.
 resv_size_set=`expr $space_avail - $RESV_DELTA`
 
-for obj in $TESTPOOL/$TESTFS $OBJ_LIST ; do
+for obj in $OBJ_LIST ; do
+
+	space_avail=`get_prop available $TESTPOOL`
+	space_used=`get_prop used $TESTPOOL`
 
 	#
 	# For regular (non-sparse) volumes the upper limit is determined
@@ -102,11 +108,11 @@ for obj in $TESTPOOL/$TESTFS $OBJ_LIST ; do
 
 	resv_size_get=`get_prop reservation $obj`
 	if [[ $resv_size_set != $resv_size_get ]]; then
-		log_fail "Reservation not the expected value "\
-			"($resv_size_set != $resv_size_get)"
+		log_fail "Reservation not the expected value " \
+		"($resv_size_set != $resv_size_get)"
 	fi
 
-	log_must zfs set reservation=none $obj
+	log_must zfs destroy -f $obj
 
 	new_space_avail=`get_prop available $TESTPOOL`
 	new_space_used=`get_prop used $TESTPOOL`
@@ -115,4 +121,4 @@ for obj in $TESTPOOL/$TESTFS $OBJ_LIST ; do
 	log_must within_limits $space_avail $new_space_avail $RESV_TOLERANCE
 done
 
-log_pass "Space correctly released when dataset reservation set to 'none'"
+log_pass "Space correctly released when dataset is destroyed"
