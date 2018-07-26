@@ -2367,6 +2367,7 @@ file path=opt/zfs-tests/tests/functional/refreserv/setup mode=0555
 file path=opt/zfs-tests/tests/functional/removal/cleanup mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal.kshlib mode=0444
 file path=opt/zfs-tests/tests/functional/removal/removal_all_vdev mode=0555
+file path=opt/zfs-tests/tests/functional/removal/removal_cancel mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_check_space mode=0555
 file path=opt/zfs-tests/tests/functional/removal/removal_condense_export \
     mode=0555
