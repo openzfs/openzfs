@@ -4613,6 +4613,14 @@ parse_fs_perm(fs_perm_t *fsperm, nvlist_t *nvl)
 						(void) strlcpy(
 						    node->who_perm.who_ug_name,
 						    nice_name, 256);
+					else {
+						/* User or group unknown */
+						(void) snprintf(
+						    node->who_perm.who_ug_name,
+						    sizeof (
+						    node->who_perm.who_ug_name),
+						    "(unknown: %d)", rid);
+					}
 				}
 
 				uu_avl_insert(avl, node, idx);
@@ -5111,9 +5119,9 @@ construct_fsacl_list(boolean_t un, struct allow_opts *opts, nvlist_t **nvlp)
 
 				if (p != NULL)
 					rid = p->pw_uid;
-				else {
+				else if (*endch != '\0') {
 					(void) snprintf(errbuf, 256, gettext(
-					    "invalid user %s"), curr);
+					    "invalid user %s\n"), curr);
 					allow_usage(un, B_TRUE, errbuf);
 				}
 			} else if (opts->group) {
@@ -5125,9 +5133,9 @@ construct_fsacl_list(boolean_t un, struct allow_opts *opts, nvlist_t **nvlp)
 
 				if (g != NULL)
 					rid = g->gr_gid;
-				else {
+				else if (*endch != '\0') {
 					(void) snprintf(errbuf, 256, gettext(
-					    "invalid group %s"),  curr);
+					    "invalid group %s\n"),  curr);
 					allow_usage(un, B_TRUE, errbuf);
 				}
 			} else {
@@ -5153,7 +5161,7 @@ construct_fsacl_list(boolean_t un, struct allow_opts *opts, nvlist_t **nvlp)
 					rid = g->gr_gid;
 				} else {
 					(void) snprintf(errbuf, 256, gettext(
-					    "invalid user/group %s"), curr);
+					    "invalid user/group %s\n"), curr);
 					allow_usage(un, B_TRUE, errbuf);
 				}
 			}
