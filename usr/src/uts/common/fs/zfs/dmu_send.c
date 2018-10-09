@@ -2719,7 +2719,7 @@ receive_read_record(struct receive_arg *ra)
 	{
 		struct drr_write_byref *drrwb =
 		    &ra->rrd->header.drr_u.drr_write_byref;
-		if (drrwr->drr_checksumtype >= ZIO_CHECKSUM_FUNCTIONS)
+		if (drrwb->drr_checksumtype >= ZIO_CHECKSUM_FUNCTIONS)
 			return (SET_ERROR(ENOTSUP));
 		err = receive_read_payload_and_next_header(ra, 0, NULL);
 		receive_read_prefetch(ra, drrwb->drr_object, drrwb->drr_offset,
