@@ -1897,6 +1897,8 @@ metaslab_weight(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 		active = 'P';
 	else if (weight & METASLAB_WEIGHT_SECONDARY)
 		active = 'S';
+	else if (weight & METASLAB_WEIGHT_CLAIM)
+		active = 'C';
 	else
 		active = '-';
 	mdb_printf("%6c %8s ", active,
