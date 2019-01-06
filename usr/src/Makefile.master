@@ -28,6 +28,7 @@
 # Copyright 2015 Igor Kozhukhov <ikozhukhov@gmail.com>
 # Copyright 2016 Toomas Soome <tsoome@me.com>
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright (c) 2019, Joyent, Inc.
 #
 
 #
@@ -200,6 +201,7 @@ PYTHON3_PKGVERS=	-35
 PYTHON3_SUFFIX=		m
 PYTHON3=		/usr/bin/python$(PYTHON3_VERSION)
 SORT=		/usr/bin/sort
+TR=		/usr/bin/tr
 TOUCH=		/usr/bin/touch
 WC=		/usr/bin/wc
 XARGS=		/usr/bin/xargs
@@ -262,6 +264,11 @@ INSLINKTARGET=	$<
 INS.link=	$(RM) $@; $(LN) $(INSLINKTARGET) $@
 INS.symlink=	$(RM) $@; $(SYMLINK) $(INSLINKTARGET) $@
 
+# The path to python that will be used for the shebang line when installing
+# python scripts to the proto area. This is overridden by makefiles to
+# select to the correct version.
+PYSHEBANG=	$(PYTHON)
+
 #
 # Python bakes the mtime of the .py file into the compiled .pyc and
 # rebuilds if the baked-in mtime != the mtime of the source file
@@ -269,7 +276,7 @@ INS.symlink=	$(RM) $@; $(SYMLINK) $(INSLINKTARGET) $@
 # files we must make certain to not adjust the mtime of the source
 # (.py) file.
 #
-INS.pyfile=	$(RM) $@; $(SED) -e "1s:^\#!@PYTHON@:\#!$(PYTHON):" < $< > $@; $(CHMOD) $(FILEMODE) $@; $(TOUCH) -r $< $@
+INS.pyfile=	$(RM) $@; $(SED) -e "1s:^\#!@PYTHON@:\#!$(PYSHEBANG):" < $< > $@; $(CHMOD) $(FILEMODE) $@; $(TOUCH) -r $< $@
 
 # MACH must be set in the shell environment per uname -p on the build host
 # More specific architecture variables should be set in lower makefiles.
@@ -433,6 +440,9 @@ CERRWARN +=	-_gcc=-Wno-array-bounds
 # -nd builds
 $(RELEASE_BUILD)CERRWARN += -_gcc=-Wno-unused
 $(RELEASE_BUILD)CERRWARN += -_gcc=-Wno-empty-body
+
+CERRWARN += -_smatch=-p=illumos_user
+include $(SRC)/Makefile.smatch
 
 #
 # turn warnings into errors (C++)
@@ -1119,7 +1129,7 @@ PKGPUBLISHER_NONREDIST=	on-extra
 	$(CHMOD) +x $@
 
 .py:
-	$(RM) $@; $(SED) -e "1s:^\#!@PYTHON@:\#!$(PYTHON):" < $< > $@; $(CHMOD) +x $@
+	$(RM) $@; $(SED) -e "1s:^\#!@PYTHON@:\#!$(PYSHEBANG):" < $< > $@; $(CHMOD) +x $@
 
 .py.pyc:
 	$(RM) $@
