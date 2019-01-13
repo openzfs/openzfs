@@ -28,6 +28,7 @@
 #define	_BOOTSTRAP_H_
 
 #include <sys/types.h>
+#include <stdbool.h>
 #include <sys/queue.h>
 #include <sys/linker_set.h>
 
@@ -108,11 +109,13 @@ struct console
     void	(*c_out)(struct console *, int);	/* emit c */
     int		(*c_in)(struct console *);	/* wait for and return input */
     int		(*c_ready)(struct console *);	/* return nonzer if input waiting */
+    int		(*c_ioctl)(struct console *, int, void *);
     void	*c_private;		/* private data */
 };
 extern struct console	*consoles[];
 void		cons_probe(void);
 void		cons_mode(int);
+void		autoload_font(void);
 
 /*
  * Plug-and-play enumerator/configurator interface.
@@ -236,7 +239,9 @@ void file_addmetadata(struct preloaded_file *fp, int type, size_t size, void *p)
 int  file_addmodule(struct preloaded_file *fp, char *modname, int version,
 	struct kernel_module **newmp);
 void build_environment_module(void);
+void build_font_module(void);
 vm_offset_t bi_copyenv(vm_offset_t);
+bool sha1(void *, size_t, uint8_t *);
 
 /* MI module loaders */
 #ifdef __elfN

@@ -1,7 +1,34 @@
-The ACPI utilities are based on the Intel ACPI source code drops. No changes
-are made to Intel-provided source code. Most of the ACPI lives in the kernel
-under usr/src/uts/intel/io/acpica and usr/src/uts/intel/sys/acpi.
+This file and its contents are supplied under the terms of the
+Common Development and Distribution License ("CDDL"), version 1.0.
+You may only use this file in accordance with the terms of version
+1.0 of the CDDL.
 
-The assembler/disassembler (iasl) is currently not being built here, but it
-can be used on the dumped tables from within a non-native environment, such
-as within an lx-branded zone.
+A full copy of the text of the CDDL should have accompanied this
+source.  A copy of the CDDL is also available via the Internet at
+http://www.illumos.org/license/CDDL.
+
+Copyright (c) 2018, Joyent, Inc.
+
+---
+
+The ACPI code is currently based on 'joyent/20180629', which is based on
+the '20180629' release.
+
+The ACPI utilities are based on the Intel ACPI source code drops.  Most
+of the ACPI source code lives in the following directories:
+
+   usr/src/uts/common/acpica		Common to kernel and commands
+   usr/src/uts/intel/io/acpica		Kernel
+   usr/src/uts/intel/sys/acpi		Headers
+   usr/src/cmd/acpi			Commands
+
+We maintain an ACPI repository that has the tools to sync up the ACPI
+data in illumos. The repository README has more information on the
+repository. It has the following information:
+
+1. Branches with all of our modification on top of our data.
+
+2. Instructions and tools with all of our updates.
+
+3. The tool 'tools/acpica-update' in the repository can be used to
+update the ACPI source code in illumos.

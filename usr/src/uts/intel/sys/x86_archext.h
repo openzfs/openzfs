@@ -27,7 +27,7 @@
  * All rights reserved.
  */
 /*
- * Copyright 2018 Joyent, Inc.
+ * Copyright (c) 2019, Joyent, Inc.
  * Copyright 2012 Jens Elkner <jel+illumos@cs.uni-magdeburg.de>
  * Copyright 2012 Hans Rosenfeld <rosenfeld@grumpf.hope-2000.org>
  * Copyright 2014 Josef 'Jeff' Sipek <jeffpc@josefsipek.net>
@@ -248,12 +248,13 @@ extern "C" {
 #define	CPUID_INTC_ECX_7_0_AVX512VPOPCDQ 0x00004000	/* AVX512 VPOPCNTDQ */
 
 #define	CPUID_INTC_ECX_7_0_ALL_AVX512 \
-	(CPUID_INTC_ECX_7_0_AVX512VBMI | CPUID_INTC_ECX_7_0_AVX512VPOPCDQ)
+(CPUID_INTC_ECX_7_0_AVX512VBMI | CPUID_INTC_ECX_7_0_AVX512VPOPCDQ)
 
 #define	CPUID_INTC_EDX_7_0_AVX5124NNIW	0x00000004	/* AVX512 4NNIW */
 #define	CPUID_INTC_EDX_7_0_AVX5124FMAPS	0x00000008	/* AVX512 4FMAPS */
 #define	CPUID_INTC_EDX_7_0_SPEC_CTRL	0x04000000	/* Spec, IBPB, IBRS */
 #define	CPUID_INTC_EDX_7_0_STIBP	0x08000000	/* STIBP */
+#define	CPUID_INTC_EDX_7_0_FLUSH_CMD	0x10000000	/* IA32_FLUSH_CMD */
 #define	CPUID_INTC_EDX_7_0_ARCH_CAPS	0x20000000	/* IA32_ARCH_CAPS */
 #define	CPUID_INTC_EDX_7_0_SSBD		0x80000000	/* SSBD */
 
@@ -348,13 +349,26 @@ extern "C" {
 #define	MSR_PRP4_LBSTK_TO_15	0x6cf
 
 /*
+ * General Xeon based MSRs
+ */
+#define	MSR_PPIN_CTL		0x04e
+#define	MSR_PPIN		0x04f
+#define	MSR_PLATFORM_INFO	0x0ce
+
+#define	MSR_PLATFORM_INFO_PPIN	(1 << 23)
+#define	MSR_PPIN_CTL_MASK	0x03
+#define	MSR_PPIN_CTL_LOCKED	0x01
+#define	MSR_PPIN_CTL_ENABLED	0x02
+
+/*
  * Intel IA32_ARCH_CAPABILITIES MSR.
  */
-#define	MSR_IA32_ARCH_CAPABILITIES	0x10a
-#define	IA32_ARCH_CAP_RDCL_NO		0x0001
-#define	IA32_ARCH_CAP_IBRS_ALL		0x0002
-#define	IA32_ARCH_CAP_RSBA		0x0004
-#define	IA32_ARCH_CAP_SSB_NO		0x0010
+#define	MSR_IA32_ARCH_CAPABILITIES		0x10a
+#define	IA32_ARCH_CAP_RDCL_NO			0x0001
+#define	IA32_ARCH_CAP_IBRS_ALL			0x0002
+#define	IA32_ARCH_CAP_RSBA			0x0004
+#define	IA32_ARCH_CAP_SKIP_L1DFL_VMENTRY	0x0008
+#define	IA32_ARCH_CAP_SSB_NO			0x0010
 
 /*
  * Intel Speculation related MSRs
@@ -366,6 +380,9 @@ extern "C" {
 
 #define	MSR_IA32_PRED_CMD	0x49
 #define	IA32_PRED_CMD_IBPB	0x01
+
+#define	MSR_IA32_FLUSH_CMD	0x10b
+#define	IA32_FLUSH_CMD_L1D	0x01
 
 #define	MCI_CTL_VALUE		0xffffffff
 
@@ -479,6 +496,8 @@ extern "C" {
 #define	X86FSET_RSBA		78
 #define	X86FSET_SSB_NO		79
 #define	X86FSET_STIBP_ALL	80
+#define	X86FSET_FLUSH_CMD	81
+#define	X86FSET_L1D_VM_NO	82
 
 /*
  * Intel Deep C-State invariant TSC in leaf 0x80000007.
@@ -712,6 +731,19 @@ extern "C" {
 #define	X86_SOCKET_FS1R2	_X86_SOCKET_MKVAL(X86_VENDOR_AMD, 0x100000)
 #define	X86_SOCKET_FM2		_X86_SOCKET_MKVAL(X86_VENDOR_AMD, 0x200000)
 
+
+/*
+ * Definitions for Intel processor models. Note, these model values can overlap
+ * in a given family. Processor models are added here on an as needed basis. The
+ * Xeon extension here is to refer to what has been called the EP/EX lines or
+ * E5/E7, generally multi-socket capable processors.
+ */
+#define	INTC_MODEL_IVYBRIDGE_XEON	0x3E
+#define	INTC_MODEL_HASWELL_XEON		0x3F
+#define	INTC_MODEL_BROADWELL_XEON	0x4F
+#define	INTC_MODEL_BROADWELL_XEON_D	0x56
+#define	INTC_MODEL_SKYLAKE_XEON		0x55
+
 /*
  * xgetbv/xsetbv support
  * See section 13.3 in vol. 1 of the Intel devlopers manual.
@@ -748,7 +780,7 @@ extern "C" {
 
 #if defined(_KERNEL) || defined(_KMEMUSER)
 
-#define	NUM_X86_FEATURES	81
+#define	NUM_X86_FEATURES	83
 extern uchar_t x86_featureset[];
 
 extern void free_x86_featureset(void *featureset);
