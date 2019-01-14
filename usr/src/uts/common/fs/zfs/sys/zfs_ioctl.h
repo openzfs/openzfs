@@ -96,6 +96,7 @@ typedef enum drr_headertype {
 /* flag #23 is reserved for the large dnode feature */
 /* flag #24 is reserved for the raw send feature */
 /* flag #25 is reserved for the ZSTD compression feature */
+/* flag #26 is reserved for the send holds feature */
 
 /*
  * Mask of all supported backup features
