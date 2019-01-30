@@ -2164,7 +2164,7 @@ metaslab_passivate_allocator(metaslab_group_t *mg, metaslab_t *msp,
 	mutex_enter(&mg->mg_lock);
 	ASSERT3P(msp->ms_group, ==, mg);
 	ASSERT3S(0, <=, msp->ms_allocator);
-	ASSERT3U(msp->ms_allocator, <, mg->mg_allocators);
+	ASSERT3S(msp->ms_allocator, <, mg->mg_allocators);
 
 	if (msp->ms_primary) {
 		ASSERT3P(mg->mg_primaries[msp->ms_allocator], ==, msp);
@@ -3206,7 +3206,7 @@ metaslab_group_alloc_normal(metaslab_group_t *mg, zio_alloc_list_t *zal,
 			/*
 			 * Even though we don't hold the ms_lock for the
 			 * primary metaslab, those fields should not
-			 * change while we hold the mg_lock. Thus is is
+			 * change while we hold the mg_lock. Thus it is
 			 * safe to make assertions on them.
 			 */
 			ASSERT(msp->ms_primary);
