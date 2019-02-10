@@ -138,6 +138,7 @@ BOOT_DRIVER_OBJS =		\
 	boot_keyboard.o		\
 	boot_keyboard_table.o	\
 	boot_vga.o		\
+	boot_fb.o		\
 	boot_mmu.o		\
 	dboot_multiboot2.o	\
 	$(FONT_OBJS)
@@ -188,7 +189,8 @@ DBOOT_OBJS +=			\
 #			driver and misc modules
 #
 GFX_PRIVATE_OBJS	+= gfx_private.o gfxp_pci.o gfxp_segmap.o \
-			   gfxp_devmap.o gfxp_vgatext.o gfxp_vm.o vgasubr.o
+			   gfxp_devmap.o gfxp_vgatext.o gfxp_vm.o vgasubr.o \
+			   gfxp_fb.o gfxp_bitmap.o
 FIPE_OBJS += fipe_drv.o fipe_pm.o
 IOAT_OBJS += ioat.o ioat_rs.o ioat_ioctl.o ioat_chan.o
 ISANEXUS_OBJS += isa.o dma_engine.o i8237A.o
@@ -222,6 +224,7 @@ ACPIDEV_OBJS += acpidev_drv.o \
 	acpidev_memory.o \
 	acpidev_pci.o \
 	acpidev_resource.o \
+	acpidev_usbport.o \
 	acpidev_util.o
 
 DRMACH_ACPI_OBJS += drmach_acpi.o dr_util.o drmach_err.o
@@ -252,7 +255,7 @@ INC_PATH	+= -I$(UTSBASE)/i86xpv -I$(UTSBASE)/common/xen
 # since only C headers are included when #defined(__lint) is true.
 #
 
-ASSYM_DEPS      += 		\
+ASSYM_DEPS      +=		\
 	copy.o			\
 	desctbls_asm.o		\
 	ddi_i86_asm.o		\

@@ -26,7 +26,7 @@
  * Copyright (c) 2010, Intel Corporation.
  * All rights reserved.
  *
- * Copyright 2018 Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2019, Joyent, Inc.
  */
 
 /*
@@ -50,6 +50,7 @@
 #include <sys/machsystm.h>
 #include <sys/archsystm.h>
 #include <sys/boot_console.h>
+#include <sys/framebuffer.h>
 #include <sys/cmn_err.h>
 #include <sys/systm.h>
 #include <sys/promif.h>
@@ -91,6 +92,9 @@ static uint_t kbm_debug = 0;
 	for (cp = (s); *cp; ++cp)		\
 		bcons_putchar(*cp);		\
 	}
+
+/* callback to boot_fb to set shadow frame buffer */
+extern void boot_fb_shadow_init(bootops_t *);
 
 bootops_t bootop;	/* simple bootops we'll pass on to kernel */
 struct bsys_mem bm;
@@ -1284,6 +1288,10 @@ save_boot_info(struct xboot_info *xbi)
  * using a structured layout.
  *
  * We will not overwrite already set properties.
+ *
+ * Note that the menu items in particular can contain characters not
+ * well-handled as bootparams, such as spaces, brackets, and the like, so that's
+ * another reason.
  */
 static struct bop_blacklist {
 	const char *bl_name;
@@ -1291,7 +1299,6 @@ static struct bop_blacklist {
 } bop_prop_blacklist[] = {
 	{ "ISADIR", sizeof ("ISADIR") },
 	{ "acpi", sizeof ("acpi") },
-	{ "autoboot_delay", sizeof ("autoboot_delay") },
 	{ "autoboot_delay", sizeof ("autoboot_delay") },
 	{ "beansi_", sizeof ("beansi_") },
 	{ "beastie", sizeof ("beastie") },
@@ -1304,8 +1311,16 @@ static struct bop_blacklist {
 	{ "kernel", sizeof ("kernel") },
 	{ "loaddev", sizeof ("loaddev") },
 	{ "loader_", sizeof ("loader_") },
+	{ "mainansi_", sizeof ("mainansi_") },
+	{ "mainmenu_", sizeof ("mainmenu_") },
+	{ "maintoggled_", sizeof ("maintoggled_") },
+	{ "menu_timeout_command", sizeof ("menu_timeout_command") },
+	{ "menuset_", sizeof ("menuset_") },
 	{ "module_path", sizeof ("module_path") },
 	{ "nfs.", sizeof ("nfs.") },
+	{ "optionsansi_", sizeof ("optionsansi_") },
+	{ "optionsmenu_", sizeof ("optionsmenu_") },
+	{ "optionstoggled_", sizeof ("optionstoggled_") },
 	{ "pcibios", sizeof ("pcibios") },
 	{ "prompt", sizeof ("prompt") },
 	{ "smbios", sizeof ("smbios") },
@@ -2147,6 +2162,8 @@ _start(struct xboot_info *xbp)
 	 */
 	bop_idt_init();
 #endif
+	/* Set up the shadow fb for framebuffer console */
+	boot_fb_shadow_init(bops);
 
 	/*
 	 * Start building the boot properties from the command line

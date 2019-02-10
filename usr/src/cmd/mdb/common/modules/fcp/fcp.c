@@ -22,7 +22,7 @@
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
  *
- * FCP mdb module
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 
@@ -47,7 +47,7 @@ static uint32_t	tgt_hash_index;
 static int
 fcp_walk_i(mdb_walk_state_t *wsp)
 {
-	if (wsp->walk_addr == NULL &&
+	if (wsp->walk_addr == 0 &&
 	    mdb_readvar(&wsp->walk_addr, "fcp_port_head") == -1) {
 		mdb_warn("failed to read 'fcp_port_head'");
 		return (WALK_ERR);
@@ -62,7 +62,7 @@ fcp_walk_s(mdb_walk_state_t *wsp)
 {
 	int status;
 
-	if (wsp->walk_addr == NULL)
+	if (wsp->walk_addr == 0)
 		return (WALK_DONE);
 
 	if (mdb_vread(wsp->walk_data, sizeof (struct fcp_port),
@@ -186,7 +186,7 @@ fcp(uintptr_t addr, uint_t flags, int argc, const mdb_arg_t *argv)
 static int
 cmds_walk_i(mdb_walk_state_t *wsp)
 {
-	if (wsp->walk_addr == NULL) {
+	if (wsp->walk_addr == 0) {
 		mdb_warn("Can not perform global walk");
 		return (WALK_ERR);
 	}
@@ -213,7 +213,7 @@ cmds_walk_s(mdb_walk_state_t *wsp)
 {
 	int status;
 
-	if (wsp->walk_addr == NULL)
+	if (wsp->walk_addr == 0)
 		return (WALK_DONE);
 
 	if (mdb_vread(wsp->walk_data, sizeof (struct fcp_pkt),
@@ -248,7 +248,7 @@ cmds_walk_f(mdb_walk_state_t *wsp)
 static int
 luns_walk_i(mdb_walk_state_t *wsp)
 {
-	if (wsp->walk_addr == NULL) {
+	if (wsp->walk_addr == 0) {
 		mdb_warn("Can not perform global walk");
 		return (WALK_ERR);
 	}
@@ -275,7 +275,7 @@ luns_walk_s(mdb_walk_state_t *wsp)
 {
 	int status;
 
-	if (wsp->walk_addr == NULL)
+	if (wsp->walk_addr == 0)
 		return (WALK_DONE);
 
 	if (mdb_vread(wsp->walk_data, sizeof (struct fcp_lun),
@@ -310,7 +310,7 @@ luns_walk_f(mdb_walk_state_t *wsp)
 static int
 targets_walk_i(mdb_walk_state_t *wsp)
 {
-	if (wsp->walk_addr == NULL) {
+	if (wsp->walk_addr == 0) {
 		mdb_warn("Can not perform global walk\n");
 		return (WALK_ERR);
 	}
@@ -328,8 +328,8 @@ targets_walk_i(mdb_walk_state_t *wsp)
 
 	tgt_hash_index = 0;
 
-	while ((port.port_tgt_hash_table[tgt_hash_index] == NULL) &&
-	    (tgt_hash_index < FCP_NUM_HASH)) {
+	while (tgt_hash_index < FCP_NUM_HASH &&
+	    port.port_tgt_hash_table[tgt_hash_index] == NULL) {
 		tgt_hash_index++;
 	}
 
@@ -345,7 +345,7 @@ targets_walk_s(mdb_walk_state_t *wsp)
 {
 	int status;
 
-	if ((wsp->walk_addr == NULL) &&
+	if ((wsp->walk_addr == 0) &&
 	    (tgt_hash_index >= (FCP_NUM_HASH - 1))) {
 		return (WALK_DONE);
 	}
@@ -362,17 +362,16 @@ targets_walk_s(mdb_walk_state_t *wsp)
 	wsp->walk_addr =
 	    (uintptr_t)(((struct fcp_tgt *)wsp->walk_data)->tgt_next);
 
-	if (wsp->walk_addr == NULL) {
+	if (wsp->walk_addr == 0) {
 		/*
 		 * locate the next hash list
 		 */
 
 		tgt_hash_index++;
 
-		while ((port.port_tgt_hash_table[tgt_hash_index] == NULL) &&
-		    (tgt_hash_index < FCP_NUM_HASH)) {
+		while (tgt_hash_index < FCP_NUM_HASH &&
+		    port.port_tgt_hash_table[tgt_hash_index] == NULL)
 			tgt_hash_index++;
-		}
 
 		if (tgt_hash_index == FCP_NUM_HASH) {
 			/* You're done */
@@ -403,7 +402,7 @@ targets_walk_f(mdb_walk_state_t *wsp)
 static int
 ipkt_walk_i(mdb_walk_state_t *wsp)
 {
-	if (wsp->walk_addr == NULL) {
+	if (wsp->walk_addr == 0) {
 		mdb_warn("The address of a fcp_port"
 		    " structure must be given\n");
 		return (WALK_ERR);
@@ -432,7 +431,7 @@ ipkt_walk_s(mdb_walk_state_t *wsp)
 {
 	int status;
 
-	if (wsp->walk_addr == NULL)
+	if (wsp->walk_addr == 0)
 		return (WALK_DONE);
 
 	if (mdb_vread(wsp->walk_data, sizeof (struct fcp_ipkt),
@@ -467,7 +466,7 @@ ipkt_walk_f(mdb_walk_state_t *wsp)
 static int
 pkt_walk_i(mdb_walk_state_t *wsp)
 {
-	if (wsp->walk_addr == NULL) {
+	if (wsp->walk_addr == 0) {
 		mdb_warn("The address of a fcp_port"
 		    " structure must be given\n");
 		return (WALK_ERR);
@@ -496,7 +495,7 @@ pkt_walk_s(mdb_walk_state_t *wsp)
 {
 	int status;
 
-	if (wsp->walk_addr == NULL)
+	if (wsp->walk_addr == 0)
 		return (WALK_DONE);
 
 	if (mdb_vread(wsp->walk_data, sizeof (struct fcp_pkt),

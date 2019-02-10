@@ -21,16 +21,20 @@
 
 #
 # Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2017 Jason King
+# Copyright (c) 2018, Joyent, Inc.
 #
+# Copyright (c) 2018, Joyent, Inc.
 
 LIBRARY =	libsoftcrypto.a
 VERS =		.1
 
 include		../Makefile.com
 
-AES_PSM_OBJS = 	aes_amd64.o aes_intel.o aeskey.o
+AES_PSM_OBJS =	aes_amd64.o aes_intel.o aeskey.o
 ARCFOUR_PSM_OBJS = arcfour-x86_64.o
 BIGNUM_PSM_OBJS = bignum_amd64.o bignum_amd64_asm.o
+MODES_PSM_OBJS = gcm_intel.o
 
 include		$(SRC)/lib/Makefile.lib
 include		$(SRC)/lib/Makefile.lib.64
@@ -39,12 +43,17 @@ CERRWARN +=	-_gcc=-Wno-type-limits
 CERRWARN +=	-_gcc=-Wno-parentheses
 CERRWARN +=	-_gcc=-Wno-uninitialized
 
+# not linted
+SMATCH=off
+
 AES_PSM_SRC =	$(AES_DIR)/$(MACH64)/aes_amd64.s \
 		$(AES_DIR)/$(MACH64)/aes_intel.s \
 		$(AES_DIR)/$(MACH64)/aeskey.c
 ARCFOUR_PSM_SRC = arcfour-x86_64.s
 BIGNUM_PSM_SRC = $(BIGNUM_DIR)/$(MACH64)/bignum_amd64.c \
 		$(BIGNUM_DIR)/$(MACH64)/bignum_amd64_asm.s
+
+MODES_PSM_SRC = $(MODES_DIR)/$(MACH64)/gcm_intel.s
 
 # Sources need to be redefined after Makefile.lib inclusion.
 SRCS =		$(AES_SRC) $(ARCFOUR_SRC) $(BIGNUM_SRC) $(BLOWFISH_SRC) \
@@ -86,6 +95,10 @@ pics/%.o: $(BIGNUM_DIR)/$(MACH64)/%.c
 
 pics/%.o: $(BIGNUM_DIR)/$(MACH64)/%.s
 		$(COMPILE64.s) $(BIGNUM_FLAGS) -o $@ $<
+		$(POST_PROCESS_O)
+
+pics/%.o: $(MODES_DIR)/$(MACH64)/%.s
+		$(COMPILE64.s) $(MODES_FLAGS) -o $@ $<
 		$(POST_PROCESS_O)
 
 include		../Makefile.targ

@@ -36,21 +36,78 @@ ASFLAGS=-m32
 AS_CPPFLAGS=
 COMPILE.s  = $(AS) $(AS_FLAGS)
 
-SRCS=	biosacpi.c biosdisk.c biosmem.c biospnp.c \
-	biospci.c biossmap.c bootinfo.c bootinfo32.c bootinfo64.c \
-	comconsole.c cpuid.c devicename.c elf32_freebsd.c \
-	elf64_freebsd.c multiboot.c multiboot_tramp.S \
-	i386_copy.c i386_module.c nullconsole.c pxe.c pxetramp.s \
-	smbios.c time.c vidconsole.c amd64_tramp.S spinconsole.c linux.c \
-	relocater_tramp.S
-OBJS=	biosacpi.o biosdisk.o biosmem.o biospnp.o \
-	biospci.o biossmap.o bootinfo.o bootinfo32.o bootinfo64.o \
-	comconsole.o cpuid.o devicename.o elf32_freebsd.o \
-	elf64_freebsd.o multiboot.o multiboot_tramp.o \
-	i386_copy.o i386_module.o nullconsole.o pxe.o pxetramp.o \
-	smbios.o time.o vidconsole.o amd64_tramp.o spinconsole.o linux.o \
-	relocater_tramp.o
+SRCS=	\
+	amd64_tramp.S \
+	bio.c \
+	biosacpi.c \
+	biosdisk.c \
+	biosmem.c \
+	biospci.c \
+	biospnp.c \
+	biossmap.c \
+	bootinfo.c \
+	bootinfo32.c \
+	bootinfo64.c \
+	comconsole.c \
+	cpuid.c \
+	devicename.c \
+	elf32_freebsd.c \
+	elf64_freebsd.c \
+	i386_copy.c \
+	i386_module.c \
+	linux.c \
+	multiboot.c \
+	multiboot_tramp.S \
+	nullconsole.c \
+	pxe.c \
+	pxetramp.s \
+	relocater_tramp.S \
+	smbios.c \
+	spinconsole.c \
+	time.c \
+	vbe.c \
+	vgasubr.c \
+	vidconsole.c
 
+OBJS=	\
+	amd64_tramp.o \
+	bio.o \
+	biosacpi.o \
+	biosdisk.o \
+	biosmem.o \
+	biospci.o \
+	biospnp.o \
+	biossmap.o \
+	bootinfo.o \
+	bootinfo32.o \
+	bootinfo64.o \
+	comconsole.o \
+	cpuid.o \
+	devicename.o \
+	elf32_freebsd.o \
+	elf64_freebsd.o \
+	i386_copy.o \
+	i386_module.o \
+	linux.o \
+	multiboot.o \
+	multiboot_tramp.o \
+	nullconsole.o \
+	pxe.o \
+	pxetramp.o \
+	relocater_tramp.o \
+	smbios.o \
+	spinconsole.o \
+	time.o \
+	vbe.o \
+	vgasubr.o \
+	vidconsole.o
+
+COMMON=  ../../common
+PNGLITE=$(SRC)/common/pnglite
+VGASUBR=$(SRC)/common/vga
+CPPFLAGS += -I$(PNGLITE)
+SRCS +=	$(COMMON)/gfx_fb.c $(PNGLITE)/pnglite.c
+OBJS +=	gfx_fb.o pnglite.o
 LIBZFS=  ../../zfs
 SRCS +=	$(LIBZFS)/devicename_stubs.c
 OBJS +=	devicename_stubs.o
@@ -70,9 +127,6 @@ smbios.o := CFLAGS += -DSMBIOS_SERIAL_NUMBERS
 smbios.o := CFLAGS += -DSMBIOS_LITTLE_ENDIAN_UUID
 # Use network-endian UUID format for backward compatibility.
 #CFLAGS += -DSMBIOS_NETWORK_ENDIAN_UUID
-
-# Include simple terminal emulation (cons25-compatible)
-CFLAGS += -DTERM_EMU
 
 # XXX: make alloca() useable
 CFLAGS += -Dalloca=__builtin_alloca
@@ -115,4 +169,13 @@ libi386.a: $(OBJS)
 	$(AR) $(ARFLAGS) $@ $(OBJS)
 
 %.o:	$(LIBZFS)/%.c
+	$(COMPILE.c) -o $@ $<
+
+%.o:	$(COMMON)/%.c
+	$(COMPILE.c) -o $@ $<
+
+%.o:	$(PNGLITE)/%.c
+	$(COMPILE.c) -o $@ $<
+
+%.o:	$(VGASUBR)/%.c
 	$(COMPILE.c) -o $@ $<

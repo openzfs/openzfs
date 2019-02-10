@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright 2016 Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -24,4 +24,6 @@
 libdis_test:
 	monitor
 	mwait
+	mwaitx
+	monitorx
 .size libdis_test, [.-libdis_test]

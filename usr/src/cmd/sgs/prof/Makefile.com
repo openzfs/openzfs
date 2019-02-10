@@ -22,13 +22,14 @@
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# cmd/sgs/prof/Makefile.com
+# Copyright (c) 2018, Joyent, Inc.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 
 PROG=		prof
 
-include 	$(SRC)/cmd/Makefile.cmd
-include 	$(SRC)/cmd/sgs/Makefile.com
+include		$(SRC)/cmd/Makefile.cmd
+include		$(SRC)/cmd/sgs/Makefile.com
 
 COMOBJS=	prof.o profv.o lookup.o rdelf.o \
 		symintOpen.o symintClose.o symintUtil.o symintErr.o symintLoad.o
@@ -43,10 +44,11 @@ CPPFLAGS=	$(INCLIST) $(DEFLIST) $(CPPFLAGS.master) -I$(ELFCAP)
 CFLAGS +=	$(CCVERBOSE)
 CSTD=	$(CSTD_GNU99)
 CERRWARN +=	-_gcc=-Wno-uninitialized
+
+# not linted
+SMATCH=off
+
 LDLIBS +=	$(CONVLIBDIR) $(CONV_LIB) $(ELFLIBDIR) -lelf
-LINTSRCS =	$(SRCS)
-LINTFLAGS +=	-x
-CLEANFILES +=	$(LINTOUTS)
 
 %.o:		../common/%.c
 		$(COMPILE.c) $<

@@ -21,6 +21,7 @@
 
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2018, Joyent, Inc.
 #
 
 #
@@ -39,21 +40,16 @@ POFILE=	$(TYPEPROG).po
 CFLAGS += $(CCVERBOSE)
 CSTD= $(CSTD_GNU99)
 
-# This is a multi-thread program but Nevada
-# no longer needs -lthread
 LDLIBS += -lsmbfs -lumem
 
 CPPFLAGS += -I$(SRC)/lib/libsmbfs \
 	-I$(SRC)/uts/common/smbclnt -I$(SRC)/uts/common
 
+# not linted
+SMATCH=off
+
 # Debugging
 ${NOT_RELEASE_BUILD} CPPFLAGS += -DDEBUG
-
-# uncomment these for dbx debugging
-#COPTFLAG = -g
-#CTF_FLAGS =
-#CTFCONVERT_O=
-#CTFMERGE_LIB=
 
 all:	$(TYPEPROG)
 

@@ -224,15 +224,15 @@ tem_internal_init(struct tem_vt_state *ptem, cred_t *credp,
 		    kmem_alloc(ptem->tvs_pix_data_size, KM_SLEEP);
 	}
 
-	ptem->tvs_outbuf_size = tems.ts_c_dimension.width;
-	ptem->tvs_outbuf =
-	    (unsigned char *)kmem_alloc(ptem->tvs_outbuf_size, KM_SLEEP);
+	ptem->tvs_outbuf_size = tems.ts_c_dimension.width *
+	    sizeof (*ptem->tvs_outbuf);
+	ptem->tvs_outbuf = kmem_alloc(ptem->tvs_outbuf_size, KM_SLEEP);
 
 	width = tems.ts_c_dimension.width;
 	height = tems.ts_c_dimension.height;
-	ptem->tvs_screen_buf_size = width * height;
-	ptem->tvs_screen_buf =
-	    (unsigned char *)kmem_alloc(width * height, KM_SLEEP);
+	ptem->tvs_screen_buf_size = width * height *
+	    sizeof (*ptem->tvs_screen_buf);
+	ptem->tvs_screen_buf = kmem_alloc(ptem->tvs_screen_buf_size, KM_SLEEP);
 
 	total = width * height * tc_size;
 	ptem->tvs_fg_buf = (text_color_t *)kmem_alloc(total, KM_SLEEP);
@@ -254,7 +254,7 @@ tem_internal_init(struct tem_vt_state *ptem, cred_t *credp,
 
 		}
 
-	ptem->tvs_initialized  = 1;
+	ptem->tvs_initialized = 1;
 }
 
 int
@@ -458,6 +458,7 @@ tem_info_init(char *pathname, cred_t *credp)
 
 	/* other sanity checks */
 	if (!((temargs.depth == 4) || (temargs.depth == 8) ||
+	    (temargs.depth == 15) || (temargs.depth == 16) ||
 	    (temargs.depth == 24) || (temargs.depth == 32))) {
 		cmn_err(CE_WARN, "terminal emulator: unsupported depth");
 		ret = tems_failed(credp, B_TRUE);
@@ -526,13 +527,15 @@ static void
 tems_setup_terminal(struct vis_devinit *tp, size_t height, size_t width)
 {
 	int i;
-	int old_blank_buf_size = tems.ts_c_dimension.width;
+	int old_blank_buf_size = tems.ts_c_dimension.width *
+	    sizeof (*tems.ts_blank_line);
 
 	ASSERT(MUTEX_HELD(&tems.ts_lock));
 
 	tems.ts_pdepth = tp->depth;
 	tems.ts_linebytes = tp->linebytes;
 	tems.ts_display_mode = tp->mode;
+	tems.ts_color_map = tp->color_map;
 
 	switch (tp->mode) {
 	case VIS_TEXT:
@@ -593,8 +596,9 @@ tems_setup_terminal(struct vis_devinit *tp, size_t height, size_t width)
 	if (tems.ts_blank_line)
 		kmem_free(tems.ts_blank_line, old_blank_buf_size);
 
-	tems.ts_blank_line = (unsigned char *)
-	    kmem_alloc(tems.ts_c_dimension.width, KM_SLEEP);
+	tems.ts_blank_line =
+	    kmem_alloc(tems.ts_c_dimension.width * sizeof (*tems.ts_blank_line),
+	    KM_SLEEP);
 	for (i = 0; i < tems.ts_c_dimension.width; i++)
 		tems.ts_blank_line[i] = ' ';
 }
@@ -679,14 +683,28 @@ tems_modechange_callback(struct vis_modechg_arg *arg,
 }
 
 /*
+ * This function is used to clear entire screen via the underlying framebuffer
+ * driver.
+ */
+int
+tems_cls_layered(struct vis_consclear *pda,
+    cred_t *credp)
+{
+	int rval;
+
+	(void) ldi_ioctl(tems.ts_hdl, VIS_CONSCLEAR,
+	    (intptr_t)pda, FKIOCTL, credp, &rval);
+	return (rval);
+}
+
+/*
  * This function is used to display a rectangular blit of data
  * of a given size and location via the underlying framebuffer driver.
  * The blit can be as small as a pixel or as large as the screen.
  */
 void
-tems_display_layered(
-	struct vis_consdisplay *pda,
-	cred_t *credp)
+tems_display_layered(struct vis_consdisplay *pda,
+    cred_t *credp)
 {
 	int rval;
 
@@ -701,9 +719,8 @@ tems_display_layered(
  * such as from vi when deleting characters and words.
  */
 void
-tems_copy_layered(
-	struct vis_conscopy *pma,
-	cred_t *credp)
+tems_copy_layered(struct vis_conscopy *pma,
+    cred_t *credp)
 {
 	int rval;
 
@@ -716,9 +733,8 @@ tems_copy_layered(
  * pixel inverting, text block cursor via the underlying framebuffer.
  */
 void
-tems_cursor_layered(
-	struct vis_conscursor *pca,
-	cred_t *credp)
+tems_cursor_layered(struct vis_conscursor *pca,
+    cred_t *credp)
 {
 	int rval;
 
@@ -914,31 +930,36 @@ tems_get_initial_color(tem_color_t *pcolor)
 
 	pcolor->fg_color = DEFAULT_ANSI_FOREGROUND;
 	pcolor->bg_color = DEFAULT_ANSI_BACKGROUND;
+#ifndef _HAVE_TEM_FIRMWARE
+	/*
+	 * _HAVE_TEM_FIRMWARE is defined on SPARC, at this time, the
+	 * plat_tem_get_colors() is implemented only on x86.
+	 */
+	plat_tem_get_colors(&pcolor->fg_color, &pcolor->bg_color);
+#endif
 
-	if (plat_stdout_is_framebuffer()) {
-		tems_get_inverses(&inverse, &inverse_screen);
-		if (inverse)
-			flags |= TEM_ATTR_REVERSE;
-		if (inverse_screen)
-			flags |= TEM_ATTR_SCREEN_REVERSE;
+	tems_get_inverses(&inverse, &inverse_screen);
+	if (inverse)
+		flags |= TEM_ATTR_REVERSE;
+	if (inverse_screen)
+		flags |= TEM_ATTR_SCREEN_REVERSE;
 
-		if (flags != 0) {
-			/*
-			 * If either reverse flag is set, the screen is in
-			 * white-on-black mode.  We set the bold flag to
-			 * improve readability.
-			 */
-			flags |= TEM_ATTR_BOLD;
-		} else {
-			/*
-			 * Otherwise, the screen is in black-on-white mode.
-			 * The SPARC PROM console, which starts in this mode,
-			 * uses the bright white background colour so we
-			 * match it here.
-			 */
-			if (pcolor->bg_color == ANSI_COLOR_WHITE)
-				flags |= TEM_ATTR_BRIGHT_BG;
-		}
+	if (flags != 0) {
+		/*
+		 * If either reverse flag is set, the screen is in
+		 * white-on-black mode.  We set the bold flag to
+		 * improve readability.
+		 */
+		flags |= TEM_ATTR_BOLD;
+	} else {
+		/*
+		 * Otherwise, the screen is in black-on-white mode.
+		 * The SPARC PROM console, which starts in this mode,
+		 * uses the bright white background colour so we
+		 * match it here.
+		 */
+		if (pcolor->bg_color == ANSI_COLOR_WHITE)
+			flags |= TEM_ATTR_BRIGHT_BG;
 	}
 
 	pcolor->a_flags = flags;

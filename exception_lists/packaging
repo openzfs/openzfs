@@ -27,8 +27,9 @@
 # Copyright 2018 Nexenta Systems, Inc.
 # Copyright 2017 Toomas Soome <tsoome@me.com>
 # Copyright 2017 RackTop Systems.
-# Copyright 2018, Joyent, Inc.
+# Copyright 2019, Joyent, Inc.
 # Copyright 2018 Jason King
+# Copyright 2019 Peter Tribble
 #
 
 #
@@ -403,7 +404,6 @@ etc/svc/profile/platform_SUNW,Sun-Fire-15000.xml		i386
 etc/svc/profile/platform_SUNW,Sun-Fire-880.xml			i386
 etc/svc/profile/platform_SUNW,Sun-Fire-V890.xml			i386
 etc/svc/profile/platform_SUNW,Sun-Fire.xml			i386
-etc/svc/profile/platform_SUNW,Ultra-Enterprise-10000.xml	i386
 etc/svc/profile/platform_SUNW,UltraSPARC-IIe-NetraCT-40.xml	i386
 etc/svc/profile/platform_SUNW,UltraSPARC-IIe-NetraCT-60.xml	i386
 etc/svc/profile/platform_SUNW,UltraSPARC-IIi-Netract.xml	i386
@@ -1012,3 +1012,10 @@ lib/sparcv9/llib-lcustr.ln	sparc
 lib/libcustr.so
 lib/llib-lcustr
 lib/llib-lcustr.ln
+
+#
+# smatch is delivered and used only with the source tree
+#
+opt/onbld/bin/i386/smatch	i386
+opt/onbld/bin/sparc/smatch	sparc
+opt/onbld/share/smatch

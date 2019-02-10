@@ -21,7 +21,7 @@
 
 #
 # Copyright (c) 2004, 2010, Oracle and/or its affiliates. All rights reserved.
-# Copyright 2017 Joyent, Inc.
+# Copyright (c) 2018, Joyent, Inc.
 #
 
 MYPROG =	svccfg
@@ -47,7 +47,7 @@ MYOBJS =	$(SRCS:%.c=%.o) \
 		notify_params.o
 OBJS =		$(MYOBJS)
 
-POFILES = 	$(SRCS:%.c=%.po) \
+POFILES =	$(SRCS:%.c=%.po) \
 		svccfg_grammar.po \
 		svccfg_lex.po \
 		../common/manifest_find.po \
@@ -81,6 +81,9 @@ CERRWARN +=	-_gcc=-Wno-uninitialized
 CERRWARN +=	-_gcc=-Wno-unused-variable
 CERRWARN +=	-_gcc=-Wno-parentheses
 
+# not linted
+SMATCH=off
+
 LFLAGS = -t
 YFLAGS = -d
 
@@ -93,8 +96,6 @@ $(NOT_NATIVE)SVCCFG_EXTRA_LIBS += -ltecla
 LIBSCF		= $(SRC)/lib/libscf
 LIBTECLA	= $(SRC)/lib/libtecla		# just for the header
 LIBUUTIL	= $(SRC)/lib/libuutil
-
-debug := COPTFLAG = -g
 
 lint := LINTFLAGS = -mux
 lint := SVCCFG_EXTRA_LIBS = -lscf -ll -luutil -lumem -lmd5 -lnvpair

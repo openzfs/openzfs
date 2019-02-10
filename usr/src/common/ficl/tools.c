@@ -54,6 +54,7 @@
  * Specify breakpoint default action
  */
 
+#include <stdbool.h>
 #include "ficl.h"
 
 extern void exit(int);
@@ -103,7 +104,7 @@ ficlVmSetBreak(ficlVm *vm, ficlBreakpoint *pBP)
  * d e b u g P r o m p t
  */
 static void
-ficlDebugPrompt(ficlVm *vm, int debug)
+ficlDebugPrompt(bool debug)
 {
 	if (debug)
 		setenv("prompt", "dbg> ", 1);
@@ -385,7 +386,7 @@ ficlPrimitiveStepBreak(ficlVm *vm)
 	ficlString command;
 	ficlWord *word;
 	ficlWord *pOnStep;
-	int debug = 1;
+	bool debug = true;
 
 	if (!vm->restart) {
 		FICL_VM_ASSERT(vm, vm->callback.system->breakpoint.address);
@@ -419,11 +420,11 @@ ficlPrimitiveStepBreak(ficlVm *vm)
 		else {
 			sprintf(vm->pad, "next: %s\n", word->name);
 			if (strcmp(word->name, "interpret") == 0)
-				debug = 0;
+				debug = false;
 		}
 
 		ficlVmTextOut(vm, vm->pad);
-		ficlDebugPrompt(vm, debug);
+		ficlDebugPrompt(debug);
 	} else {
 		vm->restart = 0;
 	}
@@ -457,7 +458,7 @@ ficlPrimitiveStepBreak(ficlVm *vm)
 		}
 
 		case 'q':
-			ficlDebugPrompt(vm, 0);
+			ficlDebugPrompt(false);
 			ficlVmThrow(vm, FICL_VM_STATUS_ABORT);
 			break;
 		case 'x': {
@@ -482,7 +483,7 @@ ficlPrimitiveStepBreak(ficlVm *vm)
 				ficlVmTextOut(vm, "\n");
 			}
 			if (returnValue == FICL_VM_STATUS_ERROR_EXIT)
-				ficlDebugPrompt(vm, 0);
+				ficlDebugPrompt(false);
 
 			ficlVmThrow(vm, returnValue);
 			break;
@@ -497,12 +498,12 @@ ficlPrimitiveStepBreak(ficlVm *vm)
 			    "q -- Quit (stop debugging and abort)\n"
 			    "x -- eXecute the rest of the line "
 			    "as Ficl words\n");
-			ficlDebugPrompt(vm, 1);
+			ficlDebugPrompt(true);
 			ficlVmThrow(vm, FICL_VM_STATUS_RESTART);
 		break;
 	}
 
-	ficlDebugPrompt(vm, 0);
+	ficlDebugPrompt(false);
 }
 
 /*
@@ -711,20 +712,19 @@ ficlPrimitiveForget(ficlVm *vm)
 #define	nCOLWIDTH	8
 
 static void
-ficlPrimitiveWords(ficlVm *vm)
+ficlPrimitiveWordsBackend(ficlVm *vm, ficlDictionary *dictionary,
+    ficlHash *hash, char *ss)
 {
-	ficlDictionary *dictionary = ficlVmGetDictionary(vm);
-	ficlHash *hash = dictionary->wordlists[dictionary->wordlistCount - 1];
 	ficlWord *wp;
 	int nChars = 0;
 	int len;
 	unsigned i;
-	int nWords = 0;
+	int nWords = 0, dWords = 0;
 	char *cp;
 	char *pPad;
 	int columns;
 
-	cp = getenv("COLUMNS");
+	cp = getenv("screen-#cols");
 	/*
 	 * using strtol for now. TODO: refactor number conversion from
 	 * ficlPrimitiveToNumber() and use it instead.
@@ -747,6 +747,15 @@ ficlPrimitiveWords(ficlVm *vm)
 		for (wp = hash->table[i]; wp != NULL; wp = wp->link, nWords++) {
 			if (wp->length == 0) /* ignore :noname defs */
 				continue;
+
+			if (ss != NULL && strstr(wp->name, ss) == NULL)
+				continue;
+			if (ss != NULL && dWords == 0) {
+				sprintf(pPad, "        In vocabulary %s\n",
+				    hash->name ? hash->name : "<unknown>");
+				pager_output(pPad);
+			}
+			dWords++;
 
 			/* prevent line wrap due to long words */
 			if (nChars + wp->length >= columns) {
@@ -789,14 +798,35 @@ ficlPrimitiveWords(ficlVm *vm)
 		ficlVmTextOut(vm, pPad);
 	}
 
-	sprintf(pPad, "Dictionary: %d words, %ld cells used of %u total\n",
-	    nWords, (long)(dictionary->here - dictionary->base),
-	    dictionary->size);
-	pager_output(pPad);
+	if (ss == NULL) {
+		sprintf(pPad,
+		    "Dictionary: %d words, %ld cells used of %u total\n",
+		    nWords, (long)(dictionary->here - dictionary->base),
+		    dictionary->size);
+		pager_output(pPad);
+	}
 
 pager_done:
 	free(pPad);
 	pager_close();
+}
+
+static void
+ficlPrimitiveWords(ficlVm *vm)
+{
+	ficlDictionary *dictionary = ficlVmGetDictionary(vm);
+	ficlHash *hash = dictionary->wordlists[dictionary->wordlistCount - 1];
+	ficlPrimitiveWordsBackend(vm, dictionary, hash, NULL);
+}
+
+void
+ficlPrimitiveSiftingImpl(ficlVm *vm, char *ss)
+{
+	ficlDictionary *dict = ficlVmGetDictionary(vm);
+	int i;
+
+	for (i = 0; i < dict->wordlistCount; i++)
+		ficlPrimitiveWordsBackend(vm, dict, dict->wordlists[i], ss);
 }
 
 /*

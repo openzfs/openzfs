@@ -22,6 +22,7 @@
 /*
  * Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -68,13 +69,6 @@ int cmi_force_generic = 0;
  * cause data corruption if actual hardware errors are detected by the system.
  */
 int cmi_panic_on_uncorrectable_error = 1;
-
-#ifndef __xpv
-/*
- * Set to indicate whether we are able to enable cmci interrupt.
- */
-int cmi_enable_cmci = 0;
-#endif
 
 /*
  * Subdirectory (relative to the module search path) in which we will
@@ -966,4 +960,16 @@ cmi_panic_callback(void)
 		CMI_OPS(cmi)->cmi_panic_callback();
 
 	cmi_hdl_rele(hdl);
+}
+
+
+const char *
+cmi_hdl_chipident(cmi_hdl_t hdl)
+{
+	cmi_t *cmi = cmi_hdl_getcmi(hdl);
+
+	if (!CMI_OP_PRESENT(cmi, cmi_ident))
+		return (NULL);
+
+	return (CMI_OPS(cmi)->cmi_ident(hdl));
 }

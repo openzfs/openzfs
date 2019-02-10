@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 #ifndef _GCPU_H
@@ -181,6 +182,8 @@ typedef struct gcpu_mce_status {
  * Flags for gcpu_mca_flags
  */
 #define	GCPU_MCA_F_UNFAULTING		0x1	/* CPU exiting faulted state */
+#define	GCPU_MCA_F_CMCI_CAPABLE		0x2	/* CPU supports CMCI */
+#define	GCPU_MCA_F_CMCI_ENABLE		0x4	/* CPU CMCI enabled */
 
 /*
  * State shared by all cpus on a chip
@@ -190,6 +193,7 @@ struct gcpu_chipshared {
 	kmutex_t gcpus_poll_lock;	/* serialize pollers on the same chip */
 	uint32_t gcpus_actv_banks;	/* MCA bank numbers active on chip */
 	volatile uint32_t gcpus_actv_cnt; /* active cpu count in this chip */
+	char *gcpus_ident;		/* ident string, if available */
 };
 
 struct gcpu_data {
@@ -212,7 +216,8 @@ extern void gcpu_post_mpstartup(cmi_hdl_t);
 extern void gcpu_faulted_enter(cmi_hdl_t);
 extern void gcpu_faulted_exit(cmi_hdl_t);
 extern void gcpu_mca_init(cmi_hdl_t);
-extern void gcpu_mca_fini(cmi_hdl_t hdl);
+extern void gcpu_mca_fini(cmi_hdl_t);
+extern void gcpu_mca_cmci_enable(cmi_hdl_t);
 extern cmi_errno_t gcpu_msrinject(cmi_hdl_t, cmi_mca_regs_t *, uint_t, int);
 #ifndef __xpv
 extern uint64_t gcpu_mca_trap(cmi_hdl_t, struct regs *);
@@ -221,11 +226,6 @@ extern void gcpu_hdl_poke(cmi_hdl_t);
 #else
 extern void gcpu_xpv_panic_callback(void);
 #endif
-
-/*
- * CMI global variable
- */
-extern int cmi_enable_cmci;
 
 /*
  * Local functions

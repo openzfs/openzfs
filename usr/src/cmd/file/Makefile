@@ -22,6 +22,7 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2018, Joyent, Inc.
 
 PROG= file
 XPG4PROG= file
@@ -43,11 +44,14 @@ C99LMODE= -Xc99=%all
 CERRWARN += -_gcc=-Wno-uninitialized
 CERRWARN += -_gcc=-Wno-type-limits
 
+# not linted
+SMATCH=off
+
 POFILE= file_all.po
 POFILES= $(SRCS:%.c=%.po)
 
-# The debug binary can be built using the flag
-# -D COPTFLAG=-g CGLOBALSTATIC=
+# The debug binary can be built using the flags
+# SOURCEDEBUG=yes CGLOBALSTATIC=
 # This will avoid the multiple symbols definition error
 # for static global variables in elf_read32.o and elf_read64.o
 

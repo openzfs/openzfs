@@ -21,7 +21,7 @@
 /*
  * Copyright 2008 Sun Microsystems, Inc.  All rights reserved.
  * Use is subject to license terms.
- * Copyright (c) 2014, Joyent, Inc.  All rights reserved.
+ * Copyright (c) 2018, Joyent, Inc.
  * Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
  */
 
@@ -728,11 +728,25 @@ ldtermopen(queue_t *q, dev_t *devp, int oflag, int sflag, cred_t *crp)
 	tp->eucwioc.scrw[0] = 1;
 	tp->t_maxeuc = 1;	/* the max len in bytes of an EUC char */
 	tp->t_eucp = NULL;
-	tp->t_eucp_mp = NULL;
-	tp->t_eucwarn = 0;	/* no bad chars seen yet */
-
-	tp->t_csdata = default_cs_data;
 	tp->t_csmethods = cs_methods[LDTERM_CS_TYPE_EUC];
+	tp->t_csdata = default_cs_data;
+
+	/*
+	 * Try to switch to UTF-8 mode by allocating buffer for multibyte
+	 * chars, keep EUC if allocation fails.
+	 */
+	if ((tp->t_eucp_mp = allocb(_TTY_BUFSIZ, BPRI_HI)) != NULL) {
+		tp->t_eucp = tp->t_eucp_mp->b_rptr;
+		tp->t_state = TS_MEUC;	/* Multibyte mode. */
+		tp->t_maxeuc = 4; /* the max len in bytes of an UTF-8 char */
+		tp->t_csdata.codeset_type = LDTERM_CS_TYPE_UTF8;
+		tp->t_csdata.csinfo_num = 4;
+		/* locale_name needs string length with terminating NUL */
+		tp->t_csdata.locale_name = (char *)kmem_alloc(6, KM_SLEEP);
+		(void) strcpy(tp->t_csdata.locale_name, "UTF-8");
+		tp->t_csmethods = cs_methods[LDTERM_CS_TYPE_UTF8];
+	}
+	tp->t_eucwarn = 0;	/* no bad chars seen yet */
 
 	qprocson(q);
 
@@ -4585,21 +4599,20 @@ ldterm_do_ioctl(queue_t *q, mblk_t *mp)
 		}
 
 		locale_name_sz = 0;
-		if (csdp->locale_name) {
-			for (i = 0; i < MAXNAMELEN; i++)
-				if (csdp->locale_name[i] == '\0')
-					break;
-			/*
-			 * We cannot have any string that is not NULL byte
-			 * terminated.
-			 */
-			if (i >= MAXNAMELEN) {
-				miocnak(q, mp, 0, ERANGE);
-				return;
-			}
 
-			locale_name_sz = i + 1;
+		for (i = 0; i < MAXNAMELEN; i++)
+			if (csdp->locale_name[i] == '\0')
+				break;
+		/*
+		 * We cannot have any string that is not NULL byte
+		 * terminated.
+		 */
+		if (i >= MAXNAMELEN) {
+			miocnak(q, mp, 0, ERANGE);
+			return;
 		}
+
+		locale_name_sz = i + 1;
 
 		/*
 		 * As the final check, if there was invalid codeset_type

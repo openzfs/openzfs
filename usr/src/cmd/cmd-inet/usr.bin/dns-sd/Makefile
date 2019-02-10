@@ -10,10 +10,9 @@
 #
 
 #
-# Copyright 2016 Toomas Soome <tsoome@me.com>
+# Copyright 2017 Toomas Soome <tsoome@me.com>
+# Copyright (c) 2018, Joyent, Inc.
 #
-
-# cmd/cmd-inet/usr.bin/dns-sd/Makefile
 
 PROG=		dns-sd
 
@@ -23,9 +22,14 @@ include ../../Makefile.cmd-inet
 OBJS=		ClientCommon.o dns-sd.o
 SRCS=		ClientCommon.c dns-sd.c
 
+SRCDIR=		$(SRC)/contrib/mDNSResponder
 CFLAGS += $(CSTD_GNU99)
+CPPFLAGS += -I$(SRCDIR)/mDNSShared
 CPPFLAGS += -DMDNS_VERSIONSTR_NODTS
 LDLIBS += -lsocket -ldns_sd
+
+# not linted
+SMATCH=off
 
 .KEEP_STATE:
 
@@ -42,6 +46,8 @@ install: all $(ROOTPROG)
 clean:
 	$(RM) $(OBJS)
 
-lint:  lint_SRCS
+%.o:	$(SRCDIR)/Clients/%.c
+	$(COMPILE.c) -o $@ $<
+	$(POST_PROCESS_O)
 
 include ../../../Makefile.targ

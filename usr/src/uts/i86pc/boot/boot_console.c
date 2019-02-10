@@ -28,15 +28,18 @@
 #include <sys/types.h>
 #include <sys/systm.h>
 #include <sys/archsystm.h>
+#include <sys/framebuffer.h>
 #include <sys/boot_console.h>
 #include <sys/panic.h>
 #include <sys/ctype.h>
+#include <sys/ascii.h>
+#include <sys/vgareg.h>
 #if defined(__xpv)
 #include <sys/hypervisor.h>
 #endif /* __xpv */
 
+#include "boot_console_impl.h"
 #include "boot_serial.h"
-#include "boot_vga.h"
 
 #if defined(_BOOT)
 #include <dboot/dboot_asm.h>
@@ -57,7 +60,8 @@ extern int bcons_getchar_xen(void);
 extern int bcons_ischar_xen(void);
 #endif /* __xpv */
 
-static int cons_color = CONS_COLOR;
+fb_info_t fb_info;
+static bcons_dev_t bcons_dev;				/* Device callbacks */
 static int console = CONS_SCREEN_TEXT;
 static int diag = CONS_INVALID;
 static int tty_num = 0;
@@ -67,6 +71,30 @@ static struct boot_env {
 	char	*be_env;	/* ends with double ascii nul */
 	size_t	be_size;	/* size of the environment, including nul */
 } boot_env;
+
+/*
+ * Simple console terminal emulator for early boot.
+ * We need this to support kmdb, all other console output is supposed
+ * to be simple text output.
+ */
+typedef enum btem_state_type {
+	A_STATE_START,
+	A_STATE_ESC,
+	A_STATE_CSI,
+	A_STATE_CSI_QMARK,
+	A_STATE_CSI_EQUAL
+} btem_state_type_t;
+
+#define	BTEM_MAXPARAMS	5
+typedef struct btem_state {
+	btem_state_type_t btem_state;
+	boolean_t btem_gotparam;
+	int btem_curparam;
+	int btem_paramval;
+	int btem_params[BTEM_MAXPARAMS];
+} btem_state_t;
+
+static btem_state_t boot_tem;
 
 static int serial_ischar(void);
 static int serial_getchar(void);
@@ -92,67 +120,6 @@ console_hypervisor_dev_type(int *tnum)
 	return (console_hypervisor_device);
 }
 #endif /* __xpv */
-
-/* Clear the screen and initialize VIDEO, XPOS and YPOS. */
-void
-clear_screen(void)
-{
-	/*
-	 * XXX should set vga mode so we don't depend on the
-	 * state left by the boot loader.  Note that we have to
-	 * enable the cursor before clearing the screen since
-	 * the cursor position is dependant upon the cursor
-	 * skew, which is initialized by vga_cursor_display()
-	 */
-	vga_cursor_display();
-	vga_clear(cons_color);
-	vga_setpos(0, 0);
-}
-
-/* Put the character C on the screen. */
-static void
-screen_putchar(int c)
-{
-	int row, col;
-
-	vga_getpos(&row, &col);
-	switch (c) {
-	case '\t':
-		col += 8 - (col % 8);
-		if (col == VGA_TEXT_COLS)
-			col = 79;
-		vga_setpos(row, col);
-		break;
-
-	case '\r':
-		vga_setpos(row, 0);
-		break;
-
-	case '\b':
-		if (col > 0)
-			vga_setpos(row, col - 1);
-		break;
-
-	case '\n':
-		if (row < VGA_TEXT_ROWS - 1)
-			vga_setpos(row + 1, col);
-		else
-			vga_scroll(cons_color);
-		break;
-
-	default:
-		vga_drawc(c, cons_color);
-		if (col < VGA_TEXT_COLS -1)
-			vga_setpos(row, col + 1);
-		else if (row < VGA_TEXT_ROWS - 1)
-			vga_setpos(row + 1, 0);
-		else {
-			vga_setpos(row, 0);
-			vga_scroll(cons_color);
-		}
-		break;
-	}
-}
 
 static int port;
 
@@ -202,15 +169,6 @@ serial_init(void)
 
 	/* adjust setting based on tty properties */
 	serial_adjust_prop();
-
-#if defined(_BOOT)
-	/*
-	 * Do a full reset to match console behavior.
-	 * 0x1B + c - reset everything
-	 */
-	serial_putchar(0x1B);
-	serial_putchar('c');
-#endif
 }
 
 /* Advance str pointer past white space */
@@ -608,6 +566,123 @@ bcons_init_env(struct xboot_info *xbi)
 	boot_env.be_size = modules[i].bm_size;
 }
 
+int
+boot_fb(struct xboot_info *xbi, int console)
+{
+	if (xbi_fb_init(xbi, &bcons_dev) == B_FALSE)
+		return (console);
+
+	/* FB address is not set, fall back to serial terminal. */
+	if (fb_info.paddr == 0)
+		return (CONS_TTY);
+
+	fb_info.terminal.x = VGA_TEXT_COLS;
+	fb_info.terminal.y = VGA_TEXT_ROWS;
+	boot_fb_init(CONS_FRAMEBUFFER);
+
+	if (console == CONS_SCREEN_TEXT)
+		return (CONS_FRAMEBUFFER);
+	return (console);
+}
+
+/*
+ * TODO.
+ * quick and dirty local atoi. Perhaps should build with strtol, but
+ * dboot & early boot mix does overcomplicate things much.
+ * Stolen from libc anyhow.
+ */
+static int
+atoi(const char *p)
+{
+	int n, c, neg = 0;
+	unsigned char *up = (unsigned char *)p;
+
+	if (!isdigit(c = *up)) {
+		while (isspace(c))
+			c = *++up;
+		switch (c) {
+		case '-':
+			neg++;
+			/* FALLTHROUGH */
+		case '+':
+			c = *++up;
+		}
+		if (!isdigit(c))
+			return (0);
+	}
+	for (n = '0' - c; isdigit(c = *++up); ) {
+		n *= 10; /* two steps to avoid unnecessary overflow */
+		n += '0' - c; /* accum neg to avoid surprises at MAX */
+	}
+	return (neg ? n : -n);
+}
+
+static void
+bcons_init_fb(void)
+{
+	const char *propval;
+	int intval;
+
+	/* initialize with explicit default values */
+	fb_info.fg_color = CONS_COLOR;
+	fb_info.bg_color = 0;
+	fb_info.inverse = B_FALSE;
+	fb_info.inverse_screen = B_FALSE;
+
+	/* color values are 0 - 7 */
+	propval = find_boot_prop("tem.fg_color");
+	if (propval != NULL) {
+		intval = atoi(propval);
+		if (intval >= 0 && intval <= 7)
+			fb_info.fg_color = intval;
+	}
+
+	/* color values are 0 - 7 */
+	propval = find_boot_prop("tem.bg_color");
+	if (propval != NULL && ISDIGIT(*propval)) {
+		intval = atoi(propval);
+		if (intval >= 0 && intval <= 7)
+			fb_info.bg_color = intval;
+	}
+
+	/* get inverses. allow 0, 1, true, false */
+	propval = find_boot_prop("tem.inverse");
+	if (propval != NULL) {
+		if (*propval == '1' || MATCHES(propval, "true"))
+			fb_info.inverse = B_TRUE;
+	}
+
+	propval = find_boot_prop("tem.inverse-screen");
+	if (propval != NULL) {
+		if (*propval == '1' || MATCHES(propval, "true"))
+			fb_info.inverse_screen = B_TRUE;
+	}
+
+#if defined(_BOOT) && defined(_NEWFONT)
+	/*
+	 * Load cursor position from bootloader only in dboot,
+	 * dboot will pass cursor position to kernel via xboot info.
+	 */
+	/*
+	 * To keep consistent console, we reset boot screen till new fonts
+	 * are available.
+	 */
+	propval = find_boot_prop("tem.cursor.row");
+	if (propval != NULL) {
+		intval = atoi(propval);
+		if (intval >= 0 && intval <= 0xFFFF)
+			fb_info.cursor.pos.y = intval;
+	}
+
+	propval = find_boot_prop("tem.cursor.col");
+	if (propval != NULL) {
+		intval = atoi(propval);
+		if (intval >= 0 && intval <= 0xFFFF)
+			fb_info.cursor.pos.x = intval;
+	}
+#endif
+}
+
 /*
  * Go through the console_devices array trying to match the string
  * we were given.  The string on the command line must end with
@@ -664,6 +739,9 @@ bcons_init(struct xboot_info *xbi)
 	boot_line = (char *)(uintptr_t)xbi->bi_cmdline;
 	bcons_init_env(xbi);
 	console = CONS_INVALID;
+
+	/* set up initial fb_info */
+	bcons_init_fb();
 
 #if defined(__xpv)
 	bcons_init_xen(boot_line);
@@ -745,6 +823,8 @@ bcons_init(struct xboot_info *xbi)
 	}
 #endif /* __xpv */
 
+	/* make sure the FB is set up if present */
+	console = boot_fb(xbi, console);
 	switch (console) {
 	case CONS_TTY:
 		serial_init();
@@ -765,10 +845,9 @@ bcons_init(struct xboot_info *xbi)
 		kb_init();
 		break;
 	case CONS_SCREEN_TEXT:
+		boot_vga_init(&bcons_dev);
+		/* Fall through */
 	default:
-#if defined(_BOOT)
-		clear_screen();	/* clears the grub or xen screen */
-#endif /* _BOOT */
 		kb_init();
 		break;
 	}
@@ -955,6 +1034,182 @@ serial_ischar(void)
 }
 
 static void
+btem_control(btem_state_t *btem, int c)
+{
+	int y, rows, cols;
+
+	rows = fb_info.cursor.pos.y;
+	cols = fb_info.cursor.pos.x;
+
+	btem->btem_state = A_STATE_START;
+	switch (c) {
+	case A_BS:
+		bcons_dev.bd_setpos(rows, cols - 1);
+		break;
+
+	case A_HT:
+		cols += 8 - (cols % 8);
+		if (cols >= fb_info.terminal.x)
+			cols = fb_info.terminal.x - 1;
+		bcons_dev.bd_setpos(rows, cols);
+		break;
+
+	case A_CR:
+		bcons_dev.bd_setpos(rows, 0);
+		break;
+
+	case A_FF:
+		for (y = 0; y < fb_info.terminal.y; y++) {
+			bcons_dev.bd_setpos(y, 0);
+			bcons_dev.bd_eraseline();
+		}
+		bcons_dev.bd_setpos(0, 0);
+		break;
+
+	case A_ESC:
+		btem->btem_state = A_STATE_ESC;
+		break;
+
+	default:
+		bcons_dev.bd_putchar(c);
+		break;
+	}
+}
+
+/*
+ * if parameters [0..count - 1] are not set, set them to the value
+ * of newparam.
+ */
+static void
+btem_setparam(btem_state_t *btem, int count, int newparam)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		if (btem->btem_params[i] == -1)
+			btem->btem_params[i] = newparam;
+	}
+}
+
+static void
+btem_chkparam(btem_state_t *btem, int c)
+{
+	int rows, cols;
+
+	rows = fb_info.cursor.pos.y;
+	cols = fb_info.cursor.pos.x;
+	switch (c) {
+	case '@':			/* insert char */
+		btem_setparam(btem, 1, 1);
+		bcons_dev.bd_shift(btem->btem_params[0]);
+		break;
+
+	case 'A':			/* cursor up */
+		btem_setparam(btem, 1, 1);
+		bcons_dev.bd_setpos(rows - btem->btem_params[0], cols);
+		break;
+
+	case 'B':			/* cursor down */
+		btem_setparam(btem, 1, 1);
+		bcons_dev.bd_setpos(rows + btem->btem_params[0], cols);
+		break;
+
+	case 'C':			/* cursor right */
+		btem_setparam(btem, 1, 1);
+		bcons_dev.bd_setpos(rows, cols + btem->btem_params[0]);
+		break;
+
+	case 'D':			/* cursor left */
+		btem_setparam(btem, 1, 1);
+		bcons_dev.bd_setpos(rows, cols - btem->btem_params[0]);
+		break;
+
+	case 'K':
+		bcons_dev.bd_eraseline();
+		break;
+	default:
+		/* bcons_dev.bd_putchar(c); */
+		break;
+	}
+	btem->btem_state = A_STATE_START;
+}
+
+static void
+btem_getparams(btem_state_t *btem, int c)
+{
+	if (isdigit(c)) {
+		btem->btem_paramval = btem->btem_paramval * 10 + c - '0';
+		btem->btem_gotparam = B_TRUE;
+		return;
+	}
+
+	if (btem->btem_curparam < BTEM_MAXPARAMS) {
+		if (btem->btem_gotparam == B_TRUE) {
+			btem->btem_params[btem->btem_curparam] =
+			    btem->btem_paramval;
+		}
+		btem->btem_curparam++;
+	}
+
+	if (c == ';') {
+		/* Restart parameter search */
+		btem->btem_gotparam = B_FALSE;
+		btem->btem_paramval = 0;
+	} else {
+		btem_chkparam(btem, c);
+	}
+}
+
+/* Simple boot terminal parser. */
+static void
+btem_parse(btem_state_t *btem, int c)
+{
+	int i;
+
+	/* Normal state? */
+	if (btem->btem_state == A_STATE_START) {
+		if (c == A_CSI || c < ' ')
+			btem_control(btem, c);
+		else
+			bcons_dev.bd_putchar(c);
+		return;
+	}
+
+	/* In <ESC> sequence */
+	if (btem->btem_state != A_STATE_ESC) {
+		btem_getparams(btem, c);
+		return;
+	}
+
+	/* Previous char was <ESC> */
+	switch (c) {
+	case '[':
+		btem->btem_curparam = 0;
+		btem->btem_paramval = 0;
+		btem->btem_gotparam = B_FALSE;
+		/* clear the parameters */
+		for (i = 0; i < BTEM_MAXPARAMS; i++)
+			btem->btem_params[i] = -1;
+		btem->btem_state = A_STATE_CSI;
+		return;
+
+	case 'Q':	/* <ESC>Q */
+	case 'C':	/* <ESC>C */
+		btem->btem_state = A_STATE_START;
+		return;
+
+	default:
+		btem->btem_state = A_STATE_START;
+		break;
+	}
+
+	if (c < ' ')
+		btem_control(btem, c);
+	else
+		bcons_dev.bd_putchar(c);
+}
+
+static void
 _doputchar(int device, int c)
 {
 	switch (device) {
@@ -962,7 +1217,10 @@ _doputchar(int device, int c)
 		serial_putchar(c);
 		return;
 	case CONS_SCREEN_TEXT:
-		screen_putchar(c);
+	case CONS_FRAMEBUFFER:
+		bcons_dev.bd_cursor(B_FALSE);
+		btem_parse(&boot_tem, c);
+		bcons_dev.bd_cursor(B_TRUE);
 		return;
 	case CONS_SCREEN_GRAPHICS:
 #if !defined(_BOOT)
@@ -977,8 +1235,6 @@ _doputchar(int device, int c)
 void
 bcons_putchar(int c)
 {
-	static int bhcharpos = 0;
-
 #if defined(__xpv)
 	if (!DOMAIN_IS_INITDOMAIN(xen_info) ||
 	    console == CONS_HYPERVISOR) {
@@ -987,32 +1243,11 @@ bcons_putchar(int c)
 	}
 #endif /* __xpv */
 
-	if (c == '\t') {
-		do {
-			_doputchar(console, ' ');
-			if (diag != console)
-				_doputchar(diag, ' ');
-		} while (++bhcharpos % 8);
-		return;
-	} else  if (c == '\n' || c == '\r') {
-		bhcharpos = 0;
+	if (c == '\n') {
 		_doputchar(console, '\r');
-		_doputchar(console, c);
-		if (diag != console) {
-			_doputchar(diag, '\r');
-			_doputchar(diag, c);
-		}
-		return;
-	} else if (c == '\b') {
-		if (bhcharpos)
-			bhcharpos--;
-		_doputchar(console, c);
 		if (diag != console)
-			_doputchar(diag, c);
-		return;
+			_doputchar(diag, '\r');
 	}
-
-	bhcharpos++;
 	_doputchar(console, c);
 	if (diag != console)
 		_doputchar(diag, c);

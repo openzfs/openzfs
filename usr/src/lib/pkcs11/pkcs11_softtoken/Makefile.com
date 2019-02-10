@@ -22,23 +22,23 @@
 # Copyright (c) 2003, 2010, Oracle and/or its affiliates. All rights reserved.
 #
 # Copyright 2010 Nexenta Systems, Inc.  All rights reserved.
+# Copyright 2018, Joyent, Inc.
 #
-# lib/pkcs11/pkcs11_softtoken/Makefile.com
-#
+# Copyright (c) 2018, Joyent, Inc.
 
 LIBRARY = pkcs11_softtoken.a
 VERS= .1
 
 LCL_OBJECTS = \
-	softGeneral.o 		\
-	softSlotToken.o 	\
-	softSession.o 		\
-	softObject.o 		\
-	softDigest.o	 	\
-	softSign.o 		\
-	softVerify.o 		\
-	softDualCrypt.o 	\
-	softKeys.o 		\
+	softGeneral.o		\
+	softSlotToken.o	\
+	softSession.o		\
+	softObject.o		\
+	softDigest.o		\
+	softSign.o		\
+	softVerify.o		\
+	softDualCrypt.o	\
+	softKeys.o		\
 	softRand.o		\
 	softSessionUtil.o	\
 	softDigestUtil.o	\
@@ -123,7 +123,10 @@ SRCS =	\
 LIBS    =       $(DYNLIB)
 LDLIBS  +=      -lc -lmd -lcryptoutil -lsoftcrypto -lgen
 
-CFLAGS 	+=      $(CCVERBOSE)
+CSTD =	$(CSTD_GNU99)
+C99LMODE = -Xc99=%all
+
+CFLAGS	+=      $(CCVERBOSE)
 
 CERRWARN +=	-_gcc=-Wno-unused-label
 CERRWARN +=	-_gcc=-Wno-parentheses
@@ -131,6 +134,9 @@ CERRWARN +=	-_gcc=-Wno-uninitialized
 CERRWARN +=	-_gcc=-Wno-type-limits
 CERRWARN +=	-_gcc=-Wno-unused-variable
 CERRWARN +=	-_gcc=-Wno-empty-body
+
+# not linted
+SMATCH=off
 
 CPPFLAGS += -I$(AESDIR) -I$(BLOWFISHDIR) -I$(ARCFOURDIR) -I$(DESDIR) \
 	    -I$(DHDIR) -I$(DSADIR) -I$(ECCDIR) -I$(SRC)/common/crypto \

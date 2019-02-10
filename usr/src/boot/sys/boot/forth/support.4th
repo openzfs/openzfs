@@ -1,6 +1,7 @@
 \ Copyright (c) 1999 Daniel C. Sobral <dcs@FreeBSD.org>
+\ Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 \ All rights reserved.
-\ 
+\
 \ Redistribution and use in source and binary forms, with or without
 \ modification, are permitted provided that the following conditions
 \ are met:
@@ -200,7 +201,36 @@ create last_module_option sizeof module.next allot 0 last_module_option !
 : 2r> postpone r> postpone r> ; immediate
 : 2r@ postpone 2r> postpone 2dup postpone 2>r ; immediate
 
+\ Number to string
+: n2s ( n -- c-addr/u ) s>d <# #s #> ;
+\ String to number
+: s2n ( c-addr/u1 -- u2 | -1 ) ?number 0= if -1 then ;
+
+\ Test if an environment variable is set
 : getenv?  getenv -1 = if false else drop true then ;
+
+\ Fetch a number from an environment variable, or a default if not set or does
+\ not parse (s2n returns -1).
+: getenvn ( n1 c-addr/u -- n1 | n2 )
+	getenv dup -1 = if
+		\ environment variable not set
+		drop		( n1 -1 -- n1 )
+	else
+		s2n		( n1 c-addr/u1 -- n1 n2 )
+		dup -1 = if
+			\ parse failed
+			drop	( n1 n2 -- n1 )
+		else
+			nip	( n1 n2 -- n2 )
+		then
+	then
+;
+
+\ Returns TRUE if the framebuffer is active, FALSE otherwise
+: framebuffer? ( -- flag )
+	\ Use the screen-height variable as a proxy for framebuffer
+	s" screen-height" getenv?
+;
 
 \ determine if a word appears in a string, case-insensitive
 : contains? ( addr1 len1 addr2 len2 -- 0 | -1 )
@@ -384,7 +414,7 @@ variable fd
   line_buffer .addr !
   r>
 ;
-    
+
 : append_to_line_buffer  ( addr len -- )
   line_buffer strget
   2swap strcat
@@ -586,7 +616,7 @@ also parser definitions
       end_of_line? if ESYNTAX throw then
     then
     skip_character
-    end_of_line? if ESYNTAX throw then 
+    end_of_line? if ESYNTAX throw then
   repeat
   r> drop
   skip_character
@@ -934,7 +964,7 @@ get-current ( -- wid ) previous definitions >search ( wid -- )
   fd @ fclose
   swap throw throw
 ;
-  
+
 only forth also support-functions definitions
 
 \ Interface to loading conf files
@@ -977,7 +1007,7 @@ only forth also support-functions definitions
 
 only forth definitions also support-functions
 
-: test-file 
+: test-file
   ['] load_conf catch dup .
   ESYNTAX = if cr print_syntax_error then
 ;
@@ -1071,7 +1101,7 @@ string current_file_name_ref	\ used to print the file name
 \ true if string in addr1 is smaller than in addr2
 : compar ( addr1 addr2 -- flag )
   swap			( addr2 addr1 )
-  dup cell+ 		( addr2 addr1 addr )
+  dup cell+		( addr2 addr1 addr )
   swap @		( addr2 addr len )
   rot			( addr len addr2 )
   dup cell+		( addr len addr2 addr' )
@@ -1113,7 +1143,7 @@ string current_file_name_ref	\ used to print the file name
 ;
 
 : entries	(  -- n )	\ count directory entries
-  ['] opendir catch 		( n array )
+  ['] opendir catch		( n array )
   throw
 
   0		( i )
@@ -1132,7 +1162,7 @@ string current_file_name_ref	\ used to print the file name
 \ need to check and insert it.
 : make_cstring	( addr len -- addr' )
   dup		( addr len len )
-  s" /boot/conf.d/" 	( addr len len addr' len' )
+  s" /boot/conf.d/"	( addr len len addr' len' )
   rot		( addr len addr' len' len )
   over +	( addr len addr' len' total )	\ space for prefix+str
   dup cell+ 1+					\ 1+ for '\0'
@@ -1185,7 +1215,7 @@ string current_file_name_ref	\ used to print the file name
   \ we have now array of strings with directory entry names.
   \ calculate size of concatenated string
   over 0 swap 0 do		( n array 0 )
-    over I cells + @ 		( n array total array[I] )
+    over I cells + @		( n array total array[I] )
     @ + 1+			( n array total' )
   loop
   dup allocate if drop free 2drop 0 exit then
@@ -1195,7 +1225,7 @@ string current_file_name_ref	\ used to print the file name
   over 0 swap 0 do		( len addr n array 0 )
     over I cells + @		( len addr n array total array[I] )
     dup @ swap cell+		( len addr n array total len addr' )
-    over 			( len addr n array total len addr' len )
+    over			( len addr n array total len addr' len )
     6 pick			( len addr n array total len addr' len addr )
     4 pick +			( len addr n array total len addr' len addr+total )
     swap move +			( len addr n array total+len )
@@ -1213,7 +1243,7 @@ string current_file_name_ref	\ used to print the file name
   scan_conf_dir if		\ concatenate with conf_files
 			( addr len )
     dup conf_files .len @ + 2 + allocate abort" out of memory"	( addr len addr' )
-    dup conf_files strget 	( addr len addr' caddr clen )
+    dup conf_files strget	( addr len addr' caddr clen )
     rot swap move		( addr len addr' )
     \ add space
     dup conf_files .len @ +	( addr len addr' addr'+clen )
@@ -1240,7 +1270,7 @@ string current_file_name_ref	\ used to print the file name
 
 \ return the file name at pos, or free the string if nothing left
 : get_file_name  { addr len pos -- addr len pos' addr' len' || 0 }
-  pos len = if 
+  pos len = if
     addr free abort" Fatal error freeing memory"
     0 exit
   then
@@ -1460,7 +1490,7 @@ string current_file_name_ref	\ used to print the file name
     ['] load_module catch if
       dup module.loaderror .len @ if
         load_error			\ Command should return a flag!
-      else 
+      else
         load_error_message true		\ Do not retry
       then
     else
@@ -1677,7 +1707,7 @@ also builtins
   modulepath getenv saveenv to oldmodulepath
 
   \ Try prepending /boot/ first
-  bootpath nip path nip + 	\ total length
+  bootpath nip path nip +	\ total length
   oldmodulepath nip dup -1 = if
     drop
   else

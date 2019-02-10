@@ -22,13 +22,16 @@
 # Copyright 2010 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2018, Joyent, Inc.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+#
 
 PROG=		nm
 
 ARFORMAT=	PORTAR
 
-include 	../../../Makefile.cmd
-include 	../../Makefile.com
+include		../../../Makefile.cmd
+include		../../Makefile.com
 
 COMOBJS=	nm.o
 
@@ -43,11 +46,9 @@ CPPFLAGS=	$(INCLIST) $(DEFLIST) $(CPPFLAGS.master) -I$(ELFCAP)
 
 CERRWARN +=	-_gcc=-Wno-uninitialized
 
-LDLIBS +=	$(CONVLIBDIR64) $(CONV_LIB) $(ELFLIBDIR) -lelf
-LINTFLAGS64 +=	-x $(LDLIBS) -m64
-LINTSRCS=	$(SRCS)
-CLEANFILES +=	$(LINTOUTS)
+SMOFF += precedence,indenting
 
+LDLIBS +=	$(CONVLIBDIR64) $(CONV_LIB) $(ELFLIBDIR) -lelf
 
 %.o:		../common/%.c
 		$(COMPILE.c) $<
@@ -68,9 +69,6 @@ install:	all $(VAR_SGSBINPROG64) $(VAR_SGSCCSLINK64)
 
 clean:
 		$(RM) $(OBJS) $(CLEANFILES)
-
-lint:		$(LINTOUT64) $(SGSLINTOUT)
-
 
 include		../../Makefile.targ
 include		../../../Makefile.targ

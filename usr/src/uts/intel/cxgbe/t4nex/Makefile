@@ -12,6 +12,7 @@
 #
 # Copyright (c) 2013 by Chelsio Communications, Inc. All rights reserved.
 #
+# Copyright (c) 2018, Joyent, Inc.
 
 #
 # This makefile drives the production of the Chelsio Terminator 4 10G Ethernet
@@ -47,7 +48,7 @@ ALL_TARGET = $(BINARY)
 LINT_TARGET = $(MODULE).lint
 INSTALL_TARGET = $(BINARY) $(ROOTMODULE)
 
-CFLAGS += -g -I$(UTSBASE)/common/io/cxgbe -I$(UTSBASE)/common/io/cxgbe/common \
+CFLAGS += -I$(UTSBASE)/common/io/cxgbe -I$(UTSBASE)/common/io/cxgbe/common \
 	-I$(UTSBASE)/common/io/cxgbe/t4nex -I$(UTSBASE)/common/io/cxgbe/shared \
 	-I$(UTSBASE)/common/io/cxgbe/firmware
 
@@ -89,6 +90,9 @@ LINTTAGS += -erroff=E_FUNC_RET_ALWAYS_IGNOR2
 LINTTAGS += -erroff=E_FUNC_RET_MAYBE_IGNORED2
 LINTTAGS += -erroff=E_CASE_FALLTHRU
 LINTTAGS += -erroff=E_ASSIGN_NARROW_CONV
+
+# needs work
+SMATCH=off
 
 #
 # Default build targets.

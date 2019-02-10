@@ -21,6 +21,7 @@
 #
 # Copyright (c) 2009, 2010, Oracle and/or its affiliates. All rights reserved.
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright (c) 2018, Joyent, Inc.
 #
 
 LIBRARY =	ioctl.a
@@ -35,7 +36,7 @@ include ../../Makefile.lib
 
 LIBLINKS =
 SRCDIR =	../common
-ROOTLIBDIR=	$(ROOT)/usr/lib/python$(PYTHON_VERSION)/vendor-packages/zfs
+ROOTLIBDIR=	$(ROOT)/usr/lib/python$(PYVER)/vendor-packages/zfs
 ROOTLIBDIR64=	$(ROOTLIBDIR)/64
 PYOBJS=		$(PYSRCS:%.py=$(SRCDIR)/%.pyc)
 PYFILES=	$(PYSRCS) $(PYSRCS:%.py=%.pyc)
@@ -45,13 +46,16 @@ CSTD=        $(CSTD_GNU99)
 C99LMODE=       -Xc99=%all
 
 LIBS =		$(DYNLIB)
-LDLIBS +=	-lc -lnvpair -lpython$(PYTHON_VERSION)$(PYTHON_SUFFIX) -lzfs
+LDLIBS +=	-lc -lnvpair -lpython$(PYVER)$(PYSUFFIX) -lzfs
 CFLAGS +=	$(CCVERBOSE)
 CERRWARN +=	-_gcc=-Wno-unused-variable
 CPPFLAGS +=	\
-	-I$(ADJUNCT_PROTO)/usr/include/python$(PYTHON_VERSION)$(PYTHON_SUFFIX)
+	-I$(ADJUNCT_PROTO)/usr/include/python$(PYVER)$(PYSUFFIX)
 CPPFLAGS +=	-I../../../uts/common/fs/zfs
 CPPFLAGS +=	-I../../../common/zfs
+
+# needs work
+SMOFF += all_func_returns
 
 .KEEP_STATE:
 

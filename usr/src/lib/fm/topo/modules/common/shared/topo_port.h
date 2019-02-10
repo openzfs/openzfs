@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (c) 2017, Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 #ifndef _TOPO_PORT_H
@@ -27,6 +27,8 @@ extern "C" {
 extern int port_range_create(topo_mod_t *, tnode_t *, topo_instance_t,
     topo_instance_t);
 extern int port_create_sff(topo_mod_t *, tnode_t *, topo_instance_t,
+    tnode_t **);
+extern int port_create_usb(topo_mod_t *, tnode_t *, topo_instance_t,
     tnode_t **);
 
 #ifdef __cplusplus

@@ -21,6 +21,7 @@
 
 /*
  * Copyright (c) 2008, 2010, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2017, Joyent, Inc.
  */
 
 #ifndef	_LIBSCSI_H
@@ -97,6 +98,7 @@ typedef struct libscsi_engine_ops {
 	void (*lseo_close)(libscsi_hdl_t *, void *);
 	int (*lseo_exec)(libscsi_hdl_t *, void *, libscsi_action_t *);
 	void (*lseo_target_name)(libscsi_hdl_t *, void *, char *, size_t);
+	int (*lseo_max_transfer)(libscsi_hdl_t *, void *, size_t *);
 } libscsi_engine_ops_t;
 
 typedef struct libscsi_engine {
@@ -116,6 +118,7 @@ extern libscsi_hdl_t *libscsi_get_handle(libscsi_target_t *);
 extern const char *libscsi_vendor(libscsi_target_t *);
 extern const char *libscsi_product(libscsi_target_t *);
 extern const char *libscsi_revision(libscsi_target_t *);
+extern int libscsi_max_transfer(libscsi_target_t *, size_t *);
 
 extern libscsi_errno_t libscsi_errno(libscsi_hdl_t *);
 extern const char *libscsi_errmsg(libscsi_hdl_t *);
@@ -125,8 +128,11 @@ extern libscsi_errno_t libscsi_errcode(const char *);
 
 extern libscsi_action_t *libscsi_action_alloc(libscsi_hdl_t *, spc3_cmd_t,
     uint_t, void *, size_t);
+extern libscsi_action_t *libscsi_action_alloc_vendor(libscsi_hdl_t *,
+    spc3_cmd_t, size_t, uint_t, void *, size_t);
 extern sam4_status_t libscsi_action_get_status(const libscsi_action_t *);
 extern void libscsi_action_set_timeout(libscsi_action_t *, uint32_t);
+extern size_t libscsi_action_get_cdblen(const libscsi_action_t *);
 extern uint32_t libscsi_action_get_timeout(const libscsi_action_t *);
 extern uint_t libscsi_action_get_flags(const libscsi_action_t *);
 extern uint8_t *libscsi_action_get_cdb(const libscsi_action_t *);

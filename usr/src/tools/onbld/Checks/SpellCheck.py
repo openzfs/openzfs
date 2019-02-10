@@ -21,6 +21,7 @@
 
 #
 # Copyright 2016 Joyent, Inc.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 
 import re, sys
@@ -156,6 +157,9 @@ misspellings = {
 	'ommision': 'omission',
 	'orginal': 'original',
 	'orginally': 'originally',
+	'ouput': 'output',
+	'overriden': 'overridden',
+	'particuliar': 'particular',
 	'pavillion': 'pavilion',
 	'peice': 'piece',
 	'persistant': 'persistent',
@@ -252,12 +256,12 @@ alternates = {
 misspellingREs = []
 alternateREs = []
 
-for misspelling, correct in misspellings.iteritems():
+for misspelling, correct in misspellings.items():
 	regex = re.compile(r'\b%s\b' % (misspelling), re.IGNORECASE)
 	entry = (regex, misspelling, correct)
 	misspellingREs.append(entry)
 
-for alternate, correct in alternates.iteritems():
+for alternate, correct in alternates.items():
 	regex = re.compile(r'\b%s\b' % (alternate), re.IGNORECASE)
 	entry = (regex, alternate, correct)
 	alternateREs.append(entry)
@@ -278,6 +282,7 @@ def spellcheck(fh, filename=None, output=sys.stderr, **opts):
 
 	fh.seek(0)
 	for line in fh:
+		line = line.decode(errors='replace')
 		for entry in misspellingREs:
 			ret |= check(spellMsg, output, filename, line,
 			    lineno, entry)

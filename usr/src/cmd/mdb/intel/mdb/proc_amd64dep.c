@@ -24,7 +24,7 @@
  * Use is subject to license terms.
  */
 /*
- * Copyright 2015 Joyent, Inc.
+ * Copyright (c) 2018, Joyent, Inc.
  */
 
 /*
@@ -74,9 +74,9 @@ const mdb_tgt_regdesc_t pt_regdesc[] = {
 	{ "r10w",	REG_R10,	MDB_TGT_R_EXPORT | MDB_TGT_R_16 },
 	{ "r10l",	REG_R10,	MDB_TGT_R_EXPORT | MDB_TGT_R_8L },
 	{ "r9",		REG_R9,		MDB_TGT_R_EXPORT },
-	{ "r9d",	REG_R8,		MDB_TGT_R_EXPORT | MDB_TGT_R_32 },
-	{ "r9w",	REG_R8,		MDB_TGT_R_EXPORT | MDB_TGT_R_16 },
-	{ "r9l",	REG_R8,		MDB_TGT_R_EXPORT | MDB_TGT_R_8L },
+	{ "r9d",	REG_R9,		MDB_TGT_R_EXPORT | MDB_TGT_R_32 },
+	{ "r9w",	REG_R9,		MDB_TGT_R_EXPORT | MDB_TGT_R_16 },
+	{ "r9l",	REG_R9,		MDB_TGT_R_EXPORT | MDB_TGT_R_8L },
 	{ "r8",		REG_R8,		MDB_TGT_R_EXPORT },
 	{ "r8d",	REG_R8,		MDB_TGT_R_EXPORT | MDB_TGT_R_32 },
 	{ "r8w",	REG_R8,		MDB_TGT_R_EXPORT | MDB_TGT_R_16 },
@@ -309,8 +309,6 @@ fpcw2str(uint32_t cw, char *buf, size_t nbytes)
 	/*
 	 * Decode precision, rounding, and infinity options in control word.
 	 */
-	if (cw & FPSIG24)
-		p += mdb_snprintf(p, (size_t)(end - p), "|SIG24");
 	if (cw & FPSIG53)
 		p += mdb_snprintf(p, (size_t)(end - p), "|SIG53");
 	if (cw & FPSIG64)

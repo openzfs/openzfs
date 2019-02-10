@@ -24,6 +24,7 @@
 # Use is subject to license terms.
 #
 # Copyright 2013 Nexenta Systems, Inc.  All rights reserved.
+# Copyright (c) 2018, Joyent, Inc.
 #
 
 #
@@ -52,14 +53,11 @@ LDLIBS += -lmlrpc -lsmbfs -lnsl
 CPPFLAGS += -I$(SRC)/lib/libsmbfs \
 	-I$(SRC)/uts/common/smbclnt -I$(SRC)/uts/common
 
+# not linted
+SMATCH=off
+
 # Debugging
 ${NOT_RELEASE_BUILD} CPPFLAGS += -DDEBUG
-
-# uncomment these for dbx debugging
-#COPTFLAG = -g
-#CTF_FLAGS =
-#CTFCONVERT_O=
-#CTFMERGE_LIB=
 
 # disable some of the less important lint
 LINTFLAGS	+= -erroff=E_FUNC_RET_ALWAYS_IGNOR2

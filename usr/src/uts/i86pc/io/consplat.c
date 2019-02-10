@@ -45,9 +45,10 @@
 #include <sys/modctl.h>
 #include <sys/termios.h>
 #include <sys/pci.h>
+#include <sys/framebuffer.h>
+#include <sys/boot_console.h>
 #if defined(__xpv)
 #include <sys/hypervisor.h>
-#include <sys/boot_console.h>
 #endif
 
 extern int pseudo_isa;
@@ -561,35 +562,46 @@ plat_diagpath(void)
  * unused on x86.
  */
 void
+plat_tem_get_colors(uint8_t *fg, uint8_t *bg)
+{
+	*fg = fb_info.fg_color;
+	*bg = fb_info.bg_color;
+}
+
+void
 plat_tem_get_inverses(int *inverse, int *inverse_screen)
 {
-	*inverse = 0;
-	*inverse_screen = 0;
+	*inverse = fb_info.inverse == B_TRUE? 1 : 0;
+	*inverse_screen = fb_info.inverse_screen == B_TRUE? 1 : 0;
 }
 
 void
 plat_tem_get_prom_font_size(int *charheight, int *windowtop)
 {
-	*charheight = 0;
-	*windowtop = 0;
+	*charheight = fb_info.font_height;
+	*windowtop = fb_info.terminal_origin.y;
 }
 
 /*ARGSUSED*/
 void
 plat_tem_get_prom_size(size_t *height, size_t *width)
 {
-	panic("unimplemented at line %d of %s", __LINE__, __FILE__);
+	*height = fb_info.terminal.y;
+	*width = fb_info.terminal.x;
 }
 
+/* this gets called once at boot time and only in case of VIS_PIXEL */
 void
 plat_tem_hide_prom_cursor(void)
 {
-	panic("unimplemented at line %d of %s", __LINE__, __FILE__);
+	if (boot_console_type(NULL) == CONS_FRAMEBUFFER)
+		boot_fb_cursor(B_FALSE);
 }
 
 /*ARGSUSED*/
 void
 plat_tem_get_prom_pos(uint32_t *row, uint32_t *col)
 {
-	panic("unimplemented at line %d of %s", __LINE__, __FILE__);
+	*row = fb_info.cursor.pos.y;
+	*col = fb_info.cursor.pos.x;
 }

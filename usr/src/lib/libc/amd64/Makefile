@@ -25,6 +25,8 @@
 # Copyright (c) 2013, OmniTI Computer Consulting, Inc. All rights reserved.
 # Copyright 2013 Garrett D'Amore <garrett@damore.org>
 # Copyright 2018 Nexenta Systems, Inc.
+# Copyright (c) 2019, Joyent, Inc.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 
 LIBCBASE=	.
@@ -1035,6 +1037,9 @@ CERRWARN += -_gcc=-Wno-clobbered
 CERRWARN += -_gcc=-Wno-unused-function
 CERRWARN += -_gcc=-Wno-address
 
+# not linted
+SMATCH=off
+
 # Setting THREAD_DEBUG = -DTHREAD_DEBUG (make THREAD_DEBUG=-DTHREAD_DEBUG ...)
 # enables ASSERT() checking in the threads portion of the library.
 # This is automatically enabled for DEBUG builds, not for non-debug builds.
@@ -1097,37 +1102,6 @@ CLEANFILES +=			\
 	$(ALTPICS)
 
 CLOBBERFILES +=	$(LIB_PIC)
-
-# list of C source for lint
-SRCS=							\
-	$(ATOMICOBJS:%.o=$(SRC)/common/atomic/%.c)	\
-	$(XATTROBJS:%.o=$(SRC)/common/xattr/%.c)	\
-	$(COMOBJS:%.o=$(SRC)/common/util/%.c)		\
-	$(PORTFP:%.o=$(LIBCDIR)/port/fp/%.c)		\
-	$(PORTGEN:%.o=$(LIBCDIR)/port/gen/%.c)		\
-	$(PORTI18N:%.o=$(LIBCDIR)/port/i18n/%.c)	\
-	$(PORTINET:%.o=$(LIBCDIR)/port/inet/%.c)	\
-	$(PORTLOCALE:%.o=$(LIBCDIR)/port/locale/%.c)	\
-	$(PORTPRINT:%.o=$(LIBCDIR)/port/print/%.c)	\
-	$(PORTREGEX:%.o=$(LIBCDIR)/port/regex/%.c)	\
-	$(PORTSTDIO:%.o=$(LIBCDIR)/port/stdio/%.c)	\
-	$(PORTSYS:%.o=$(LIBCDIR)/port/sys/%.c)		\
-	$(AIOOBJS:%.o=$(LIBCDIR)/port/aio/%.c)		\
-	$(RTOBJS:%.o=$(LIBCDIR)/port/rt/%.c)		\
-	$(SECFLAGSOBJS:%.o=$(SRC)/common/secflags/%.c)	\
-	$(TPOOLOBJS:%.o=$(LIBCDIR)/port/tpool/%.c)	\
-	$(THREADSOBJS:%.o=$(LIBCDIR)/port/threads/%.c)	\
-	$(THREADSMACHOBJS:%.o=threads/%.c)		\
-	$(UNICODEOBJS:%.o=$(SRC)/common/unicode/%.c)	\
-	$(UNWINDMACHOBJS:%.o=unwind/%.c)		\
-	$(FPOBJS:%.o=fp/%.c)				\
-	$(I386FPOBJS:%.o=$(LIBCDIR)/i386/fp/%.c)	\
-	$(LIBCBASE)/gen/ecvt.c				\
-	$(LIBCBASE)/gen/makectxt.c			\
-	$(LIBCBASE)/gen/siginfolst.c			\
-	$(LIBCBASE)/gen/siglongjmp.c			\
-	$(LIBCBASE)/gen/sync_instruction_memory.c	\
-	$(LIBCBASE)/sys/uadmin.c
 
 # conditional assignments
 # $(DYNLIB) $(LIB_PIC) := DYNOBJS = _rtbootld.o
@@ -1217,18 +1191,6 @@ pics/__clock_gettime.o := CPPFLAGS += $(COMMPAGE_CPPFLAGS)
 .KEEP_STATE:
 
 all: $(LIBS) $(LIB_PIC)
-
-lint	:=	CPPFLAGS += -I$(LIBCDIR)/$(MACH)/fp
-lint	:=	CPPFLAGS += -D_MSE_INT_H -D_LCONV_C99
-lint	:=	LINTFLAGS64 += -mn -erroff=E_SUPPRESSION_DIRECTIVE_UNUSED
-
-lint:
-	@echo $(LINT.c) ... $(LDLIBS)
-	@$(LINT.c) $(SRCS) $(LDLIBS)
-
-$(LINTLIB):= SRCS=$(LIBCDIR)/port/llib-lc
-$(LINTLIB):= CPPFLAGS += -D_MSE_INT_H
-$(LINTLIB):= LINTFLAGS64=-nvx -m64
 
 # object files that depend on inline template
 $(TIL:%=pics/%): $(LIBCBASE)/threads/amd64.il

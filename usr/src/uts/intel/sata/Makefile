@@ -23,6 +23,8 @@
 # Copyright 2006 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2018, Joyent, Inc.
+
 
 #
 # uts/intel/io/sata/Makefile
@@ -66,7 +68,7 @@ DEBUG_DEFS	+= $(DEBUG_FLGS)
 
 #
 # lint pass one enforcement
-#  
+#
 CFLAGS += $(CCVERBOSE)
 
 #
@@ -90,6 +92,9 @@ CERRWARN	+= -_gcc=-Wno-unused-function
 CERRWARN	+= -_gcc=-Wno-unused-variable
 CERRWARN	+= -_gcc=-Wno-uninitialized
 CERRWARN	+= -_gcc=-Wno-empty-body
+
+# needs work
+SMATCH=off
 
 #
 #	Default build targets.

@@ -76,8 +76,10 @@ cryptotest_init(cryptotest_t *arg, crypto_func_group_t fg)
 		return (NULL);
 
 	while ((fd = open(CRYPTO_DEVICE, O_RDWR)) < 0) {
-		if (errno != EINTR)
+		if (errno != EINTR) {
+			free(op);
 			return (NULL);
+		}
 	}
 
 	op->in = (char *)arg->in;
@@ -438,4 +440,23 @@ digest_final(crypto_op_t *op)
 	final.df_digestbuf = op->out;
 
 	return (kcf_do_ioctl(CRYPTO_DIGEST_FINAL, (uint_t *)&final, "final"));
+}
+void
+ccm_init_params(void *buf, ulong_t ulDataLen, uchar_t *pNonce,
+    ulong_t ulNonceLen, uchar_t *pAAD, ulong_t ulAADLen, ulong_t ulMACLen)
+{
+	CK_AES_CCM_PARAMS *pp = buf;
+
+	pp->ulDataSize = ulDataLen;
+	pp->nonce = pNonce;
+	pp->ulNonceSize = ulNonceLen;
+	pp->authData = pAAD;
+	pp->ulAuthDataSize = ulAADLen;
+	pp->ulMACSize = ulMACLen;
+}
+
+size_t
+ccm_param_len(void)
+{
+	return (sizeof (CK_AES_CCM_PARAMS));
 }

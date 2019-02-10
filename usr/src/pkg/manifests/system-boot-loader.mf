@@ -21,6 +21,7 @@
 
 #
 # Copyright 2016, Toomas Soome <tsoome@me.com>
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 
 #
@@ -71,6 +72,8 @@ $(i386_ONLY)file path=boot/forth/shortcuts.4th group=sys mode=0444
 $(i386_ONLY)file path=boot/forth/support.4th group=sys mode=0444
 $(i386_ONLY)file path=boot/forth/version.4th group=sys mode=0444
 $(i386_ONLY)file path=boot/gptzfsboot group=sys mode=0444
+$(i386_ONLY)file path=boot/illumos.png group=sys mode=0444
+$(i386_ONLY)file path=boot/isoboot group=sys mode=0444
 $(i386_ONLY)file path=boot/loader group=sys mode=0444
 $(i386_ONLY)file path=boot/loader.help group=sys mode=0444
 $(i386_ONLY)file path=boot/loader.rc group=sys mode=0444
@@ -79,11 +82,13 @@ $(i386_ONLY)file path=boot/loader64.efi group=sys mode=0555
 $(i386_ONLY)file path=boot/pmbr group=sys mode=0444
 $(i386_ONLY)file path=boot/pxeboot group=sys mode=0444
 $(i386_ONLY)file path=usr/share/man/man4/loader.conf.4
+$(i386_ONLY)file path=usr/share/man/man5/beastie.4th.5
 $(i386_ONLY)file path=usr/share/man/man5/brand.4th.5
 $(i386_ONLY)file path=usr/share/man/man5/check-password.4th.5
 $(i386_ONLY)file path=usr/share/man/man5/color.4th.5
 $(i386_ONLY)file path=usr/share/man/man5/delay.4th.5
 $(i386_ONLY)file path=usr/share/man/man5/gptzfsboot.5
+$(i386_ONLY)file path=usr/share/man/man5/isoboot.5
 $(i386_ONLY)file path=usr/share/man/man5/loader.4th.5
 $(i386_ONLY)file path=usr/share/man/man5/loader.5
 $(i386_ONLY)file path=usr/share/man/man5/menu.4th.5
@@ -94,3 +99,5 @@ license lic_CDDL license=lic_CDDL
 license usr/src/boot/COPYRIGHT license=usr/src/boot/COPYRIGHT
 license usr/src/boot/sys/boot/common/linenoise/LICENSE \
     license=usr/src/boot/sys/boot/common/linenoise/LICENSE
+license usr/src/common/pnglite/THIRDPARTYLICENSE \
+    license=usr/src/common/pnglite/THIRDPARTYLICENSE

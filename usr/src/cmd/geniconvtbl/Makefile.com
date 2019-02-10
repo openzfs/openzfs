@@ -21,6 +21,8 @@
 # Copyright 2007 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
+# Copyright (c) 2019, Joyent, Inc.
+#
 
 $(NOT_NATIVE)NATIVE_BUILD = $(POUND_SIGN)
 
@@ -73,14 +75,13 @@ ROOTDIRS64=	$(ROOTLIB)/iconv/$(MACH64)
 ROOTITM32 =	$(ROOTDIRS32)/$(ITM)
 ROOTITM64 =	$(ROOTDIRS64)/$(ITM)
 
-#
-# definition for some useful target like clean, 
+# defined for some useful targets like clean,
 OBJS	= $(SRCSC1:%.c=%.o) $(YTABC:.c=.o) $(LEXYY:.c=.o)
 
 CHECKHDRS = $(HDRS%.h=%.check)
 
 CLOBBERFILES=	$(ITM) $(SRCYC)
-CLEANFILES = 	$(OBJS) $(YTABC) $(YTABH) $(LEXYY) $(YOUT) \
+CLEANFILES =	$(OBJS) $(YTABC) $(YTABH) $(LEXYY) $(YOUT) \
 		$(POFILES) $(POFILE)
 
 CPPFLAGS	+= -I. -I..
@@ -90,10 +91,13 @@ CERRWARN	+= -_gcc=-Wno-switch
 CERRWARN	+= -_gcc=-Wno-unused-variable
 CERRWARN	+= -_gcc=-Wno-implicit-function-declaration
 YFLAGS		+= -d -v
-CFLAGS 		+= -D_FILE_OFFSET_BITS=64
+CFLAGS		+= -D_FILE_OFFSET_BITS=64
 
-$(ITM) :=	CFLAGS += $(GSHARED) $(C_PICFLAGS) $(ZTEXT) -h $@
-$(ITM) :=	CPPFLAGS += -D_REENTRANT 
+# dump_expr() is too hairy
+SMATCH=off
+
+$(ITM) :=	CFLAGS += $(GSHARED) $(C_PICFLAGS) $(ZTEXT) -h$@
+$(ITM) :=	CPPFLAGS += -D_REENTRANT
 $(ITM) :=	sparc_CFLAGS += -xregs=no%appl
 $(ITM) :=	sparcv9_CFLAGS += -xregs=no%appl
 
@@ -167,11 +171,7 @@ cstyle: $(SRCS)
 clean:
 	$(RM) $(CLEANFILES)
 
-debug:
-	$(MAKE)	all COPTFLAG='' COPTFLAG64='' CFLAGS='-g -DDEBUG'
-
-
-%.o:	%.c 
+%.o:	%.c
 	$(COMPILE.c) $<
 
 %.o:	../%.c
@@ -180,7 +180,6 @@ debug:
 
 
 # install rule
-# 
 $(ROOTDIRS32)/%: $(ROOTDIRS32) %
 	-$(INS.file)
 

@@ -20,7 +20,7 @@
  */
 /*
  * Copyright (c) 2006, 2010, Oracle and/or its affiliates. All rights reserved.
- * Copyright (c) 2018, Joyent, Inc.
+ * Copyright (c) 2019, Joyent, Inc.
  */
 
 /*
@@ -96,6 +96,9 @@
 #include <sys/utsname.h>
 #include <sys/smbios.h>
 #include <sys/fm/protocol.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <topo_alloc.h>
 #include <topo_error.h>
@@ -471,7 +474,6 @@ topo_mod_memfmri(topo_mod_t *mod, int version, uint64_t pa, uint64_t offset,
 		return (set_fmri_err(mod, EMOD_FMRI_NVL));
 
 	err = nvlist_add_string(args, FM_FMRI_MEM_UNUM, unum);
-		nvlist_free(args);
 	if (flags & TOPO_MEMFMRI_PA)
 		err |= nvlist_add_uint64(args, FM_FMRI_MEM_PHYSADDR, pa);
 	if (flags & TOPO_MEMFMRI_OFFSET)
@@ -755,14 +757,14 @@ topo_mod_clrdebug(topo_mod_t *mod)
 void
 topo_mod_dprintf(topo_mod_t *mod, const char *format, ...)
 {
+	topo_hdl_t *thp = mod->tm_hdl;
 	va_list alist;
 
-	if (mod->tm_debug == 0)
+	if (mod->tm_debug == 0 || !(thp->th_debug & TOPO_DBG_MOD))
 		return;
 
 	va_start(alist, format);
-	topo_vdprintf(mod->tm_hdl, TOPO_DBG_MOD, (const char *)mod->tm_name,
-	    format, alist);
+	topo_vdprintf(mod->tm_hdl, (const char *)mod->tm_name, format, alist);
 	va_end(alist);
 }
 
@@ -917,4 +919,21 @@ topo_mod_clean_str(topo_mod_t *mod, const char *str)
 		return (NULL);
 
 	return (topo_cleanup_auth_str(mod->tm_hdl, str));
+}
+
+int
+topo_mod_file_search(topo_mod_t *mod, const char *file, int oflags)
+{
+	int ret;
+	char *path;
+	topo_hdl_t *thp = mod->tm_hdl;
+
+	path = topo_search_path(mod, thp->th_rootdir, file);
+	if (path == NULL) {
+		return (-1);
+	}
+
+	ret = open(path, oflags);
+	topo_mod_strfree(mod, path);
+	return (ret);
 }

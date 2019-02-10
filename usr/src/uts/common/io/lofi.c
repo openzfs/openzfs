@@ -24,6 +24,7 @@
  * Copyright 2013 Nexenta Systems, Inc. All rights reserved.
  * Copyright (c) 2016 Andrey Sokolov
  * Copyright 2016 Toomas Soome <tsoome@me.com>
+ * Copyright 2019 Joyent, Inc.
  */
 
 /*
@@ -173,7 +174,7 @@
 #define	SIZE_PROP_NAME		"Size"
 #define	ZONE_PROP_NAME		"zone"
 
-#define	SETUP_C_DATA(cd, buf, len) 		\
+#define	SETUP_C_DATA(cd, buf, len)		\
 	(cd).cd_format = CRYPTO_DATA_RAW;	\
 	(cd).cd_offset = 0;			\
 	(cd).cd_miscdata = NULL;		\
@@ -553,7 +554,7 @@ lofi_destroy(struct lofi_state *lsp, cred_t *credp)
 	}
 
 	if (lsp->ls_vp != NULL) {
-		(void) VOP_PUTPAGE(lsp->ls_vp, 0, 0, B_INVAL, credp, NULL);
+		(void) VOP_PUTPAGE(lsp->ls_vp, 0, 0, B_FREE, credp, NULL);
 		(void) VOP_CLOSE(lsp->ls_vp, lsp->ls_openflag,
 		    1, 0, credp, NULL);
 		VN_RELE(lsp->ls_vp);
@@ -2934,7 +2935,7 @@ err:
 		lofi_destroy(lsp, credp);
 	} else {
 		if (vp != NULL) {
-			(void) VOP_PUTPAGE(vp, 0, 0, B_INVAL, credp, NULL);
+			(void) VOP_PUTPAGE(vp, 0, 0, B_FREE, credp, NULL);
 			(void) VOP_CLOSE(vp, flag, 1, 0, credp, NULL);
 			VN_RELE(vp);
 		}
@@ -2954,6 +2955,7 @@ lofi_unmap_file(struct lofi_ioctl *ulip, int byfilename,
 {
 	struct lofi_state *lsp;
 	struct lofi_ioctl *klip;
+	char namebuf[MAXNAMELEN];
 	int err;
 
 	err = copy_in_lofi_ioctl(ulip, &klip, ioctl_flag);
@@ -2979,6 +2981,7 @@ lofi_unmap_file(struct lofi_ioctl *ulip, int byfilename,
 	}
 
 	klip->li_id = LOFI_MINOR2ID(getminor(lsp->ls_dev));
+	(void) snprintf(namebuf, sizeof (namebuf), "%u", klip->li_id);
 
 	/*
 	 * If it's still held open, we'll do one of three things:
@@ -3023,6 +3026,10 @@ lofi_unmap_file(struct lofi_ioctl *ulip, int byfilename,
 		lofi_destroy(lsp, credp);
 	}
 
+	/* Remove name from devlink cache */
+	mutex_enter(&lofi_devlink_cache.ln_lock);
+	(void) nvlist_remove_all(lofi_devlink_cache.ln_data, namebuf);
+	mutex_exit(&lofi_devlink_cache.ln_lock);
 done:
 	mutex_exit(&lofi_lock);
 	if (err == 0)

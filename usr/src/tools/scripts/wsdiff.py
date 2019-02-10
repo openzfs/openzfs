@@ -1,4 +1,4 @@
-#!@PYTHON@
+#!@TOOLS_PYTHON@
 #
 # CDDL HEADER START
 #
@@ -20,6 +20,7 @@
 # CDDL HEADER END
 #
 # Copyright (c) 2010, Oracle and/or its affiliates. All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 
 #
@@ -69,10 +70,12 @@
 #        -r      Log results and observed differences
 #        -i      Tell wsdiff which objects to compare via an input file list
 
-import datetime, fnmatch, getopt, os, profile, commands
+from __future__ import print_function
+import datetime, fnmatch, getopt, os, profile, io, subprocess
 import re, resource, select, shutil, signal, string, struct, sys, tempfile
 import time, threading
 from stat import *
+from subprocess import Popen, PIPE
 
 # Human readable diffs truncated by default if longer than this
 # Specifying -v on the command line will override
@@ -105,11 +108,17 @@ wsdiff_path = [ "/usr/bin",
 # Ideally, we would purge use the use of __DATE__ from the source, but because
 # this is source we wish to distribute with Solaris "unchanged", we cannot modify.
 #
-wsdiff_exceptions = [ "usr/perl5/5.8.4/lib/sun4-solaris-64int/CORE/libperl.so.1",
-		      "usr/perl5/5.6.1/lib/sun4-solaris-64int/CORE/libperl.so.1",
-		      "usr/perl5/5.8.4/lib/i86pc-solaris-64int/CORE/libperl.so.1",
-		      "usr/perl5/5.6.1/lib/i86pc-solaris-64int/CORE/libperl.so.1"
-		      ]
+wsdiff_exceptions = [
+	"usr/perl5/5.8.4/lib/sun4-solaris-64int/CORE/libperl.so.1",
+	"usr/perl5/5.6.1/lib/sun4-solaris-64int/CORE/libperl.so.1",
+	"usr/perl5/5.8.4/lib/i86pc-solaris-64int/CORE/libperl.so.1",
+	"usr/perl5/5.6.1/lib/i86pc-solaris-64int/CORE/libperl.so.1"
+]
+
+def getoutput(cmd):
+	p = Popen(cmd, shell=True, stdout=PIPE)
+	output, x = p.communicate()
+	return (p.returncode, output.decode(errors='replace'))
 
 #####
 # Logging routines
@@ -122,12 +131,12 @@ def debug(msg) :
 	msg = "## " + msg
 	if debugon :
 		output_lock.acquire()
-		print >> sys.stdout, msg
+		print(msg)
 		sys.stdout.flush()
 		output_lock.release()
 		if logging :
 			log_lock.acquire()
-			print >> log, msg
+			print(msg, file=log)
 			log.flush()
 			log_lock.release()
 
@@ -135,25 +144,25 @@ def debug(msg) :
 def info(msg) :
 
 	output_lock.acquire()
-	print >> sys.stdout, msg
+	print(msg)
 	sys.stdout.flush()
 	output_lock.release()
 	if logging :
 		log_lock.acquire()
-		print >> log, msg
+		print(msg, file=log)
 		log.flush()
 		log_lock.release()
 
 # Error message to be printed to the screen, and the log file
 def error(msg) :
-	
+
 	output_lock.acquire()
-	print >> sys.stderr, "ERROR:", msg
+	print("ERROR: " + msg, file=sys.stderr)
 	sys.stderr.flush()
 	output_lock.release()
 	if logging :
 		log_lock.acquire()
-		print >> log, "ERROR:", msg
+		print("ERROR: " + msg, file=log)
 		log.flush()
 		log_lock.release()
 
@@ -162,10 +171,10 @@ def v_info(msg) :
 
 	if logging :
 		log_lock.acquire()
-		print >> log, msg
+		print(msg, file=log)
 		log.flush()
 		log_lock.release()
-	
+
 #
 # Flag a detected file difference
 # Display the fileName to stdout, and log the difference
@@ -179,7 +188,7 @@ def difference(f, dtype, diffs) :
 	if sorted :
 		differentFiles.append(f)
 	else:
-		print >> sys.stdout, f
+		print(f)
 		sys.stdout.flush()
 	output_lock.release()
 
@@ -192,21 +201,20 @@ def log_difference(f, dtype, diffs) :
 
 	if logging :
 		log_lock.acquire()
-		print >> log, f
-		print >> log, "NOTE:", dtype, "difference detected."
+		print(f, file=log)
+		print("NOTE: " + dtype + " difference detected.", file=log)
 
 		difflen = len(diffs)
 		if difflen > 0 :
-			print >> log
+			print('', file=log)
 
 			if not vdiffs and difflen > diffs_sz_thresh :
-				print >> log, diffs[:diffs_sz_thresh]
-				print >> log, \
-				      "... truncated due to length: " \
-				      "use -v to override ..."
+				print(diffs[:diffs_sz_thresh], file=log)
+				print("... truncated due to length: " +
+				      "use -v to override ...", file=log)
 			else :
-				print >> log, diffs
-			print >> log, "\n"
+				print(diffs, file=log)
+			print('\n', file=log)
 		log.flush()
 		log_lock.release()
 
@@ -228,29 +236,29 @@ def diffFileData(tmpf1, tmpf2) :
 		binaries = True
 		tmp_od1 = tmpf1 + ".od"
 		tmp_od2 = tmpf2 + ".od"
-		
+
 		cmd = od_cmd + " -c -t x4" + " " + tmpf1 + " > " + tmp_od1
 		os.system(cmd)
 		cmd = od_cmd + " -c -t x4" + " " + tmpf2 + " > " + tmp_od2
 		os.system(cmd)
-		
+
 		tmpf1 = tmp_od1
 		tmpf2 = tmp_od2
 
 	try:
-		data = commands.getoutput(diff_cmd + " " + tmpf1 + " " + tmpf2)
+		rc, data = getoutput(diff_cmd + " " + tmpf1 + " " + tmpf2)
 		# Remove the temp files as we no longer need them.
 		if binaries :
 			try:
 				os.unlink(tmp_od1)
-			except OSError, e:
-				error("diffFileData: unlink failed %s" % e) 
+			except OSError as e:
+				error("diffFileData: unlink failed %s" % e)
 			try:
 				os.unlink(tmp_od2)
-			except OSError, e:
-				error("diffFileData: unlink failed %s" % e) 
+			except OSError as e:
+				error("diffFileData: unlink failed %s" % e)
 	except:
-		error("failed to get output of command: " + diff_cmd + " " \
+		error("failed to get output of command: " + diff_cmd + " "
 		    + tmpf1 + " " + tmpf2)
 
 		# Send exception for the failed command up
@@ -269,13 +277,13 @@ def diffData(base, ptch, d1, d2) :
 	tmpFile2 = tmpDir2 + os.path.basename(ptch) + t.getName()
 
 	try:
-		fd1 = open(tmpFile1, "w")
+		fd1 = io.open(tmpFile1, mode='w', errors='ignore')
 	except:
 		error("failed to open: " + tmpFile1)
 		cleanup(1)
 
 	try:
-		fd2 = open(tmpFile2, "w")
+		fd2 = io.open(tmpFile2, mode='w', errors='ignore')
 	except:
 		error("failed to open: " + tmpFile2)
 		cleanup(1)
@@ -323,14 +331,15 @@ def fnFormat(fn) :
 #
 def usage() :
 	sys.stdout.flush()
-	print >> sys.stderr, """Usage: wsdiff [-dvVst] [-r results ] [-i filelist ] old new
+	print("""Usage: wsdiff [-dvVst] [-r results ] [-i filelist ] old new
         -d      Print debug messages about the progress
         -v      Do not truncate observed diffs in results
         -V      Log *all* ELF sect diffs vs. logging the first diff found
         -t      Use onbld tools in $SRC/tools
         -r      Log results and observed differences
         -s      Produce sorted list of differences
-        -i      Tell wsdiff which objects to compare via an input file list"""
+        -i      Tell wsdiff which objects to compare via an input file list""",
+	    file=sys.stderr)
 	sys.exit(1)
 
 #
@@ -360,7 +369,7 @@ def args() :
 	# arguments, the paths to the base (old), ptch (new) proto areas
 	try:
 		optlist, args = getopt.getopt(sys.argv[1:], validOpts)
-	except getopt.error, val:
+	except getopt.error as val:
 		usage()
 
 	if len(args) != 2 :
@@ -444,18 +453,16 @@ def getTheFileType(f) :
 #
 # Return non-zero if "f" is an ELF file
 #
-elfmagic = '\177ELF'
+elfmagic = b'\177ELF'
 def isELF(f) :
 	try:
-		fd = open(f)
-	except:
-		error("failed to open: " + f)
-		return 0
-	magic = fd.read(len(elfmagic))
-	fd.close()
+		with io.open(f, mode='rb') as fd:
+			magic = fd.read(len(elfmagic))
 
-	if magic == elfmagic :
-		return 1
+		if magic == elfmagic :
+			return 1
+	except:
+		pass
 	return 0
 
 #
@@ -464,17 +471,14 @@ def isELF(f) :
 #
 def isBinary(f) :
 	try:
-		fd = open(f)
-	except:
-		error("failed to open: " + f)
-		return 0
-	s = fd.read()
-	fd.close()
+		with io.open(f, mode='rb') as fd:
+			s = fd.read()
 
-	if s.find('\0') == -1 :
-		return 0
-	else :
-		return 1
+		if s.find(b'\0') == -1 :
+			return 0
+	except:
+		pass
+	return 1
 
 #####
 # Directory traversal and file finding
@@ -508,7 +512,7 @@ def protoCatalog(base, ptch) :
 	baseFilesList = list(findFiles(base))
 	baseStringLength = len(base)
 	debug("Found " + str(len(baseFilesList)) + " files")
-	
+
 	debug("Getting the list of files in the patch area");
 	ptchFilesList = list(findFiles(ptch))
 	ptchStringLength = len(ptch)
@@ -546,10 +550,10 @@ def protoCatalog(base, ptch) :
 	debug("Eliminating deleted files from the list of objects")
 	for fileName in deletedFiles :
 		try:
-		       	compFiles.remove(fileName)
+			compFiles.remove(fileName)
 		except:
 			error("filelist.remove() failed")
-	debug("List for comparison reduced to " + str(len(compFiles)) \
+	debug("List for comparison reduced to " + str(len(compFiles))
 	    + " files")
 
 	# New files appear in the patch area, but not the base
@@ -628,10 +632,10 @@ def flistCatalog(base, ptch, flist) :
 		elif ptch_present :
 			newFiles.append(fn)
 		else :
-			if os.path.islink(base + fn) and \
-			    os.path.islink(ptch + fn) :
+			if (os.path.islink(base + fn) and
+			    os.path.islink(ptch + fn)) :
 				continue
-			error(f + " in file list, but not in either tree. " + \
+			error(f + " in file list, but not in either tree. " +
 			    "Skipping...")
 
 	return compFiles, newFiles, deletedFiles
@@ -674,7 +678,7 @@ def get_elfheader(f) :
 
 	header = {}
 
-	hstring = commands.getoutput(elfdump_cmd + " -c " + f)
+	rc, hstring = getoutput(elfdump_cmd + " -c " + f)
 
 	if len(hstring) == 0 :
 		error("Failed to dump ELF header for " + f)
@@ -691,7 +695,7 @@ def get_elfheader(f) :
 		section = sect[datap:].split()[1]
 		datap = sect.find("sh_type:");
 		if datap == -1 :
-			error("Could not get type for sect: " + section + \
+			error("Could not get type for sect: " + section +
 			      " in " + f)
 		sh_type = sect[datap:].split()[2]
 		header[section] = sh_type
@@ -703,10 +707,10 @@ def get_elfheader(f) :
 #
 def extract_elf_section(f, section) :
 
-	data = commands.getoutput(dump_cmd + " -sn " + section + " " + f)
+	rc, data = getoutput(dump_cmd + " -sn " + section + " " + f)
 
 	if len(data) == 0 :
-		error(dump_cmd + "yielded no data on section " + section + \
+		error(dump_cmd + "yielded no data on section " + section +
 		    " of " + f)
 		raise
 		return
@@ -754,24 +758,24 @@ def diff_elf_section(f1, f2, section, sh_type) :
 		cmd1 = elfdump_cmd + " -i " + f1 + " > " + tmpFile1
 		cmd2 = elfdump_cmd + " -i " + f2 + " > " + tmpFile2
 	elif (section == ".symtab" or section == ".dynsym") :
-		cmd1 = elfdump_cmd + " -s -N " + section + " " + f1 + \
-		    " > " + tmpFile1
-		cmd2 = elfdump_cmd + " -s -N " + section + " " + f2 + \
-		    " > " + tmpFile2
+		cmd1 = (elfdump_cmd + " -s -N " + section + " " + f1 +
+		    " > " + tmpFile1)
+		cmd2 = (elfdump_cmd + " -s -N " + section + " " + f2 +
+		    " > " + tmpFile2)
 	elif (section in text_sections) :
 		# dis sometimes complains when it hits something it doesn't
 		# know how to disassemble. Just ignore it, as the output
 		# being generated here is human readable, and we've already
 		# correctly flagged the difference.
-		cmd1 = dis_cmd + " -t " + section + " " + f1 + \
-		       " 2>/dev/null | grep -v disassembly > " + tmpFile1
-		cmd2 = dis_cmd + " -t " + section + " " + f2 + \
-		       " 2>/dev/null | grep -v disassembly > " + tmpFile2
+		cmd1 = (dis_cmd + " -t " + section + " " + f1 +
+		       " 2>/dev/null | grep -v disassembly > " + tmpFile1)
+		cmd2 = (dis_cmd + " -t " + section + " " + f2 +
+		       " 2>/dev/null | grep -v disassembly > " + tmpFile2)
 	else :
-		cmd1 = elfdump_cmd + " -w " + tmpFile1 + " -N " + \
-		       section + " " + f1
-		cmd2 = elfdump_cmd + " -w " + tmpFile2 + " -N " + \
-		       section + " " + f2
+		cmd1 = (elfdump_cmd + " -w " + tmpFile1 + " -N " +
+		       section + " " + f1)
+		cmd2 = (elfdump_cmd + " -w " + tmpFile2 + " -N " +
+		       section + " " + f2)
 
 	os.system(cmd1)
 	os.system(cmd2)
@@ -781,12 +785,12 @@ def diff_elf_section(f1, f2, section, sh_type) :
 	# remove temp files as we no longer need them
 	try:
 		os.unlink(tmpFile1)
-	except OSError, e:
-		error("diff_elf_section: unlink failed %s" % e) 
+	except OSError as e:
+		error("diff_elf_section: unlink failed %s" % e)
 	try:
 		os.unlink(tmpFile2)
-	except OSError, e:
-		error("diff_elf_section: unlink failed %s" % e) 
+	except OSError as e:
+		error("diff_elf_section: unlink failed %s" % e)
 
 	return (data)
 
@@ -830,13 +834,13 @@ def compareElfs(base, ptch, quiet) :
 		base_header = get_elfheader(base)
 	except:
 		return
- 	sections = base_header.keys()
+	sections = list(base_header.keys())
 
 	try:
 		ptch_header = get_elfheader(ptch)
 	except:
 		return
-	e2_only_sections = ptch_header.keys()
+	e2_only_sections = list(ptch_header.keys())
 
 	e1_only_sections = []
 
@@ -859,25 +863,25 @@ def compareElfs(base, ptch, quiet) :
 			slist = ""
 			for sect in e1_only_sections :
 				slist = slist + sect + "\t"
-			data = "ELF sections found in " + \
-				base + " but not in " + ptch + \
-				"\n\n" + slist
+			data = ("ELF sections found in " +
+				base + " but not in " + ptch +
+				"\n\n" + slist)
 
 		difference(fileName, "ELF", data)
 		return 1
-			
+
 	if len(e2_only_sections) > 0 :
 		if quiet :
 			return 1
-		
+
 		data = ""
 		if logging :
 			slist = ""
 			for sect in e2_only_sections :
 				slist = slist + sect + "\t"
-			data = "ELF sections found in " + \
-				ptch + " but not in " + base + \
-				"\n\n" + slist
+			data = ("ELF sections found in " +
+				ptch + " but not in " + base +
+				"\n\n" + slist)
 
 		difference(fileName, "ELF", data)
 		return 1
@@ -909,7 +913,7 @@ def compareElfs(base, ptch, quiet) :
 		if len(s1) != len (s2) or s1 != s2:
 			if not quiet:
 				sh_type = base_header[sect]
-				data = diff_elf_section(base, ptch, \
+				data = diff_elf_section(base, ptch,
 							sect, sh_type)
 
 				# If all ELF sections are being reported, then
@@ -917,10 +921,10 @@ def compareElfs(base, ptch, quiet) :
 				# stdout only once. Any other section differences
 				# should be logged to the results file directly
 				if not first_section :
-					log_difference(fileName, \
+					log_difference(fileName,
 					    "ELF " + sect, data)
 				else :
-					difference(fileName, "ELF " + sect, \
+					difference(fileName, "ELF " + sect,
 					    data)
 
 			if not reportAllSects :
@@ -954,7 +958,7 @@ def compareArchives(base, ptch, fileType) :
 
 	fileName = fnFormat(base)
 	t = threading.currentThread()
-	ArchTmpDir1 = tmpDir1 + os.path.basename(base) + t.getName() 
+	ArchTmpDir1 = tmpDir1 + os.path.basename(base) + t.getName()
 	ArchTmpDir2 = tmpDir2 + os.path.basename(base) + t.getName()
 
 	#
@@ -966,42 +970,42 @@ def compareArchives(base, ptch, fileType) :
 
 	try:
 		os.makedirs(ArchTmpDir1)
-	except OSError, e:
-		error("compareArchives: makedir failed %s" % e) 
+	except OSError as e:
+		error("compareArchives: makedir failed %s" % e)
 		return -1
 	try:
 		os.makedirs(ArchTmpDir2)
-	except OSError, e:
-		error("compareArchives: makedir failed %s" % e) 
+	except OSError as e:
+		error("compareArchives: makedir failed %s" % e)
 		return -1
 
 	# copy over the objects to the temp areas, and
 	# unpack them
 	baseCmd = "cp -fp " + base + " " + ArchTmpDir1
-	status, output = commands.getstatusoutput(baseCmd)
-	if status != 0 :
+	rc, output = getoutput(baseCmd)
+	if rc != 0:
 		error(baseCmd + " failed: " + output)
 		clearTmpDirs(ArchTmpDir1, ArchTmpDir2)
 		return -1
 
 	ptchCmd = "cp -fp " + ptch + " " + ArchTmpDir2
-	status, output = commands.getstatusoutput(ptchCmd)
-	if status != 0 :
+	rc, output = getoutput(ptchCmd)
+	if rc != 0:
 		error(ptchCmd + " failed: " + output)
 		clearTmpDirs(ArchTmpDir1, ArchTmpDir2)
 		return -1
 
-	bname = string.split(fileName, '/')[-1]
+	bname = fileName.split('/')[-1]
 	if fileType == "Java Archive" :
-		baseCmd = "cd " + ArchTmpDir1 + "; " + "jar xf " + bname + \
-			  "; rm -f " + bname + " META-INF/MANIFEST.MF"
-		ptchCmd = "cd " + ArchTmpDir2 + "; " + "jar xf " + bname + \
-			  "; rm -f " + bname + " META-INF/MANIFEST.MF"
+		baseCmd = ("cd " + ArchTmpDir1 + "; " + "jar xf " + bname +
+			  "; rm -f " + bname + " META-INF/MANIFEST.MF")
+		ptchCmd = ("cd " + ArchTmpDir2 + "; " + "jar xf " + bname +
+			  "; rm -f " + bname + " META-INF/MANIFEST.MF")
 	elif fileType == "ELF Object Archive" :
-		baseCmd = "cd " + ArchTmpDir1 + "; " + "/usr/ccs/bin/ar x " + \
-			  bname + "; rm -f " + bname
-		ptchCmd = "cd " + ArchTmpDir2 + "; " + "/usr/ccs/bin/ar x " + \
-			  bname + "; rm -f " + bname
+		baseCmd = ("cd " + ArchTmpDir1 + "; " + "/usr/ccs/bin/ar x " +
+			  bname + "; rm -f " + bname)
+		ptchCmd = ("cd " + ArchTmpDir2 + "; " + "/usr/ccs/bin/ar x " +
+			  bname + "; rm -f " + bname)
 	else :
 		error("unexpected file type: " + fileType)
 		clearTmpDirs(ArchTmpDir1, ArchTmpDir2)
@@ -1026,22 +1030,22 @@ def compareArchives(base, ptch, fileType) :
 
 	for fn in ptchFlist :
 		if not fn in baseFlist :
-			difference(fileName, fileType, \
+			difference(fileName, fileType,
 				   fn + " added to " + fileName)
 			clearTmpDirs(ArchTmpDir1, ArchTmpDir2)
 			return 1
 
 	for fn in baseFlist :
 		if not fn in ptchFlist :
-			difference(fileName, fileType, \
+			difference(fileName, fileType,
 				   fn + " removed from " + fileName)
 			clearTmpDirs(ArchTmpDir1, ArchTmpDir2)
 			return 1
 
-		differs = compareOneFile((ArchTmpDir1 + fn), \
+		differs = compareOneFile((ArchTmpDir1 + fn),
 		    (ArchTmpDir2 + fn), True)
 		if differs :
-			difference(fileName, fileType, \
+			difference(fileName, fileType,
 				   fn + " in " + fileName + " differs")
 			clearTmpDirs(ArchTmpDir1, ArchTmpDir2)
 			return 1
@@ -1066,12 +1070,12 @@ def compareBasic(base, ptch, quiet, fileType) :
 		return 1
 
 	try:
-		baseFile = open(base)
+		baseFile = io.open(base, errors='replace')
 	except:
 		error("could not open " + base)
 		return -1
 	try:
-		ptchFile = open(ptch)
+		ptchFile = io.open(ptch, errors='replace')
 	except:
 		error("could not open " + ptch)
 		return -1
@@ -1089,15 +1093,14 @@ def compareBasic(base, ptch, quiet, fileType) :
 		toSnipEndStr = "-->\n"
 
 	if needToSnip :
-		toSnipBegin = string.find(baseData, toSnipBeginStr)
+		toSnipBegin = baseData.find(toSnipBeginStr)
 		if toSnipBegin != -1 :
-			toSnipEnd = string.find(baseData[toSnipBegin:], \
-						toSnipEndStr) + \
-						len(toSnipEndStr)
-			baseData = baseData[:toSnipBegin] + \
-				   baseData[toSnipBegin + toSnipEnd:]
-			ptchData = ptchData[:toSnipBegin] + \
-				   ptchData[toSnipBegin + toSnipEnd:]
+			toSnipEnd = (baseData[toSnipBegin:].find(toSnipEndStr) +
+						len(toSnipEndStr))
+			baseData = (baseData[:toSnipBegin] +
+				   baseData[toSnipBegin + toSnipEnd:])
+			ptchData = (ptchData[:toSnipBegin] +
+				   ptchData[toSnipBegin + toSnipEnd:])
 
 	if quiet :
 		if baseData != ptchData :
@@ -1126,20 +1129,20 @@ def compareByDumping(base, ptch, quiet, fileType) :
 	tmpFile2 = tmpDir2 + os.path.basename(ptch) + t.getName()
 
 	if fileType == "Lint Library" :
-		baseCmd = lintdump_cmd + " -ir " + base + \
-			  " | egrep -v '(LINTOBJ|LINTMOD):'" + \
-			  " | grep -v PASS[1-3]:" + \
-			  " > " + tmpFile1
-		ptchCmd = lintdump_cmd + " -ir " + ptch + \
-			  " | egrep -v '(LINTOBJ|LINTMOD):'" + \
-			  " | grep -v PASS[1-3]:" + \
-			  " > " + tmpFile2
+		baseCmd = (lintdump_cmd + " -ir " + base +
+			  " | egrep -v '(LINTOBJ|LINTMOD):'" +
+			  " | grep -v PASS[1-3]:" +
+			  " > " + tmpFile1)
+		ptchCmd = (lintdump_cmd + " -ir " + ptch +
+			  " | egrep -v '(LINTOBJ|LINTMOD):'" +
+			  " | grep -v PASS[1-3]:" +
+			  " > " + tmpFile2)
 	elif fileType == "Sqlite Database" :
-		baseCmd = "echo .dump | " + sqlite_cmd + base + " > " + \
-			  tmpFile1
-		ptchCmd = "echo .dump | " + sqlite_cmd + ptch + " > " + \
-			  tmpFile2
-	
+		baseCmd = ("echo .dump | " + sqlite_cmd + base + " > " +
+			  tmpFile1)
+		ptchCmd = ("echo .dump | " + sqlite_cmd + ptch + " > " +
+			  tmpFile2)
+
 	os.system(baseCmd)
 	os.system(ptchCmd)
 
@@ -1165,24 +1168,24 @@ def compareByDumping(base, ptch, quiet, fileType) :
 			data = diffFileData(tmpFile1, tmpFile2);
 			try:
 				os.unlink(tmpFile1)
-			except OSError, e:
-				error("compareByDumping: unlink failed %s" % e) 
+			except OSError as e:
+				error("compareByDumping: unlink failed %s" % e)
 			try:
 				os.unlink(tmpFile2)
-			except OSError, e:
-				error("compareByDumping: unlink failed %s" % e) 
+			except OSError as e:
+				error("compareByDumping: unlink failed %s" % e)
 			difference(fileName, fileType, data)
- 		return 1
+		return 1
 
 	# Remove the temporary files now.
 	try:
 		os.unlink(tmpFile1)
-	except OSError, e:
-		error("compareByDumping: unlink failed %s" % e) 
+	except OSError as e:
+		error("compareByDumping: unlink failed %s" % e)
 	try:
 		os.unlink(tmpFile2)
-	except OSError, e:
-		error("compareByDumping: unlink failed %s" % e) 
+	except OSError as e:
+		error("compareByDumping: unlink failed %s" % e)
 
 	return 0
 
@@ -1194,7 +1197,7 @@ def compareByDumping(base, ptch, quiet, fileType) :
 def discontinue_processing(signl, frme):
 	global keep_processing
 
-	print >> sys.stderr, "Caught Ctrl-C, stopping the threads"
+	print("Caught Ctrl-C, stopping the threads", file=sys.stderr)
 	keep_processing = False
 
 	return 0
@@ -1204,29 +1207,29 @@ def discontinue_processing(signl, frme):
 # worker thread for changedFiles processing
 #
 class workerThread(threading.Thread) :
-    def run(self):
-	global wset_lock
-	global changedFiles
-	global baseRoot
-	global ptchRoot
-	global keep_processing
+	def run(self):
+		global wset_lock
+		global changedFiles
+		global baseRoot
+		global ptchRoot
+		global keep_processing
 
-	while (keep_processing) :
-		# grab the lock to changedFiles and remove one member
-		# and process it
-		wset_lock.acquire()
-		try :
-			fn = changedFiles.pop()
-		except IndexError :
-			# there is nothing more to do
+		while (keep_processing) :
+			# grab the lock to changedFiles and remove one member
+			# and process it
+			wset_lock.acquire()
+			try :
+				fn = changedFiles.pop()
+			except IndexError :
+				# there is nothing more to do
+				wset_lock.release()
+				return
 			wset_lock.release()
-			return
-		wset_lock.release()
 
-		base = baseRoot + fn
-		ptch = ptchRoot + fn
+			base = baseRoot + fn
+			ptch = ptchRoot + fn
 
-		compareOneFile(base, ptch, False)
+			compareOneFile(base, ptch, False)
 
 
 #####
@@ -1278,10 +1281,10 @@ def cleanup(ret) :
 	debug("Performing cleanup (" + str(ret) + ")")
 	if os.path.isdir(tmpDir1) > 0 :
 		shutil.rmtree(tmpDir1)
-	
+
 	if os.path.isdir(tmpDir2) > 0 :
 		shutil.rmtree(tmpDir2)
-		
+
 	if logging :
 		log.close()
 
@@ -1352,13 +1355,14 @@ def main() :
 	if sorted :
 		differentFiles = []
 
-	# 
+	#
 	# Build paths to the tools required tools
 	#
 	# Try to look for tools in $SRC/tools if the "-t" option
 	# was specified
 	#
-	arch = commands.getoutput("uname -p")
+	rc, arch = getoutput("uname -p")
+	arch = arch.rstrip()
 	if localTools :
 		try:
 			src = os.environ['SRC']
@@ -1402,8 +1406,7 @@ def main() :
 		sys.exit(1)
 
 	if not os.path.exists(ptchRoot) :
-		error("new proto area: " + ptchRoot + \
-		      " does not exist")
+		error("new proto area: " + ptchRoot + " does not exist")
 		sys.exit(1)
 
 	#
@@ -1422,12 +1425,12 @@ def main() :
 	tmpDir2 = "/tmp/wsdiff_tmp2_" + str(pid) + "/"
 	try:
 		os.makedirs(tmpDir1)
-	except OSError, e:
-		error("main: makedir failed %s" % e) 
+	except OSError as e:
+		error("main: makedir failed %s" % e)
 	try:
 		os.makedirs(tmpDir2)
-	except OSError, e:
-		error("main: makedir failed %s" % e) 
+	except OSError as e:
+		error("main: makedir failed %s" % e)
 
 	# Derive a catalog of new, deleted, and to-be-compared objects
 	# either from the specified base and patch proto areas, or from
@@ -1471,7 +1474,7 @@ def main() :
 	# the appropriate comparison routine, where the compare
 	# will happen, and any differences will be reported / logged
 
-	# determine maximum number of worker threads by using 
+	# determine maximum number of worker threads by using
 	# DMAKE_MAX_JOBS environment variable set by nightly(1)
 	# or get number of CPUs in the system
 	try:
@@ -1526,5 +1529,4 @@ if __name__ == '__main__' :
 		main()
 	except KeyboardInterrupt :
 		cleanup(1);
-
 

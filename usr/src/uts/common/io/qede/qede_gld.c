@@ -622,7 +622,7 @@ qede_transceiver_info(void *arg, uint_t id, mac_transceiver_info_t *infop)
          * us one bit.
          */
         transceiver_state = ecore_rd(hwfn, ptt, hwfn->mcp_info->port_addr +
-            OFFSETOF(struct public_port, transceiver_data));
+            offsetof(struct public_port, transceiver_data));
         transceiver_state = GET_FIELD(transceiver_state, ETH_TRANSCEIVER_STATE);
         ecore_ptt_release(hwfn, ptt);
 
@@ -1165,7 +1165,7 @@ qede_multicast(qede_t *qede, boolean_t flag, const uint8_t *ptr_mcaddr)
                 qede->params.multi_promisc_fl = B_FALSE;
         } else {
                 if ((qede->params.multi_promisc_fl == B_FALSE) && 
-		    (qede->params.promisc_fl = B_FALSE)) {
+		    (qede->params.promisc_fl == B_FALSE)) {
                         ret = qede_set_filter_rx_mode(qede, 
 			    QEDE_FILTER_RX_MODE_MULTI_PROMISC);
                 }

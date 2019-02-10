@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 1998 Michael Smith <msmith@freebsd.org>
+ * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +40,7 @@
 #include <sys/systeminfo.h>
 #include <sys/queue.h>
 #include <sys/mnttab.h>
+#include "gfx_fb.h"
 #include "ficl.h"
 
 /* Commands and return values; nonzero return sets command_errmsg != NULL */
@@ -102,6 +104,8 @@ static int command_boot(int argc, char *argv[]);
 static int command_unload(int argc, char *argv[]);
 static int command_load(int argc, char *argv[]);
 static int command_reboot(int argc, char *argv[]);
+static int command_sifting(int argc, char *argv[]);
+static int command_framebuffer(int argc, char *argv[]);
 
 #define	BF_PARSE	100
 #define	BF_DICTSIZE	30000
@@ -750,6 +754,10 @@ bf_init(const char *rc, ficlOutputFunction out)
 	STAILQ_INSERT_TAIL(&commands, cmdp, next);
 	COMMAND_SET(cmdp, "reboot", "reboot the system", command_reboot);
 	STAILQ_INSERT_TAIL(&commands, cmdp, next);
+	COMMAND_SET(cmdp, "sifting", "find words", command_sifting);
+	COMMAND_SET(cmdp, "framebuffer", "framebuffer mode management",
+	    command_framebuffer);
+	STAILQ_INSERT_TAIL(&commands, cmdp, next);
 
 	fsi = malloc(sizeof (ficlSystemInformation));
 	ficlSystemInformationInitialize(fsi);
@@ -837,6 +845,7 @@ bf_init(const char *rc, ficlOutputFunction out)
 		}
 	}
 
+	gfx_framework_init();
 	return (bf_vm);
 }
 
@@ -844,6 +853,7 @@ void
 bf_fini(void)
 {
 	ficlSystemDestroy(bf_sys);
+	gfx_framework_fini();
 }
 
 /*
@@ -1977,4 +1987,46 @@ command_reboot(int argc, char *argv[])
 {
 	exit(0);
 	return (CMD_OK);
+}
+
+static int
+command_sifting(int argc, char *argv[])
+{
+	if (argc != 2) {
+		command_errmsg = "wrong number of arguments";
+		return (CMD_ERROR);
+	}
+	ficlPrimitiveSiftingImpl(bf_vm, argv[1]);
+	return (CMD_OK);
+}
+
+/* Only implement get and list. Ignore arguments on, off and set. */
+static int
+command_framebuffer(int argc, char *argv[])
+{
+	if (fb.fd < 0) {
+		printf("Framebuffer is not available.\n");
+		return (CMD_OK);
+	}
+
+	if (argc == 2 && strcmp(argv[1], "get") == 0) {
+		printf("\nSystem frame buffer: %s\n", fb.ident.name);
+		printf("%dx%dx%d, stride=%d\n", fb.fb_width, fb.fb_height,
+		    fb.fb_depth, (fb.fb_pitch << 3) / fb.fb_depth);
+		return (CMD_OK);
+	}
+	if (argc == 2 && strcmp(argv[1], "list") == 0) {
+		printf("0: %dx%dx%d\n", fb.fb_width, fb.fb_height, fb.fb_depth);
+		return (CMD_OK);
+	}
+	if (argc == 3 && strcmp(argv[1], "set") == 0)
+		return (CMD_OK);
+	if (argc == 2 && strcmp(argv[1], "on") == 0)
+		return (CMD_OK);
+	if (argc == 2 && strcmp(argv[1], "off") == 0)
+		return (CMD_OK);
+
+	snprintf(command_errbuf, sizeof (command_errbuf),
+	    "usage: %s get | list", argv[0]);
+	return (CMD_ERROR);
 }

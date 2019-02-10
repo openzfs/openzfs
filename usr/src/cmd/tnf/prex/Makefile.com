@@ -24,8 +24,7 @@
 # Copyright 1989,2003 Sun Microsystems, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# cmd/tnf/prex/Makefile.com
-#
+# Copyright (c) 2018, Joyent, Inc.
 
 PROG=		prex
 
@@ -63,14 +62,15 @@ YFLAGS=		-d
 LFLAGS=		-v
 # FOR normal makefile, uncomment the next line
 LDLIBS +=	-lgen -ltnfctl -lelf -lc
-# Uncomment the following line for a debug build
-# COPTFLAG =	-g -DDEBUG
 
 CFLAGS +=	$(CCVERBOSE)
 CERRWARN +=	-_gcc=-Wno-unused-label
 CERRWARN +=	-_gcc=-Wno-unused-variable
 CERRWARN +=	-_gcc=-Wno-parentheses
 CERRWARN +=	-_gcc=-Wno-uninitialized
+
+# not linted
+SMATCH=off
 
 .KEEP_STATE:
 
@@ -110,7 +110,7 @@ $(POFILE):      $(POFILES)
 clean:
 	$(RM) $(OBJS) $(CLEANFILES)
 
-lint: $(OBJS) 
+lint: $(OBJS)
 	$(LINT.c) $(SRCS)
 
 include	../../../Makefile.targ
