@@ -1600,6 +1600,7 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 	int error = 0;
 	char name[ZFS_MAX_DATASET_NAME_LEN];
 	enum lzc_send_flags lzc_flags = 0;
+	uint64_t size = 0;
 	FILE *fout = (flags->verbose && flags->dryrun) ? stdout : stderr;
 
 	(void) snprintf(errbuf, sizeof (errbuf), dgettext(TEXT_DOMAIN,
@@ -1668,12 +1669,13 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 		fromname = name;
 	}
 
-	if (flags->verbose) {
-		uint64_t size = 0;
+	if (flags->progress) {
 		error = lzc_send_space(zhp->zfs_name, fromname,
 		    lzc_flags, &size);
 		if (error == 0)
 			size = MAX(0, (int64_t)(size - bytes));
+	}
+	if (flags->verbose) {
 		send_print_verbose(fout, zhp->zfs_name, fromname,
 		    size, flags->parsable);
 	}
@@ -1689,6 +1691,8 @@ zfs_send_resume(libzfs_handle_t *hdl, sendflags_t *flags, int outfd,
 			pa.pa_zhp = zhp;
 			pa.pa_fd = outfd;
 			pa.pa_parsable = flags->parsable;
+			pa.pa_size = size;
+			pa.pa_astitle = flags->progressastitle;
 
 			error = pthread_create(&tid, NULL,
 			    send_progress_thread, &pa);
