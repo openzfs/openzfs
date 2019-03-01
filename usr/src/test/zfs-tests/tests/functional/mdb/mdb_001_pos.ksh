@@ -27,6 +27,7 @@
 
 #
 # Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright 2019 RackTop Systems.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -87,7 +88,7 @@ set -A dcmds "::abuf_find 1 2" \
 	"$spa ::walk metaslab | ::head -1 | ::metaslab_trace" \
 	"$spa ::walk zio_root | ::zio -c" \
 	"$spa ::walk zio_root | ::zio -r" \
-	"$spa ::walk zms_freelist"
+	"$spa ::walk zms_freelist" \
 	"$spa ::zfs_blkstats -v" \
 	"::dbufs" \
 	"::dbufs -n mos -o mdn -l 0 -b 0" \
