@@ -26,6 +26,7 @@
 
 #
 # Copyright (c) 2013, 2016 by Delphix. All rights reserved.
+# Copyright 2019 RackTop Systems.
 #
 
 . $STF_SUITE/tests/functional/devices/devices.cfg
@@ -60,15 +61,8 @@ function create_dev_file
 					devstr=/dev/dsk/${devstr}
 					;;
 				ufs)
-			#
-			# Get the existing block device file in current system.
-			# And bring out the first one.
-			#
 					devstr=$(df -lhF ufs | \
-						grep "^/dev/dsk" | \
-						awk '{print $1}')
-					devstr=$(echo "$devstr" | \
-						awk '{print $1}')
+						awk '{ if ($6 == "/") {print $1} }')
 					[[ -z $devstr ]] && \
 						log_fail "Can not get block device file."
 					;;
