@@ -50,7 +50,7 @@ function cleanup
 verify_runnable "global"
 log_onexit cleanup
 
-tmpfile=$(mktemp)
+typeset OUTFILE=$(mktemp)
 log_must zpool scrub $TESTPOOL
 
 typeset spa=$(mdb -ke "::spa" | awk "/$TESTPOOL/ {print \$1}")
