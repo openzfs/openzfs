@@ -172,8 +172,8 @@ dmu_buf_hold_noread_by_dnode(dnode_t *dn, uint64_t offset,
 	uint64_t blkid;
 	dmu_buf_impl_t *db;
 
-	blkid = dbuf_whichblock(dn, 0, offset);
 	rw_enter(&dn->dn_struct_rwlock, RW_READER);
+	blkid = dbuf_whichblock(dn, 0, offset);
 	db = dbuf_hold(dn, blkid, tag);
 	rw_exit(&dn->dn_struct_rwlock);
 
@@ -197,8 +197,8 @@ dmu_buf_hold_noread(objset_t *os, uint64_t object, uint64_t offset,
 	err = dnode_hold(os, object, FTAG, &dn);
 	if (err)
 		return (err);
-	blkid = dbuf_whichblock(dn, 0, offset);
 	rw_enter(&dn->dn_struct_rwlock, RW_READER);
+	blkid = dbuf_whichblock(dn, 0, offset);
 	db = dbuf_hold(dn, blkid, tag);
 	rw_exit(&dn->dn_struct_rwlock);
 	dnode_rele(dn, FTAG);
@@ -526,7 +526,7 @@ dmu_buf_hold_array_by_dnode(dnode_t *dn, uint64_t offset, uint64_t length,
 	if ((flags & DMU_READ_NO_PREFETCH) == 0 &&
 	    DNODE_META_IS_CACHEABLE(dn) && length <= zfetch_array_rd_sz) {
 		dmu_zfetch(&dn->dn_zfetch, blkid, nblks,
-		    read && DNODE_IS_CACHEABLE(dn));
+		    read && DNODE_IS_CACHEABLE(dn), B_TRUE);
 	}
 	rw_exit(&dn->dn_struct_rwlock);
 
@@ -658,7 +658,6 @@ dmu_prefetch(objset_t *os, uint64_t object, int64_t level, uint64_t offset,
 	if (err != 0)
 		return;
 
-	rw_enter(&dn->dn_struct_rwlock, RW_READER);
 	/*
 	 * offset + len - 1 is the last byte we want to prefetch for, and offset
 	 * is the first.  Then dbuf_whichblk(dn, level, off + len - 1) is the
@@ -666,6 +665,7 @@ dmu_prefetch(objset_t *os, uint64_t object, int64_t level, uint64_t offset,
 	 * offset)  is the first.  Then the number we need to prefetch is the
 	 * last - first + 1.
 	 */
+	rw_enter(&dn->dn_struct_rwlock, RW_READER);
 	if (level > 0 || dn->dn_datablkshift != 0) {
 		nblks = dbuf_whichblock(dn, level, offset + len - 1) -
 		    dbuf_whichblock(dn, level, offset) + 1;
@@ -678,7 +678,6 @@ dmu_prefetch(objset_t *os, uint64_t object, int64_t level, uint64_t offset,
 		for (int i = 0; i < nblks; i++)
 			dbuf_prefetch(dn, level, blkid + i, pri, 0);
 	}
-
 	rw_exit(&dn->dn_struct_rwlock);
 
 	dnode_rele(dn, FTAG);
@@ -1056,7 +1055,6 @@ dmu_object_remap_one_indirect(objset_t *os, dnode_t *dn,
 	uint64_t l1blkid = dbuf_whichblock(dn, 1, offset);
 	int err = 0;
 
-	rw_enter(&dn->dn_struct_rwlock, RW_READER);
 	dmu_buf_impl_t *dbuf = dbuf_hold_level(dn, 1, l1blkid, FTAG);
 	ASSERT3P(dbuf, !=, NULL);
 
@@ -1066,9 +1064,10 @@ dmu_object_remap_one_indirect(objset_t *os, dnode_t *dn,
 	 */
 	uint64_t birth = UINT64_MAX;
 	ASSERT3U(last_removal_txg, !=, UINT64_MAX);
+	db_lock_type_t dblt = dmu_buf_lock_parent(dbuf, RW_READER, FTAG);
 	if (dbuf->db_blkptr != NULL)
 		birth = dbuf->db_blkptr->blk_birth;
-	rw_exit(&dn->dn_struct_rwlock);
+	dmu_buf_unlock_parent(dbuf, dblt, FTAG);
 
 	/*
 	 * If this L1 was already written after the last removal, then we've
@@ -1150,7 +1149,9 @@ dmu_object_remap_indirects(objset_t *os, uint64_t object,
 	/*
 	 * Find the next L1 indirect that is not a hole.
 	 */
-	while (dnode_next_offset(dn, 0, &offset, 2, 1, 0) == 0) {
+	rw_enter(&dn->dn_struct_rwlock, RW_WRITER);
+	while (dnode_next_offset(dn, DNODE_FIND_HAVELOCK, &offset, 2, 1,
+	    0) == 0) {
 		if (issig(JUSTLOOKING) && issig(FORREAL)) {
 			err = SET_ERROR(EINTR);
 			break;
@@ -1161,6 +1162,7 @@ dmu_object_remap_indirects(objset_t *os, uint64_t object,
 		}
 		offset += l1span;
 	}
+	rw_exit(&dn->dn_struct_rwlock);
 
 	dnode_rele(dn, FTAG);
 	return (err);
