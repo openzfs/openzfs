@@ -27,6 +27,7 @@
 
 #
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright 2019 RackTop Systems.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -44,7 +45,15 @@
 
 verify_runnable "both"
 
+function cleanup
+{
+	if [[ -d $corepath ]]; then
+		rm -rf $corepath
+	fi
+}
+
 log_assert "Debugging features of zpool should succeed."
+log_onexit cleanup
 
 log_must zpool -? > /dev/null 2>&1
 
@@ -57,14 +66,19 @@ fi
 
 log_mustnot zpool freeze fakepool
 
-# Remove corefile possibly left by previous failing run of this test.
-[[ -f core ]] && log_must rm -f core
+#preparation work for testing
+corepath=$TESTDIR/cores
+if [[ -d $corepath ]]; then
+	rm -rf $corepath
+fi
+mkdir $corepath
 
+coreadm -p ${corepath}/core.%f
 ZFS_ABORT=1; export ZFS_ABORT
 zpool > /dev/null 2>&1
 unset ZFS_ABORT
 
-[[ -f core ]] || log_fail "zpool did not dump core by request."
-[[ -f core ]] && log_must rm -f core
+corefile=${corepath}/core.zpool
+[[ -f $corefile ]] || log_fail "zpool did not dump core by request."
 
 log_pass "Debugging features of zpool succeed."

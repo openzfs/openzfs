@@ -27,6 +27,7 @@
 
 #
 # Copyright (c) 2012, 2016 by Delphix. All rights reserved.
+# Copyright 2019 RackTop Systems.
 #
 
 . $STF_SUITE/include/libtest.shlib
@@ -63,7 +64,7 @@ log_assert "With ZFS_ABORT set, all zfs commands can abort and generate a " \
 log_onexit cleanup
 
 #preparation work for testing
-corepath=$TESTDIR/core
+corepath=$TESTDIR/cores
 if [[ -d $corepath ]]; then
 	rm -rf $corepath
 fi
